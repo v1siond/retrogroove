@@ -33,12 +33,11 @@ export default function SetlistPrint() {
   const selectedCount = selected.size
   const allSelected = selectedCount === songs.length
 
-  const mid = Math.ceil(songs.length / 2)
-  const colLeft = songs.slice(0, mid)
-  const colRight = songs.slice(mid)
+  const colLeft = songs.filter((_, i) => i % 2 === 0)
+  const colRight = songs.filter((_, i) => i % 2 === 1)
 
   const flatIdx = (col: 'left' | 'right', i: number) =>
-    col === 'left' ? i : mid + i
+    col === 'left' ? i * 2 : i * 2 + 1
 
   const toggleSong = useCallback((key: string) => {
     setSelected(prev => {
@@ -84,11 +83,6 @@ export default function SetlistPrint() {
     setOverIdx(null)
   }, [])
 
-  const resetAll = () => {
-    setSongs(alphabetical)
-    setIsCustomOrder(false)
-    setSelected(new Set(alphabetical.map(songKey)))
-  }
 
   const renderSong = (song: typeof songs[0], i: number, col: 'left' | 'right') => {
     const idx = flatIdx(col, i)
@@ -109,7 +103,7 @@ export default function SetlistPrint() {
           onClick={(e) => { e.stopPropagation(); toggleSong(key) }}
           aria-label={isSelected ? 'Deseleccionar' : 'Seleccionar'}
         />
-        <span className="p-handle" title="Arrastrá para mover">⋮⋮</span>
+        <span className="p-handle" title="Arrastra para mover">⋮⋮</span>
         <span className="p-title">{song.title}</span>
         <span className="p-artist">{song.artist}</span>
       </div>
@@ -157,7 +151,7 @@ export default function SetlistPrint() {
         .toolbar-left { display: flex; align-items: center; gap: 1rem; }
         .toolbar a {
           color: rgba(255,255,255,0.5); text-decoration: none;
-          font-size: 0.75rem; letter-spacing: 0.05em; transition: color 0.2s;
+          font-size: 0.85rem; letter-spacing: 0.05em; transition: color 0.2s;
         }
         .toolbar a:hover { color: var(--gold); }
         .toolbar-btns { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
@@ -166,17 +160,18 @@ export default function SetlistPrint() {
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.12);
           color: rgba(255,255,255,0.5); border-radius: 6px;
-          font-family: 'Outfit', sans-serif; font-size: 0.65rem;
+          font-family: 'Outfit', sans-serif; font-size: 0.85rem;
           font-weight: 500; cursor: pointer; transition: all 0.2s;
           white-space: nowrap;
         }
         .tb-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+        .tb-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
         .export-btn {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.45rem 1.2rem;
           background: linear-gradient(135deg, var(--pink), var(--purple));
           color: #fff; border: none; border-radius: 8px;
-          font-family: 'Outfit', sans-serif; font-size: 0.75rem;
+          font-family: 'Outfit', sans-serif; font-size: 0.85rem;
           font-weight: 600; letter-spacing: 0.05em;
           cursor: pointer; transition: opacity 0.2s, transform 0.2s;
           box-shadow: 0 0 20px rgba(255,20,147,0.2);
@@ -185,40 +180,35 @@ export default function SetlistPrint() {
 
         /* ── Content ── */
         .print-content {
-          max-width: 920px; margin: 0 auto;
+          max-width: 1280px; margin: 0 auto;
           padding: 1.5rem 2rem 1rem;
           position: relative; z-index: 10;
         }
 
         /* ── Header ── */
         .print-header {
-          text-align: center; margin-bottom: 1.2rem;
-          padding-bottom: 0.8rem; position: relative;
-        }
-        .print-header::after {
-          content: ''; position: absolute; bottom: 0; left: 50%;
-          transform: translateX(-50%); width: 200px; height: 2px;
-          background: linear-gradient(90deg, var(--pink), var(--gold), var(--cyan), var(--purple));
-          border-radius: 1px;
+          text-align: center;
+          padding-bottom: 1.5rem; position: relative;
         }
         .print-header h1 {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: 3rem; letter-spacing: 0.15em;
+          font-size: 3.8rem; letter-spacing: 0.15em;
           color: #fff; margin: 0; line-height: 1;
           text-shadow: 0 0 10px rgba(255,20,147,0.4), 0 0 30px rgba(255,20,147,0.2);
         }
         .print-header .sub {
-          font-weight: 300; font-size: 0.75rem; letter-spacing: 0.35em;
-          text-transform: uppercase; color: rgba(255,255,255,0.55); margin: 0.3rem 0 0;
+          font-weight: 300; font-size: 1rem; letter-spacing: 0.35em;
+          text-transform: uppercase; color: rgba(255,255,255,0.6); margin: 0.4rem 0 0;
         }
         .print-header .count {
-          font-weight: 300; font-size: 0.7rem;
-          color: rgba(255,255,255,0.4); margin: 0.3rem 0 0; letter-spacing: 0.05em;
+          font-weight: 300; font-size: 0.95rem;
+          color: rgba(255,255,255,0.5); margin: 0.4rem 0 0; letter-spacing: 0.05em;
         }
         .print-header .count strong { color: var(--gold); font-weight: 600; }
+        .print-only { display: none; }
         .drag-hint {
-          font-size: 0.6rem; color: rgba(255,255,255,0.25);
-          margin-top: 0.3rem; letter-spacing: 0.03em;
+          font-size: 0.9rem; color: rgba(255,255,255,0.5);
+          margin-top: 0.5rem; letter-spacing: 0.03em;
         }
 
         /* ── Song Grid Card ── */
@@ -242,7 +232,7 @@ export default function SetlistPrint() {
         .p-song {
           display: grid; grid-template-columns: auto auto 1fr auto;
           gap: 0.3rem; align-items: center;
-          padding: 0.15rem 0.4rem; font-size: 0.76rem; line-height: 1.4;
+          padding: 0.15rem 0.4rem; font-size: 1.5rem; line-height: 1.35;
           border-radius: 4px; transition: background 0.15s, border-color 0.15s, opacity 0.2s;
           cursor: grab; border: 1px solid transparent;
           user-select: none;
@@ -268,7 +258,7 @@ export default function SetlistPrint() {
           background: transparent; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: all 0.15s; padding: 0;
-          color: transparent; font-size: 0.55rem; font-weight: 700;
+          color: transparent; font-size: 0.65rem; font-weight: 700;
         }
         .p-check:hover { border-color: rgba(255,255,255,0.4); }
         .p-check.checked {
@@ -278,7 +268,7 @@ export default function SetlistPrint() {
         .p-check.checked::after { content: '✓'; }
 
         .p-handle {
-          font-size: 0.65rem; color: rgba(255,255,255,0.15);
+          font-size: 0.75rem; color: rgba(255,255,255,0.15);
           letter-spacing: -0.1em; cursor: grab; user-select: none;
           transition: color 0.2s;
         }
@@ -286,7 +276,7 @@ export default function SetlistPrint() {
         .p-title { font-weight: 500; color: #eee; }
         .p-artist {
           font-weight: 400; color: #c4a24e;
-          font-size: 0.72rem; text-align: right;
+          font-size: 1.25rem; text-align: right;
         }
         .p-song:hover .p-artist { color: #ffd700; }
 
@@ -320,14 +310,14 @@ export default function SetlistPrint() {
           overflow: hidden;
           box-shadow: 0 0 15px rgba(255,20,147,0.15), 0 0 30px rgba(191,0,255,0.08);
         }
-        .qr-footer-frame img { width: 100%; height: 100%; object-fit: contain; }
+        .qr-footer-frame img { width: 100%; height: 100%; object-fit: contain; padding: 0.35rem; }
         .qr-placeholder {
           display: flex; flex-direction: column; align-items: center;
           gap: 0.2rem; color: #aaa;
         }
         .qr-placeholder svg { opacity: 0.35; }
         .qr-placeholder span {
-          font-size: 0.5rem; font-weight: 600;
+          font-size: 0.6rem; font-weight: 600;
           letter-spacing: 0.12em; text-transform: uppercase; color: #999;
         }
         .qr-footer-text h3 {
@@ -336,25 +326,28 @@ export default function SetlistPrint() {
           text-shadow: 0 0 12px rgba(255,20,147,0.3);
         }
         .qr-footer-text p {
-          font-weight: 300; font-size: 0.72rem;
+          font-weight: 300; font-size: 0.82rem;
           color: rgba(255,255,255,0.4); margin: 0; line-height: 1.5;
         }
         .qr-footer-text strong { color: var(--gold); font-weight: 600; }
 
         .bottom-footer {
           text-align: center; padding: 1rem;
-          color: rgba(255,255,255,0.12); font-size: 0.65rem;
+          color: rgba(255,255,255,0.12); font-size: 0.75rem;
           letter-spacing: 0.15em; text-transform: uppercase;
           position: relative; z-index: 10;
         }
 
         /* ── Print Overrides ── */
         @media print {
-          @page { size: A4; margin: 8mm 10mm; }
+          @page { size: A4; margin: 0; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .toolbar { display: none !important; }
           .star { display: none !important; }
           .drag-hint { display: none !important; }
+          .print-only { display: inline !important; }
+          .print-header .count { display: none !important; }
+          .print-header::after { display: none !important; }
           .p-handle { display: none !important; }
           .p-check { display: none !important; }
           .p-song.deselected { display: none !important; }
@@ -362,30 +355,31 @@ export default function SetlistPrint() {
             background: linear-gradient(180deg, #050010 0%, #0d0025 50%, #050010 100%) !important;
             min-height: auto;
           }
-          .print-content { padding: 0.5rem 0 0; max-width: 100%; }
-          .print-header { margin-bottom: 0.8rem; padding-bottom: 0.5rem; }
-          .print-header h1 { font-size: 2.2rem; }
+          .print-content { padding: 10mm 12mm 8mm; max-width: 100%; }
+          .print-header { margin-bottom: 0.4rem; padding-bottom: 0.2rem; }
+          .print-header h1 { font-size: 1.8rem; }
+          .print-header .sub { font-size: 0.65rem; margin-top: 0.1rem; }
           .songs-card { padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; backdrop-filter: none; }
           .songs-grid { gap: 0 1.5rem; }
           .songs-grid > div:first-child { padding-right: 0.7rem; }
           .songs-grid > div:last-child { padding-left: 0.7rem; }
           .p-song {
-            font-size: 0.68rem; padding: 0.1rem 0.2rem;
+            font-size: 0.85rem; padding: 0.1rem 0.2rem;
             cursor: default; border: none !important;
             grid-template-columns: 1fr auto;
           }
           .p-song:hover { background: none; }
-          .p-artist { font-size: 0.6rem; }
+          .p-artist { font-size: 0.75rem; }
           .qr-footer {
-            padding: 0.8rem 1.2rem; backdrop-filter: none;
-            flex-direction: column; align-items: center; text-align: center; gap: 0.6rem;
+            padding: 0.5rem 1rem; backdrop-filter: none;
+            flex-direction: row; align-items: center; justify-content: center; text-align: left; gap: 0.7rem;
             background: rgba(255,255,255,0.06) !important;
             border: 1px solid rgba(255,255,255,0.2) !important;
           }
           .qr-footer::before { display: none !important; }
-          .qr-footer-frame { width: 70px; height: 70px; min-width: 70px; box-shadow: none !important; }
-          .qr-footer-text h3 { font-size: 1rem; text-shadow: none !important; }
-          .qr-footer-text p { font-size: 0.65rem; color: rgba(255,255,255,0.6) !important; }
+          .qr-footer-frame { width: 80px; height: 80px; min-width: 80px; box-shadow: none !important; }
+          .qr-footer-text h3 { font-size: 1.15rem; text-shadow: none !important; margin-bottom: 0.05rem; }
+          .qr-footer-text p { font-size: .85rem; color: rgba(255,255,255,0.8) !important; line-height: 1.4; }
           .qr-footer-text strong { color: #ffd700 !important; }
           .bottom-footer { display: none; }
         }
@@ -409,21 +403,12 @@ export default function SetlistPrint() {
             <a href="/setlist">&#8592; Volver al repertorio</a>
           </div>
           <div className="toolbar-btns">
-            {!allSelected && (
-              <button className="tb-btn" onClick={selectAll}>
-                Seleccionar todo
-              </button>
-            )}
-            {selectedCount > 0 && (
-              <button className="tb-btn" onClick={deselectAll}>
-                Deseleccionar todo
-              </button>
-            )}
-            {(isCustomOrder || !allSelected) && (
-              <button className="tb-btn" onClick={resetAll}>
-                Resetear
-              </button>
-            )}
+            <button className="tb-btn" onClick={selectAll}>
+              Seleccionar todo
+            </button>
+            <button className="tb-btn" onClick={deselectAll} disabled={selectedCount === 0}>
+              Deseleccionar todo
+            </button>
             <button className="export-btn" onClick={() => window.print()}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -437,13 +422,13 @@ export default function SetlistPrint() {
 
         <div className="print-content">
           <header className="print-header">
-            <h1>REPERTORIO</h1>
+            <h1><span className="print-only">RETROGROOVE — </span>REPERTORIO</h1>
             <p className="sub">Disco &bull; Rock &bull; En Vivo</p>
             <p className="count">
               <strong>{selectedCount}</strong> de {songs.length} temas
               {isCustomOrder ? ' — orden personalizado' : ' — ordenados por canción'}
             </p>
-            <p className="drag-hint">Hacé click para seleccionar/deseleccionar &middot; Arrastrá para reordenar</p>
+            <p className="drag-hint">Haz click para seleccionar/deseleccionar &middot; Arrastra para reordenar</p>
           </header>
 
           <div className="songs-card">
@@ -459,22 +444,11 @@ export default function SetlistPrint() {
 
           <div className="qr-footer">
             <div className="qr-footer-frame">
-              <div className="qr-placeholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="3" height="3" />
-                  <rect x="18" y="14" width="3" height="3" />
-                  <rect x="14" y="18" width="3" height="3" />
-                  <rect x="18" y="18" width="3" height="3" />
-                </svg>
-                <span>QR</span>
-              </div>
+              <img src="/images/plin-qr.jpg" alt="QR Plin — RetroGroove" />
             </div>
             <div className="qr-footer-text">
               <h3>¡Pídenos tu canción favorita!</h3>
-              <p>Escaneá el código y apoyá a la banda</p>
+              <p>Escanea el código con Plin y apoya a la banda</p>
               <p>Con tu aporte nos ayudas a seguir tocando.<br /><strong>¡Gracias por el apoyo!</strong></p>
             </div>
           </div>

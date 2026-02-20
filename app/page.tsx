@@ -196,7 +196,7 @@ export default function Home() {
           position: absolute;
           bottom: 2rem;
           color: rgba(255,255,255,0.2);
-          font-size: 0.7rem;
+          font-size: 0.8rem;
           letter-spacing: 0.2em;
           text-transform: uppercase;
           animation: bounce-hint 2s ease-in-out infinite;
@@ -235,7 +235,7 @@ export default function Home() {
         }
         .section-text {
           font-weight: 300;
-          font-size: 0.9rem;
+          font-size: 1.05rem;
           color: rgba(255,255,255,0.4);
           line-height: 1.6;
         }
@@ -272,7 +272,7 @@ export default function Home() {
           color: #fff; text-shadow: 0 0 25px rgba(255,20,147,0.4);
           margin-bottom: 0.4rem; line-height: 1.2;
         }
-        .qr-sub { font-weight: 300; font-size: 0.9rem; color: rgba(255,255,255,0.45); margin-bottom: 1.5rem; }
+        .qr-sub { font-weight: 300; font-size: 1.05rem; color: rgba(255,255,255,0.45); margin-bottom: 1.5rem; }
         .qr-frame {
           width: 180px; height: 180px; margin: 0 auto 1.5rem;
           background: #fff; border-radius: 14px;
@@ -280,17 +280,17 @@ export default function Home() {
           box-shadow: 0 0 25px rgba(255,20,147,0.2), 0 0 50px rgba(191,0,255,0.1);
           overflow: hidden;
         }
-        .qr-frame img { width: 100%; height: 100%; object-fit: contain; }
+        .qr-frame img { width: 100%; height: 100%; object-fit: contain; padding: 0.6rem; }
         .qr-ph { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; color: #bbb; }
         .qr-ph svg { opacity: 0.4; }
-        .qr-ph span { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #aaa; }
-        .qr-support { font-weight: 300; font-size: 0.85rem; color: rgba(255,255,255,0.4); line-height: 1.7; margin: 0; }
+        .qr-ph span { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #aaa; }
+        .qr-support { font-weight: 300; font-size: 0.95rem; color: rgba(255,255,255,0.4); line-height: 1.7; margin: 0; }
         .qr-support strong { color: var(--gold); font-weight: 600; }
 
         /* ── Footer ── */
         .rg-footer {
           text-align: center; padding: 3rem 1rem 2rem;
-          color: rgba(255,255,255,0.2); font-size: 0.8rem;
+          color: rgba(255,255,255,0.2); font-size: 0.9rem;
           letter-spacing: 0.15em; text-transform: uppercase;
           position: relative; z-index: 10;
         }
@@ -348,22 +348,10 @@ export default function Home() {
           </div>
 
           <div className="qr-card">
-            <p className="qr-heading">¡Apoyá a la banda!</p>
-            <p className="qr-sub">Escaneá el código y pedí tu canción favorita</p>
+            <p className="qr-heading">¡Apoya a la banda!</p>
+            <p className="qr-sub">Escanea el código con Plin y pide tu canción favorita</p>
             <div className="qr-frame">
-              {/* Reemplaza con tu imagen QR: <img src="/qr.png" alt="QR" /> */}
-              <div className="qr-ph">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="3" height="3" />
-                  <rect x="18" y="14" width="3" height="3" />
-                  <rect x="14" y="18" width="3" height="3" />
-                  <rect x="18" y="18" width="3" height="3" />
-                </svg>
-                <span>Tu QR aquí</span>
-              </div>
+              <img src="/images/plin-qr.jpg" alt="QR Plin — RetroGroove" />
             </div>
             <p className="qr-support">
               Con tu aporte nos ayudas a seguir tocando.<br />

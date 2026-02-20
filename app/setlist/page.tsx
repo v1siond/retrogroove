@@ -52,9 +52,8 @@ export default function Setlist() {
     [],
   )
 
-  const mid = Math.ceil(sortedSongs.length / 2)
-  const colLeft = sortedSongs.slice(0, mid)
-  const colRight = sortedSongs.slice(mid)
+  const colLeft = sortedSongs.filter((_, i) => i % 2 === 0)
+  const colRight = sortedSongs.filter((_, i) => i % 2 === 1)
 
   const artistGroups = useMemo(() => groupByArtist(ALL_SONGS), [])
 
@@ -186,7 +185,7 @@ export default function Setlist() {
           to { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px var(--pink), 0 0 40px var(--pink), 0 0 80px var(--pink); }
         }
         .subtitle {
-          font-weight: 300; font-size: 0.7rem; letter-spacing: 0.4em;
+          font-weight: 300; font-size: 0.85rem; letter-spacing: 0.4em;
           text-transform: uppercase; color: rgba(255,255,255,0.65); margin-top: 0.2rem;
         }
 
@@ -199,7 +198,7 @@ export default function Setlist() {
         @keyframes eq-bounce { 0%, 100% { height: 3px; } 50% { height: 14px; } }
 
         .nav-link {
-          padding: 0.35rem 1.1rem; font-size: 0.65rem; font-weight: 400;
+          padding: 0.35rem 1.1rem; font-size: 0.75rem; font-weight: 400;
           letter-spacing: 0.12em; text-transform: uppercase;
           color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1);
           border-radius: 20px; text-decoration: none; transition: all 0.3s;
@@ -216,7 +215,7 @@ export default function Setlist() {
         }
         .sort-btn {
           padding: 0.4rem 1.1rem; font-family: 'Outfit', sans-serif;
-          font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em;
+          font-size: 0.82rem; font-weight: 500; letter-spacing: 0.06em;
           border: none; border-radius: 20px; background: transparent;
           color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.3s;
         }
@@ -224,7 +223,7 @@ export default function Setlist() {
         .sort-btn:hover:not(.active) { color: rgba(255,255,255,0.6); }
 
         .song-count {
-          font-weight: 300; font-size: 0.75rem; color: rgba(255,255,255,0.5);
+          font-weight: 300; font-size: 0.85rem; color: rgba(255,255,255,0.5);
           letter-spacing: 0.05em;
         }
         .toolbar-row {
@@ -257,9 +256,9 @@ export default function Setlist() {
           transition: background 0.2s; cursor: default;
         }
         .song-row:hover { background: rgba(255,255,255,0.05); }
-        .song-title { font-weight: 600; font-size: 0.82rem; color: #fff; }
+        .song-title { font-weight: 600; font-size: 0.95rem; color: #fff; }
         .song-artist {
-          font-weight: 400; font-size: 0.78rem; color: #c4a24e;
+          font-weight: 400; font-size: 0.88rem; color: #c4a24e;
           white-space: nowrap; text-align: right;
         }
         .song-row:hover .song-artist { color: var(--gold); opacity: 1; }
@@ -268,7 +267,7 @@ export default function Setlist() {
         .artists-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
         .artist-group { margin-bottom: 0.6rem; }
         .artist-name {
-          font-family: 'Bebas Neue', sans-serif; font-size: 1rem;
+          font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem;
           letter-spacing: 0.06em; color: var(--accent);
           padding: 0.2rem 0.5rem; display: flex; align-items: center; gap: 0.5rem;
         }
@@ -278,7 +277,7 @@ export default function Setlist() {
         }
         .artist-track {
           padding: 0.2rem 0.5rem 0.2rem 1.2rem;
-          font-weight: 500; font-size: 0.8rem; color: rgba(255,255,255,0.75);
+          font-weight: 500; font-size: 0.92rem; color: rgba(255,255,255,0.75);
           border-radius: 6px; transition: background 0.2s; cursor: default;
         }
         .artist-track:hover { background: rgba(255,255,255,0.04); }
@@ -303,22 +302,22 @@ export default function Setlist() {
           display: flex; align-items: center; justify-content: center;
           box-shadow: 0 0 15px rgba(255,20,147,0.15); overflow: hidden;
         }
-        .qr-frame img { width: 100%; height: 100%; object-fit: contain; }
+        .qr-frame img { width: 100%; height: 100%; object-fit: contain; padding: 0.6rem; }
         .qr-ph { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; color: #bbb; }
         .qr-ph svg { opacity: 0.35; }
-        .qr-ph span { font-size: 0.5rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; }
+        .qr-ph span { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #aaa; }
         .qr-text h3 {
           font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem;
           letter-spacing: 0.04em; color: #fff; margin: 0 0 0.15rem;
           text-shadow: 0 0 15px rgba(255,20,147,0.3);
         }
-        .qr-text p { font-weight: 300; font-size: 0.78rem; color: rgba(255,255,255,0.5); margin: 0; line-height: 1.6; }
+        .qr-text p { font-weight: 300; font-size: 0.88rem; color: rgba(255,255,255,0.5); margin: 0; line-height: 1.6; }
         .qr-text strong { color: var(--gold); font-weight: 600; }
 
         /* ── Footer ── */
         .page-footer {
           text-align: center; padding: 1.5rem 1rem;
-          color: rgba(255,255,255,0.15); font-size: 0.7rem;
+          color: rgba(255,255,255,0.15); font-size: 0.8rem;
           letter-spacing: 0.15em; text-transform: uppercase;
           position: relative; z-index: 10;
         }
@@ -380,7 +379,7 @@ export default function Setlist() {
               <div className="songs-2col">
                 <div>
                   {colLeft.map((song, i) => (
-                    <div key={`${song.title}-${song.artist}`} className="song-row" style={{ '--accent': ACCENT_COLORS[i % ACCENT_COLORS.length] } as React.CSSProperties}>
+                    <div key={`${song.title}-${song.artist}`} className="song-row" style={{ '--accent': ACCENT_COLORS[(i * 2) % ACCENT_COLORS.length] } as React.CSSProperties}>
                       <span className="song-title">{song.title}</span>
                       <span className="song-artist">{song.artist}</span>
                     </div>
@@ -388,7 +387,7 @@ export default function Setlist() {
                 </div>
                 <div>
                   {colRight.map((song, i) => (
-                    <div key={`${song.title}-${song.artist}`} className="song-row" style={{ '--accent': ACCENT_COLORS[(i + mid) % ACCENT_COLORS.length] } as React.CSSProperties}>
+                    <div key={`${song.title}-${song.artist}`} className="song-row" style={{ '--accent': ACCENT_COLORS[(i * 2 + 1) % ACCENT_COLORS.length] } as React.CSSProperties}>
                       <span className="song-title">{song.title}</span>
                       <span className="song-artist">{song.artist}</span>
                     </div>
@@ -411,22 +410,11 @@ export default function Setlist() {
 
           <div className="qr-footer">
             <div className="qr-frame">
-              <div className="qr-ph">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="3" height="3" />
-                  <rect x="18" y="14" width="3" height="3" />
-                  <rect x="14" y="18" width="3" height="3" />
-                  <rect x="18" y="18" width="3" height="3" />
-                </svg>
-                <span>QR</span>
-              </div>
+              <img src="/images/plin-qr.jpg" alt="QR Plin — RetroGroove" />
             </div>
             <div className="qr-text">
               <h3>¡Pídenos tu canción favorita!</h3>
-              <p>Escaneá el código y apoyá a la banda</p>
+              <p>Escanea el código con Plin y apoya a la banda</p>
               <p>Con tu aporte nos ayudas a seguir tocando. <strong>¡Gracias por el apoyo!</strong></p>
             </div>
           </div>
