@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { ALL_SONGS } from '@/data/setlist'
 
 function sr(seed: number) {
@@ -16,15 +16,22 @@ const STARS = Array.from({ length: 35 }, (_, i) => ({
 }))
 
 const alphabetical = [...ALL_SONGS].sort((a, b) => a.title.localeCompare(b.title))
+const songKey = (s: typeof ALL_SONGS[0]) => `${s.title}---${s.artist}`
 
 export default function SetlistPrint() {
   const [mounted, setMounted] = useState(false)
   const [songs, setSongs] = useState(alphabetical)
-  const [isCustom, setIsCustom] = useState(false)
+  const [isCustomOrder, setIsCustomOrder] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(alphabetical.map(songKey))
+  )
   const dragIdx = useRef<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
+
+  const selectedCount = selected.size
+  const allSelected = selectedCount === songs.length
 
   const mid = Math.ceil(songs.length / 2)
   const colLeft = songs.slice(0, mid)
@@ -32,6 +39,18 @@ export default function SetlistPrint() {
 
   const flatIdx = (col: 'left' | 'right', i: number) =>
     col === 'left' ? i : mid + i
+
+  const toggleSong = useCallback((key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const selectAll = () => setSelected(new Set(songs.map(songKey)))
+  const deselectAll = () => setSelected(new Set())
 
   const onDragStart = useCallback((idx: number) => {
     dragIdx.current = idx
@@ -55,7 +74,7 @@ export default function SetlistPrint() {
       next.splice(toIdx, 0, moved)
       return next
     })
-    setIsCustom(true)
+    setIsCustomOrder(true)
     dragIdx.current = null
     setOverIdx(null)
   }, [])
@@ -65,25 +84,32 @@ export default function SetlistPrint() {
     setOverIdx(null)
   }, [])
 
-  const resetOrder = () => {
+  const resetAll = () => {
     setSongs(alphabetical)
-    setIsCustom(false)
+    setIsCustomOrder(false)
+    setSelected(new Set(alphabetical.map(songKey)))
   }
 
   const renderSong = (song: typeof songs[0], i: number, col: 'left' | 'right') => {
     const idx = flatIdx(col, i)
+    const key = songKey(song)
+    const isSelected = selected.has(key)
     return (
       <div
         key={`${idx}-${song.title}`}
-        className={`p-song ${overIdx === idx ? 'drag-over' : ''}`}
+        className={`p-song ${overIdx === idx ? 'drag-over' : ''} ${!isSelected ? 'deselected' : ''}`}
         draggable
         onDragStart={() => onDragStart(idx)}
         onDragOver={(e) => onDragOver(e, idx)}
         onDrop={() => onDrop(idx)}
         onDragEnd={onDragEnd}
       >
+        <button
+          className={`p-check ${isSelected ? 'checked' : ''}`}
+          onClick={(e) => { e.stopPropagation(); toggleSong(key) }}
+          aria-label={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+        />
         <span className="p-handle" title="Arrastrá para mover">⋮⋮</span>
-        <span className="p-num">{idx + 1}</span>
         <span className="p-title">{song.title}</span>
         <span className="p-artist">{song.artist}</span>
       </div>
@@ -134,16 +160,17 @@ export default function SetlistPrint() {
           font-size: 0.75rem; letter-spacing: 0.05em; transition: color 0.2s;
         }
         .toolbar a:hover { color: var(--gold); }
-        .toolbar-btns { display: flex; align-items: center; gap: 0.6rem; }
-        .reset-btn {
-          padding: 0.4rem 0.9rem;
+        .toolbar-btns { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+        .tb-btn {
+          padding: 0.35rem 0.8rem;
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.12);
           color: rgba(255,255,255,0.5); border-radius: 6px;
-          font-family: 'Outfit', sans-serif; font-size: 0.7rem;
+          font-family: 'Outfit', sans-serif; font-size: 0.65rem;
           font-weight: 500; cursor: pointer; transition: all 0.2s;
+          white-space: nowrap;
         }
-        .reset-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+        .tb-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
         .export-btn {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.45rem 1.2rem;
@@ -188,6 +215,7 @@ export default function SetlistPrint() {
           font-weight: 300; font-size: 0.7rem;
           color: rgba(255,255,255,0.4); margin: 0.3rem 0 0; letter-spacing: 0.05em;
         }
+        .print-header .count strong { color: var(--gold); font-weight: 600; }
         .drag-hint {
           font-size: 0.6rem; color: rgba(255,255,255,0.25);
           margin-top: 0.3rem; letter-spacing: 0.03em;
@@ -213,9 +241,9 @@ export default function SetlistPrint() {
 
         .p-song {
           display: grid; grid-template-columns: auto auto 1fr auto;
-          gap: 0.3rem; align-items: baseline;
+          gap: 0.3rem; align-items: center;
           padding: 0.15rem 0.4rem; font-size: 0.76rem; line-height: 1.4;
-          border-radius: 4px; transition: background 0.15s, border-color 0.15s;
+          border-radius: 4px; transition: background 0.15s, border-color 0.15s, opacity 0.2s;
           cursor: grab; border: 1px solid transparent;
           user-select: none;
         }
@@ -225,16 +253,36 @@ export default function SetlistPrint() {
           border-color: var(--gold);
           background: rgba(255,215,0,0.06);
         }
+        .p-song.deselected {
+          opacity: 0.3;
+        }
+        .p-song.deselected .p-title {
+          text-decoration: line-through;
+          text-decoration-color: rgba(255,255,255,0.3);
+        }
+
+        /* ── Checkbox ── */
+        .p-check {
+          width: 15px; height: 15px; min-width: 15px; border-radius: 3px;
+          border: 1.5px solid rgba(255,255,255,0.2);
+          background: transparent; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s; padding: 0;
+          color: transparent; font-size: 0.55rem; font-weight: 700;
+        }
+        .p-check:hover { border-color: rgba(255,255,255,0.4); }
+        .p-check.checked {
+          background: var(--gold); border-color: var(--gold);
+          color: #000;
+        }
+        .p-check.checked::after { content: '✓'; }
+
         .p-handle {
           font-size: 0.65rem; color: rgba(255,255,255,0.15);
           letter-spacing: -0.1em; cursor: grab; user-select: none;
           transition: color 0.2s;
         }
         .p-song:hover .p-handle { color: rgba(255,255,255,0.4); }
-        .p-num {
-          font-size: 0.6rem; font-weight: 600; color: rgba(255,255,255,0.2);
-          min-width: 1.3rem; text-align: right;
-        }
         .p-title { font-weight: 500; color: #eee; }
         .p-artist {
           font-weight: 400; color: #c4a24e;
@@ -308,6 +356,8 @@ export default function SetlistPrint() {
           .star { display: none !important; }
           .drag-hint { display: none !important; }
           .p-handle { display: none !important; }
+          .p-check { display: none !important; }
+          .p-song.deselected { display: none !important; }
           .print-page {
             background: linear-gradient(180deg, #050010 0%, #0d0025 50%, #050010 100%) !important;
             min-height: auto;
@@ -322,10 +372,9 @@ export default function SetlistPrint() {
           .p-song {
             font-size: 0.68rem; padding: 0.1rem 0.2rem;
             cursor: default; border: none !important;
-            grid-template-columns: auto 1fr auto;
+            grid-template-columns: 1fr auto;
           }
           .p-song:hover { background: none; }
-          .p-num { font-size: 0.55rem; }
           .p-artist { font-size: 0.6rem; }
           .qr-footer {
             padding: 0.8rem 1.2rem; backdrop-filter: none;
@@ -360,9 +409,19 @@ export default function SetlistPrint() {
             <a href="/setlist">&#8592; Volver al repertorio</a>
           </div>
           <div className="toolbar-btns">
-            {isCustom && (
-              <button className="reset-btn" onClick={resetOrder}>
-                Resetear orden
+            {!allSelected && (
+              <button className="tb-btn" onClick={selectAll}>
+                Seleccionar todo
+              </button>
+            )}
+            {selectedCount > 0 && (
+              <button className="tb-btn" onClick={deselectAll}>
+                Deseleccionar todo
+              </button>
+            )}
+            {(isCustomOrder || !allSelected) && (
+              <button className="tb-btn" onClick={resetAll}>
+                Resetear
               </button>
             )}
             <button className="export-btn" onClick={() => window.print()}>
@@ -381,9 +440,10 @@ export default function SetlistPrint() {
             <h1>REPERTORIO</h1>
             <p className="sub">Disco &bull; Rock &bull; En Vivo</p>
             <p className="count">
-              {songs.length} temas &mdash; {isCustom ? 'orden personalizado' : 'ordenados por canción'}
+              <strong>{selectedCount}</strong> de {songs.length} temas
+              {isCustomOrder ? ' — orden personalizado' : ' — ordenados por canción'}
             </p>
-            <p className="drag-hint">Arrastrá las canciones para reordenar</p>
+            <p className="drag-hint">Hacé click para seleccionar/deseleccionar &middot; Arrastrá para reordenar</p>
           </header>
 
           <div className="songs-card">

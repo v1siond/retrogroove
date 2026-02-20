@@ -45,7 +45,7 @@ function groupByArtist(songs: Song[]) {
 
 export default function Setlist() {
   const [mounted, setMounted] = useState(false)
-  const [sort, setSort] = useState<SortMode>('song')
+  const [sort, setSort] = useState<SortMode>('artist')
 
   const sortedSongs = useMemo(
     () => [...ALL_SONGS].sort((a, b) => a.title.localeCompare(b.title)),
