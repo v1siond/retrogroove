@@ -1,9 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { ALL_SONGS } from '@/data/setlist'
-
-const ACCENT = ['#ff1493', '#ffd700', '#00e5ff', '#bf00ff']
 
 function sr(seed: number) {
   const x = Math.sin(seed + 1) * 10000
@@ -17,15 +15,80 @@ const STARS = Array.from({ length: 35 }, (_, i) => ({
   size: sr(i * 7 + 300) * 2.5 + 0.8,
 }))
 
-export default function SetlistPrint() {
-  const sorted = useMemo(
-    () => [...ALL_SONGS].sort((a, b) => a.title.localeCompare(b.title)),
-    [],
-  )
+const alphabetical = [...ALL_SONGS].sort((a, b) => a.title.localeCompare(b.title))
 
-  const mid = Math.ceil(sorted.length / 2)
-  const colLeft = sorted.slice(0, mid)
-  const colRight = sorted.slice(mid)
+export default function SetlistPrint() {
+  const [mounted, setMounted] = useState(false)
+  const [songs, setSongs] = useState(alphabetical)
+  const [isCustom, setIsCustom] = useState(false)
+  const dragIdx = useRef<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  const mid = Math.ceil(songs.length / 2)
+  const colLeft = songs.slice(0, mid)
+  const colRight = songs.slice(mid)
+
+  const flatIdx = (col: 'left' | 'right', i: number) =>
+    col === 'left' ? i : mid + i
+
+  const onDragStart = useCallback((idx: number) => {
+    dragIdx.current = idx
+  }, [])
+
+  const onDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    setOverIdx(idx)
+  }, [])
+
+  const onDrop = useCallback((toIdx: number) => {
+    const fromIdx = dragIdx.current
+    if (fromIdx === null || fromIdx === toIdx) {
+      dragIdx.current = null
+      setOverIdx(null)
+      return
+    }
+    setSongs(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, moved)
+      return next
+    })
+    setIsCustom(true)
+    dragIdx.current = null
+    setOverIdx(null)
+  }, [])
+
+  const onDragEnd = useCallback(() => {
+    dragIdx.current = null
+    setOverIdx(null)
+  }, [])
+
+  const resetOrder = () => {
+    setSongs(alphabetical)
+    setIsCustom(false)
+  }
+
+  const renderSong = (song: typeof songs[0], i: number, col: 'left' | 'right') => {
+    const idx = flatIdx(col, i)
+    return (
+      <div
+        key={`${idx}-${song.title}`}
+        className={`p-song ${overIdx === idx ? 'drag-over' : ''}`}
+        draggable
+        onDragStart={() => onDragStart(idx)}
+        onDragOver={(e) => onDragOver(e, idx)}
+        onDrop={() => onDrop(idx)}
+        onDragEnd={onDragEnd}
+      >
+        <span className="p-handle" title="Arrastrá para mover">⋮⋮</span>
+        <span className="p-num">{idx + 1}</span>
+        <span className="p-title">{song.title}</span>
+        <span className="p-artist">{song.artist}</span>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -47,7 +110,6 @@ export default function SetlistPrint() {
           overflow-x: hidden;
         }
 
-        /* ── Stars ── */
         .star {
           position: fixed; border-radius: 50%; background: #fff;
           pointer-events: none; animation: twinkle 3s ease-in-out infinite; z-index: 0;
@@ -66,11 +128,22 @@ export default function SetlistPrint() {
           backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid rgba(255,255,255,0.06);
         }
+        .toolbar-left { display: flex; align-items: center; gap: 1rem; }
         .toolbar a {
           color: rgba(255,255,255,0.5); text-decoration: none;
           font-size: 0.75rem; letter-spacing: 0.05em; transition: color 0.2s;
         }
         .toolbar a:hover { color: var(--gold); }
+        .toolbar-btns { display: flex; align-items: center; gap: 0.6rem; }
+        .reset-btn {
+          padding: 0.4rem 0.9rem;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.5); border-radius: 6px;
+          font-family: 'Outfit', sans-serif; font-size: 0.7rem;
+          font-weight: 500; cursor: pointer; transition: all 0.2s;
+        }
+        .reset-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
         .export-btn {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.45rem 1.2rem;
@@ -108,12 +181,16 @@ export default function SetlistPrint() {
           text-shadow: 0 0 10px rgba(255,20,147,0.4), 0 0 30px rgba(255,20,147,0.2);
         }
         .print-header .sub {
-          font-weight: 300; font-size: 0.75rem;           letter-spacing: 0.35em;
+          font-weight: 300; font-size: 0.75rem; letter-spacing: 0.35em;
           text-transform: uppercase; color: rgba(255,255,255,0.55); margin: 0.3rem 0 0;
         }
         .print-header .count {
           font-weight: 300; font-size: 0.7rem;
           color: rgba(255,255,255,0.4); margin: 0.3rem 0 0; letter-spacing: 0.05em;
+        }
+        .drag-hint {
+          font-size: 0.6rem; color: rgba(255,255,255,0.25);
+          margin-top: 0.3rem; letter-spacing: 0.03em;
         }
 
         /* ── Song Grid Card ── */
@@ -133,19 +210,31 @@ export default function SetlistPrint() {
           display: grid; grid-template-columns: 1fr 1fr;
           gap: 0 2rem;
         }
-        .songs-grid .col-divider {
-          display: none;
-        }
 
         .p-song {
-          display: grid; grid-template-columns: 1fr auto;
+          display: grid; grid-template-columns: auto auto 1fr auto;
           gap: 0.3rem; align-items: baseline;
-          padding: 0.2rem 0.4rem; font-size: 0.76rem; line-height: 1.4;
-          border-radius: 4px; transition: background 0.2s;
+          padding: 0.15rem 0.4rem; font-size: 0.76rem; line-height: 1.4;
+          border-radius: 4px; transition: background 0.15s, border-color 0.15s;
+          cursor: grab; border: 1px solid transparent;
+          user-select: none;
         }
         .p-song:hover { background: rgba(255,255,255,0.04); }
-        .p-song:nth-child(4n+1) .p-title { color: #fff; }
-        .p-song:nth-child(4n+2) .p-title { color: rgba(255,255,255,0.95); }
+        .p-song:active { cursor: grabbing; }
+        .p-song.drag-over {
+          border-color: var(--gold);
+          background: rgba(255,215,0,0.06);
+        }
+        .p-handle {
+          font-size: 0.65rem; color: rgba(255,255,255,0.15);
+          letter-spacing: -0.1em; cursor: grab; user-select: none;
+          transition: color 0.2s;
+        }
+        .p-song:hover .p-handle { color: rgba(255,255,255,0.4); }
+        .p-num {
+          font-size: 0.6rem; font-weight: 600; color: rgba(255,255,255,0.2);
+          min-width: 1.3rem; text-align: right;
+        }
         .p-title { font-weight: 500; color: #eee; }
         .p-artist {
           font-weight: 400; color: #c4a24e;
@@ -153,7 +242,6 @@ export default function SetlistPrint() {
         }
         .p-song:hover .p-artist { color: #ffd700; }
 
-        /* ── Accent stripe between columns (screen only) ── */
         .songs-grid > div:first-child {
           border-right: 1px solid rgba(255,255,255,0.04);
           padding-right: 1rem;
@@ -205,7 +293,6 @@ export default function SetlistPrint() {
         }
         .qr-footer-text strong { color: var(--gold); font-weight: 600; }
 
-        /* ── Page Footer ── */
         .bottom-footer {
           text-align: center; padding: 1rem;
           color: rgba(255,255,255,0.12); font-size: 0.65rem;
@@ -219,6 +306,8 @@ export default function SetlistPrint() {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .toolbar { display: none !important; }
           .star { display: none !important; }
+          .drag-hint { display: none !important; }
+          .p-handle { display: none !important; }
           .print-page {
             background: linear-gradient(180deg, #050010 0%, #0d0025 50%, #050010 100%) !important;
             min-height: auto;
@@ -230,8 +319,13 @@ export default function SetlistPrint() {
           .songs-grid { gap: 0 1.5rem; }
           .songs-grid > div:first-child { padding-right: 0.7rem; }
           .songs-grid > div:last-child { padding-left: 0.7rem; }
-          .p-song { font-size: 0.68rem; padding: 0.12rem 0.2rem; }
+          .p-song {
+            font-size: 0.68rem; padding: 0.1rem 0.2rem;
+            cursor: default; border: none !important;
+            grid-template-columns: auto 1fr auto;
+          }
           .p-song:hover { background: none; }
+          .p-num { font-size: 0.55rem; }
           .p-artist { font-size: 0.6rem; }
           .qr-footer {
             padding: 0.8rem 1.2rem; backdrop-filter: none;
@@ -252,50 +346,53 @@ export default function SetlistPrint() {
           .songs-grid > div:first-child { border-right: none; padding-right: 0; }
           .songs-grid > div:last-child { padding-left: 0; }
           .qr-footer { text-align: center; }
+          .toolbar-left { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
         }
       `}</style>
 
       <div className="print-page">
-        {STARS.map((s, i) => (
+        {mounted && STARS.map((s, i) => (
           <div key={`s-${i}`} className="star" style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, animationDelay: `${s.delay}s` }} />
         ))}
 
         <div className="toolbar">
-          <a href="/setlist">&#8592; Volver al repertorio</a>
-          <button className="export-btn" onClick={() => window.print()}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Exportar PDF
-          </button>
+          <div className="toolbar-left">
+            <a href="/setlist">&#8592; Volver al repertorio</a>
+          </div>
+          <div className="toolbar-btns">
+            {isCustom && (
+              <button className="reset-btn" onClick={resetOrder}>
+                Resetear orden
+              </button>
+            )}
+            <button className="export-btn" onClick={() => window.print()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Exportar PDF
+            </button>
+          </div>
         </div>
 
         <div className="print-content">
           <header className="print-header">
             <h1>REPERTORIO</h1>
             <p className="sub">Disco &bull; Rock &bull; En Vivo</p>
-            <p className="count">{sorted.length} temas &mdash; ordenados por canción</p>
+            <p className="count">
+              {songs.length} temas &mdash; {isCustom ? 'orden personalizado' : 'ordenados por canción'}
+            </p>
+            <p className="drag-hint">Arrastrá las canciones para reordenar</p>
           </header>
 
           <div className="songs-card">
             <div className="songs-grid">
               <div>
-                {colLeft.map((song, i) => (
-                  <div key={`${song.title}-${song.artist}`} className="p-song">
-                    <span className="p-title">{song.title}</span>
-                    <span className="p-artist">{song.artist}</span>
-                  </div>
-                ))}
+                {colLeft.map((song, i) => renderSong(song, i, 'left'))}
               </div>
               <div>
-                {colRight.map((song, i) => (
-                  <div key={`${song.title}-${song.artist}`} className="p-song">
-                    <span className="p-title">{song.title}</span>
-                    <span className="p-artist">{song.artist}</span>
-                  </div>
-                ))}
+                {colRight.map((song, i) => renderSong(song, i, 'right'))}
               </div>
             </div>
           </div>

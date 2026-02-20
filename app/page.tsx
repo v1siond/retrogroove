@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const ACCENT = ['#ff1493', '#ffd700', '#00e5ff', '#bf00ff']
 
@@ -26,6 +26,9 @@ const REFLECTIONS = Array.from({ length: 14 }, (_, i) => ({
 }))
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
     document.body.style.overflow = 'auto'
     return () => { document.body.style.overflow = '' }
@@ -303,10 +306,10 @@ export default function Home() {
       `}</style>
 
       <div className="rg-page">
-        {STARS.map((s, i) => (
+        {mounted && STARS.map((s, i) => (
           <div key={`s-${i}`} className="star" style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, animationDelay: `${s.delay}s` }} />
         ))}
-        {REFLECTIONS.map((r, i) => (
+        {mounted && REFLECTIONS.map((r, i) => (
           <div key={`r-${i}`} className="reflection" style={{ left: `${r.left}%`, top: `${r.top}%`, width: r.size, height: r.size, background: r.color, animationDelay: `${r.delay}s`, animationDuration: `${r.duration}s` }} />
         ))}
 

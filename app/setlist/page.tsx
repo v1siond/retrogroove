@@ -44,6 +44,7 @@ function groupByArtist(songs: Song[]) {
 }
 
 export default function Setlist() {
+  const [mounted, setMounted] = useState(false)
   const [sort, setSort] = useState<SortMode>('song')
 
   const sortedSongs = useMemo(
@@ -56,6 +57,8 @@ export default function Setlist() {
   const colRight = sortedSongs.slice(mid)
 
   const artistGroups = useMemo(() => groupByArtist(ALL_SONGS), [])
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     document.body.style.overflow = 'auto'
@@ -333,10 +336,10 @@ export default function Setlist() {
       `}</style>
 
       <div className="setlist-page">
-        {STARS.map((s, i) => (
+        {mounted && STARS.map((s, i) => (
           <div key={`s-${i}`} className="star" style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, animationDelay: `${s.delay}s` }} />
         ))}
-        {REFLECTIONS.map((r, i) => (
+        {mounted && REFLECTIONS.map((r, i) => (
           <div key={`r-${i}`} className="reflection" style={{ left: `${r.left}%`, top: `${r.top}%`, width: r.size, height: r.size, background: r.color, animationDelay: `${r.delay}s`, animationDuration: `${r.duration}s` }} />
         ))}
 
