@@ -1,15 +1,121 @@
 'use client'
 
-import { getGroupedByBloque } from '@/lib/songs'
-import { Bloque, Song, getBloqueColor, getBloqueName } from '@/lib/types'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { getAllSongs } from '@/lib/songs'
+import { Song, Bloque, getBloqueColor, getBloqueName } from '@/lib/types'
+
+function sr(seed: number) {
+  const x = Math.sin(seed + 1) * 10000
+  return x - Math.floor(x)
+}
+
+const STARS = Array.from({ length: 35 }, (_, i) => ({
+  left: sr(i * 3 + 300) * 100,
+  top: sr(i * 3 + 301) * 100,
+  delay: sr(i * 3 + 302) * 4,
+  size: sr(i * 7 + 300) * 2.5 + 0.8,
+}))
+
+const songKey = (s: Song) => `${s.title}---${s.artist}`
 
 export default function SetlistPrint() {
-  const grouped = getGroupedByBloque()
-  const mainBloques: Bloque[] = [1, 2, 3, 4]
-  const hasExtras = grouped['extras'].length > 0
+  const allSongs = useMemo(() => getAllSongs(), [])
+  const alphabetical = useMemo(() => [...allSongs].sort((a, b) => a.title.localeCompare(b.title)), [allSongs])
 
-  const extrasLeft = grouped['extras'].filter((_, i) => i % 2 === 0)
-  const extrasRight = grouped['extras'].filter((_, i) => i % 2 === 1)
+  const [mounted, setMounted] = useState(false)
+  const [songs, setSongs] = useState<Song[]>([])
+  const [isCustomOrder, setIsCustomOrder] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const dragIdx = useRef<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    setSongs(alphabetical)
+    setSelected(new Set(alphabetical.map(songKey)))
+  }, [alphabetical])
+
+  const selectedCount = selected.size
+
+  const colLeft = songs.filter((_, i) => i % 2 === 0)
+  const colRight = songs.filter((_, i) => i % 2 === 1)
+
+  const flatIdx = (col: 'left' | 'right', i: number) =>
+    col === 'left' ? i * 2 : i * 2 + 1
+
+  const toggleSong = useCallback((key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const selectAll = () => setSelected(new Set(songs.map(songKey)))
+  const deselectAll = () => setSelected(new Set())
+
+  const onDragStart = useCallback((idx: number) => {
+    dragIdx.current = idx
+  }, [])
+
+  const onDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    setOverIdx(idx)
+  }, [])
+
+  const onDrop = useCallback((toIdx: number) => {
+    const fromIdx = dragIdx.current
+    if (fromIdx === null || fromIdx === toIdx) {
+      dragIdx.current = null
+      setOverIdx(null)
+      return
+    }
+    setSongs(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, moved)
+      return next
+    })
+    setIsCustomOrder(true)
+    dragIdx.current = null
+    setOverIdx(null)
+  }, [])
+
+  const onDragEnd = useCallback(() => {
+    dragIdx.current = null
+    setOverIdx(null)
+  }, [])
+
+  const renderSong = (song: Song, i: number, col: 'left' | 'right') => {
+    const idx = flatIdx(col, i)
+    const key = songKey(song)
+    const isSelected = selected.has(key)
+    const bloqueColor = getBloqueColor(song.bloque)
+    return (
+      <div
+        key={`${idx}-${song.title}`}
+        className={`p-song ${overIdx === idx ? 'drag-over' : ''} ${!isSelected ? 'deselected' : ''}`}
+        draggable
+        onDragStart={() => onDragStart(idx)}
+        onDragOver={(e) => onDragOver(e, idx)}
+        onDrop={() => onDrop(idx)}
+        onDragEnd={onDragEnd}
+      >
+        <button
+          className={`p-check ${isSelected ? 'checked' : ''}`}
+          onClick={(e) => { e.stopPropagation(); toggleSong(key) }}
+          aria-label={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+        />
+        <span className="p-handle" title="Arrastra para mover">⋮⋮</span>
+        <span className="p-bloque" style={{ color: bloqueColor }}>{getBloqueName(song.bloque)}</span>
+        <span className="p-title">{song.title}</span>
+        <span className="p-artist">{song.artist}</span>
+      </div>
+    )
+  }
+
+  if (!mounted) return null
 
   return (
     <>
@@ -31,6 +137,15 @@ export default function SetlistPrint() {
           overflow-x: hidden;
         }
 
+        .star {
+          position: fixed; border-radius: 50%; background: #fff;
+          pointer-events: none; animation: twinkle 3s ease-in-out infinite; z-index: 0;
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.08; transform: scale(0.8); }
+          50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
         /* ── Toolbar ── */
         .toolbar {
           position: sticky; top: 0; z-index: 100;
@@ -40,11 +155,24 @@ export default function SetlistPrint() {
           backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid rgba(255,255,255,0.06);
         }
+        .toolbar-left { display: flex; align-items: center; gap: 1rem; }
         .toolbar a {
           color: rgba(255,255,255,0.5); text-decoration: none;
           font-size: 0.85rem; letter-spacing: 0.05em; transition: color 0.2s;
         }
         .toolbar a:hover { color: var(--gold); }
+        .toolbar-btns { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+        .tb-btn {
+          padding: 0.35rem 0.8rem;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.5); border-radius: 6px;
+          font-family: 'Outfit', sans-serif; font-size: 0.85rem;
+          font-weight: 500; cursor: pointer; transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .tb-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+        .tb-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
         .export-btn {
           display: inline-flex; align-items: center; gap: 0.5rem;
           padding: 0.45rem 1.2rem;
@@ -64,14 +192,6 @@ export default function SetlistPrint() {
           position: relative; z-index: 10;
         }
 
-        /* ── Page Container ── */
-        .page {
-          min-height: 100vh;
-        }
-        .page + .page {
-          page-break-before: always;
-        }
-
         /* ── Header ── */
         .print-header {
           text-align: center;
@@ -87,112 +207,106 @@ export default function SetlistPrint() {
           font-weight: 300; font-size: 1rem; letter-spacing: 0.35em;
           text-transform: uppercase; color: rgba(255,255,255,0.6); margin: 0.4rem 0 0;
         }
-
-        /* ── Bloque Grid ── */
-        .bloque-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1.5rem;
-          margin-bottom: 1.5rem;
+        .print-header .count {
+          font-weight: 300; font-size: 0.95rem;
+          color: rgba(255,255,255,0.5); margin: 0.4rem 0 0; letter-spacing: 0.05em;
+        }
+        .print-header .count strong { color: var(--gold); font-weight: 600; }
+        .print-only { display: none; }
+        .drag-hint {
+          font-size: 0.9rem; color: rgba(255,255,255,0.5);
+          margin-top: 0.5rem; letter-spacing: 0.03em;
         }
 
-        .bloque-card {
+        /* ── Song Grid Card ── */
+        .songs-card {
           background: rgba(255,255,255,0.025);
           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
           border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 14px;
-          overflow: hidden;
-          page-break-inside: avoid;
+          border-radius: 14px; padding: 1rem 1.2rem;
+          margin-bottom: 1.2rem; position: relative; overflow: hidden;
         }
-
-        .bloque-header {
-          padding: 0.6rem 1rem;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.4rem;
-          letter-spacing: 0.1em;
-          color: #fff;
-          text-shadow: 0 0 8px currentColor;
-        }
-
-        .bloque-songs {
-          padding: 0.5rem 1rem 1rem;
-        }
-
-        .bloque-song {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          padding: 0.2rem 0;
-          font-size: 0.95rem;
-          line-height: 1.4;
-        }
-
-        .song-title {
-          font-weight: 500;
-          color: #eee;
-        }
-
-        .song-artist {
-          font-weight: 400;
-          color: #c4a24e;
-          font-size: 0.85rem;
-          text-align: right;
-          margin-left: 0.5rem;
-          flex-shrink: 0;
-        }
-
-        /* ── Extras Section ── */
-        .extras-header {
-          text-align: center;
-          padding: 1.5rem 0;
-        }
-        .extras-header h2 {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 3rem; letter-spacing: 0.12em;
-          color: #fff; margin: 0; line-height: 1;
-          text-shadow: 0 0 10px rgba(136,136,136,0.4);
-        }
-        .extras-header .sub {
-          font-weight: 300; font-size: 0.9rem; letter-spacing: 0.3em;
-          text-transform: uppercase; color: rgba(255,255,255,0.5); margin: 0.3rem 0 0;
-        }
-
-        .extras-card {
-          background: rgba(255,255,255,0.025);
-          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 14px;
-          padding: 1rem 1.2rem;
-          margin-bottom: 1.5rem;
-          position: relative;
-          overflow: hidden;
-        }
-        .extras-card::before {
+        .songs-card::before {
           content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1.5px;
-          background: linear-gradient(90deg, #888, #aaa, #888);
+          background: linear-gradient(90deg, var(--pink), var(--gold), var(--cyan), var(--purple));
         }
 
-        .extras-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+        .songs-grid {
+          display: grid; grid-template-columns: 1fr 1fr;
           gap: 0 2rem;
         }
-        .extras-grid > div:first-child {
+
+        .p-song {
+          display: grid; grid-template-columns: auto auto auto 1fr auto;
+          gap: 0.3rem; align-items: center;
+          padding: 0.15rem 0.4rem; font-size: 1.3rem; line-height: 1.35;
+          border-radius: 4px; transition: background 0.15s, border-color 0.15s, opacity 0.2s;
+          cursor: grab; border: 1px solid transparent;
+          user-select: none;
+        }
+        .p-song:hover { background: rgba(255,255,255,0.04); }
+        .p-song:active { cursor: grabbing; }
+        .p-song.drag-over {
+          border-color: var(--gold);
+          background: rgba(255,215,0,0.06);
+        }
+        .p-song.deselected {
+          opacity: 0.3;
+        }
+        .p-song.deselected .p-title {
+          text-decoration: line-through;
+          text-decoration-color: rgba(255,255,255,0.3);
+        }
+
+        /* ── Checkbox ── */
+        .p-check {
+          width: 15px; height: 15px; min-width: 15px; border-radius: 3px;
+          border: 1.5px solid rgba(255,255,255,0.2);
+          background: transparent; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s; padding: 0;
+          color: transparent; font-size: 0.65rem; font-weight: 700;
+        }
+        .p-check:hover { border-color: rgba(255,255,255,0.4); }
+        .p-check.checked {
+          background: var(--gold); border-color: var(--gold);
+          color: #000;
+        }
+        .p-check.checked::after { content: '✓'; }
+
+        .p-handle {
+          font-size: 0.75rem; color: rgba(255,255,255,0.15);
+          letter-spacing: -0.1em; cursor: grab; user-select: none;
+          transition: color 0.2s;
+        }
+        .p-song:hover .p-handle { color: rgba(255,255,255,0.4); }
+        .p-bloque {
+          font-size: 0.65rem; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 0.05em;
+          opacity: 0.7; min-width: 50px;
+        }
+        .p-title { font-weight: 500; color: #eee; }
+        .p-artist {
+          font-weight: 400; color: #c4a24e;
+          font-size: 1.1rem; text-align: right;
+        }
+        .p-song:hover .p-artist { color: #ffd700; }
+
+        .songs-grid > div:first-child {
           border-right: 1px solid rgba(255,255,255,0.04);
           padding-right: 1rem;
         }
-        .extras-grid > div:last-child {
+        .songs-grid > div:last-child {
           padding-left: 1rem;
         }
 
         /* ── QR Footer ── */
         .qr-footer {
-          display: flex; align-items: center; justify-content: center; text-align: left; gap: 1rem;
-          padding: 1rem 1.4rem;
+          display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.8rem;
+          padding: 1.2rem 1.4rem;
           background: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px;
-          margin-top: auto;
+          border-radius: 14px; margin-bottom: 1rem;
           position: relative; overflow: hidden;
         }
         .qr-footer::before {
@@ -201,196 +315,150 @@ export default function SetlistPrint() {
           -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
           -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
         }
-        .qr-frame {
+        .qr-footer-frame {
           width: 80px; height: 80px; min-width: 80px;
           background: #fff; border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
           overflow: hidden;
           box-shadow: 0 0 15px rgba(255,20,147,0.15), 0 0 30px rgba(191,0,255,0.08);
         }
-        .qr-frame img { width: 100%; height: 100%; object-fit: contain; padding: 0.35rem; }
-        .qr-text h3 {
+        .qr-footer-frame img { width: 100%; height: 100%; object-fit: contain; padding: 0.35rem; }
+        .qr-footer-text h3 {
           font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
           letter-spacing: 0.05em; color: #fff; margin: 0 0 0.15rem;
           text-shadow: 0 0 12px rgba(255,20,147,0.3);
         }
-        .qr-text p {
+        .qr-footer-text p {
           font-weight: 300; font-size: 0.82rem;
-          color: rgba(255,255,255,0.5); margin: 0; line-height: 1.5;
+          color: rgba(255,255,255,0.4); margin: 0; line-height: 1.5;
         }
-        .qr-text strong { color: var(--gold); font-weight: 600; }
+        .qr-footer-text strong { color: var(--gold); font-weight: 600; }
+
+        .bottom-footer {
+          text-align: center; padding: 1rem;
+          color: rgba(255,255,255,0.12); font-size: 0.75rem;
+          letter-spacing: 0.15em; text-transform: uppercase;
+          position: relative; z-index: 10;
+        }
 
         /* ── Print Overrides ── */
         @media print {
           @page { size: A4; margin: 0; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .toolbar { display: none !important; }
+          .star { display: none !important; }
+          .drag-hint { display: none !important; }
+          .print-only { display: inline !important; }
+          .print-header .count { display: none !important; }
+          .print-header::after { display: none !important; }
+          .p-handle { display: none !important; }
+          .p-check { display: none !important; }
+          .p-bloque { display: none !important; }
+          .p-song.deselected { display: none !important; }
           .print-page {
             background: linear-gradient(180deg, #050010 0%, #0d0025 50%, #050010 100%) !important;
             min-height: auto;
           }
           .print-content { padding: 10mm 12mm 8mm; max-width: 100%; }
-
-          .page {
-            min-height: auto;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+          .print-header { margin-bottom: 0.4rem; padding-bottom: 0.2rem; }
+          .print-header h1 { font-size: 1.8rem; }
+          .print-header .sub { font-size: 0.65rem; margin-top: 0.1rem; }
+          .songs-card { padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; backdrop-filter: none; }
+          .songs-grid { gap: 0 1.5rem; }
+          .songs-grid > div:first-child { padding-right: 0.7rem; }
+          .songs-grid > div:last-child { padding-left: 0.7rem; }
+          .p-song {
+            font-size: 0.85rem; padding: 0.1rem 0.2rem;
+            cursor: default; border: none !important;
+            grid-template-columns: 1fr auto;
           }
-          .page + .page {
-            page-break-before: always;
-          }
-
-          .print-header { padding-bottom: 0.8rem; }
-          .print-header h1 { font-size: 2rem; }
-          .print-header .sub { font-size: 0.7rem; margin-top: 0.15rem; }
-
-          .bloque-grid {
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex: 1;
-          }
-          .bloque-card {
-            backdrop-filter: none;
-            page-break-inside: avoid;
-          }
-          .bloque-header {
-            padding: 0.4rem 0.8rem;
-            font-size: 1.1rem;
-          }
-          .bloque-songs {
-            padding: 0.3rem 0.8rem 0.6rem;
-          }
-          .bloque-song {
-            font-size: 0.8rem;
-            padding: 0.12rem 0;
-          }
-          .song-artist { font-size: 0.7rem; }
-
-          .extras-header { padding: 0.8rem 0; }
-          .extras-header h2 { font-size: 2rem; }
-          .extras-header .sub { font-size: 0.65rem; }
-          .extras-card {
-            backdrop-filter: none;
-            padding: 0.6rem 0.8rem;
-            margin-bottom: 1rem;
-            flex: 1;
-          }
-          .extras-grid > div:first-child { padding-right: 0.7rem; }
-          .extras-grid > div:last-child { padding-left: 0.7rem; }
-
+          .p-song:hover { background: none; }
+          .p-artist { font-size: 0.75rem; }
           .qr-footer {
-            padding: 0.5rem 1rem;
-            backdrop-filter: none;
+            padding: 0.5rem 1rem; backdrop-filter: none;
+            flex-direction: row; align-items: center; justify-content: center; text-align: left; gap: 0.7rem;
             background: rgba(255,255,255,0.06) !important;
             border: 1px solid rgba(255,255,255,0.2) !important;
           }
           .qr-footer::before { display: none !important; }
-          .qr-frame { width: 70px; height: 70px; min-width: 70px; box-shadow: none !important; }
-          .qr-text h3 { font-size: 1rem; text-shadow: none !important; margin-bottom: 0.05rem; }
-          .qr-text p { font-size: 0.75rem; color: rgba(255,255,255,0.8) !important; line-height: 1.4; }
-          .qr-text strong { color: #ffd700 !important; }
+          .qr-footer-frame { width: 80px; height: 80px; min-width: 80px; box-shadow: none !important; }
+          .qr-footer-text h3 { font-size: 1.15rem; text-shadow: none !important; margin-bottom: 0.05rem; }
+          .qr-footer-text p { font-size: .85rem; color: rgba(255,255,255,0.8) !important; line-height: 1.4; }
+          .qr-footer-text strong { color: #ffd700 !important; }
+          .bottom-footer { display: none; }
         }
 
         @media (max-width: 640px) {
-          .bloque-grid { grid-template-columns: 1fr; }
-          .extras-grid { grid-template-columns: 1fr; }
-          .extras-grid > div:first-child { border-right: none; padding-right: 0; }
-          .extras-grid > div:last-child { padding-left: 0; }
-          .qr-footer { flex-direction: column; text-align: center; }
+          .songs-grid { grid-template-columns: 1fr; }
+          .songs-grid > div:first-child { border-right: none; padding-right: 0; }
+          .songs-grid > div:last-child { padding-left: 0; }
+          .qr-footer { text-align: center; }
+          .toolbar-left { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
         }
       `}</style>
 
       <div className="print-page">
+        {STARS.map((s, i) => (
+          <div key={`s-${i}`} className="star" style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, animationDelay: `${s.delay}s` }} />
+        ))}
+
         <div className="toolbar">
-          <a href="/setlist">&#8592; Volver al repertorio</a>
-          <button className="export-btn" onClick={() => window.print()}>
-            <span>&#128424;</span>
-            Imprimir / PDF
-          </button>
+          <div className="toolbar-left">
+            <a href="/setlist">&#8592; Volver al repertorio</a>
+          </div>
+          <div className="toolbar-btns">
+            <button className="tb-btn" onClick={selectAll}>
+              Seleccionar todo
+            </button>
+            <button className="tb-btn" onClick={deselectAll} disabled={selectedCount === 0}>
+              Deseleccionar todo
+            </button>
+            <button className="export-btn" onClick={() => window.print()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Exportar PDF
+            </button>
+          </div>
         </div>
 
         <div className="print-content">
-          {/* Page 1: Main Bloques */}
-          <div className="page">
-            <header className="print-header">
-              <h1>RETROGROOVE — REPERTORIO</h1>
-              <p className="sub">Disco &bull; Rock &bull; En Vivo</p>
-            </header>
+          <header className="print-header">
+            <h1><span className="print-only">RETROGROOVE — </span>REPERTORIO</h1>
+            <p className="sub">Disco &bull; Rock &bull; En Vivo</p>
+            <p className="count">
+              <strong>{selectedCount}</strong> de {songs.length} temas
+              {isCustomOrder ? ' — orden personalizado' : ' — ordenados por canción'}
+            </p>
+            <p className="drag-hint">Haz click para seleccionar/deseleccionar &middot; Arrastra para reordenar</p>
+          </header>
 
-            <div className="bloque-grid">
-              {mainBloques.map((bloque) => (
-                <div key={bloque} className="bloque-card">
-                  <div
-                    className="bloque-header"
-                    style={{ backgroundColor: getBloqueColor(bloque) }}
-                  >
-                    {getBloqueName(bloque)}
-                  </div>
-                  <div className="bloque-songs">
-                    {grouped[bloque].map((song) => (
-                      <div key={song.id} className="bloque-song">
-                        <span className="song-title">{song.title}</span>
-                        <span className="song-artist">{song.artist}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="qr-footer">
-              <div className="qr-frame">
-                <img src="/images/plin-qr.jpg" alt="QR Plin" />
+          <div className="songs-card">
+            <div className="songs-grid">
+              <div>
+                {colLeft.map((song, i) => renderSong(song, i, 'left'))}
               </div>
-              <div className="qr-text">
-                <h3>¡Pide tu canción!</h3>
-                <p>Escanea el QR, yapea y pide tu favorita.<br /><strong>¡Gracias por el apoyo!</strong></p>
+              <div>
+                {colRight.map((song, i) => renderSong(song, i, 'right'))}
               </div>
             </div>
           </div>
 
-          {/* Page 2: Extras (only if extras exist) */}
-          {hasExtras && (
-            <div className="page">
-              <header className="extras-header">
-                <h2>EXTRAS</h2>
-                <p className="sub">Encores &bull; Favoritos &bull; Deep Cuts</p>
-              </header>
-
-              <div className="extras-card">
-                <div className="extras-grid">
-                  <div>
-                    {extrasLeft.map((song) => (
-                      <div key={song.id} className="bloque-song">
-                        <span className="song-title">{song.title}</span>
-                        <span className="song-artist">{song.artist}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    {extrasRight.map((song) => (
-                      <div key={song.id} className="bloque-song">
-                        <span className="song-title">{song.title}</span>
-                        <span className="song-artist">{song.artist}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="qr-footer">
-                <div className="qr-frame">
-                  <img src="/images/plin-qr.jpg" alt="QR Plin" />
-                </div>
-                <div className="qr-text">
-                  <h3>¡Pide tu canción!</h3>
-                  <p>Escanea el QR, yapea y pide tu favorita.<br /><strong>¡Gracias por el apoyo!</strong></p>
-                </div>
-              </div>
+          <div className="qr-footer">
+            <div className="qr-footer-frame">
+              <img src="/images/plin-qr.jpg" alt="QR Plin — RetroGroove" />
             </div>
-          )}
+            <div className="qr-footer-text">
+              <h3>¡Pídenos tu canción favorita!</h3>
+              <p>Escanea el código con Plin y apoya a la banda</p>
+              <p>Con tu aporte nos ayudas a seguir tocando.<br /><strong>¡Gracias por el apoyo!</strong></p>
+            </div>
+          </div>
         </div>
+
+        <div className="bottom-footer">Que no pare la música</div>
       </div>
     </>
   )

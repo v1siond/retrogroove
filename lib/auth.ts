@@ -5,12 +5,20 @@ import bcrypt from 'bcryptjs'
 const STORAGE_KEY = 'retrogroove_band_auth'
 const SESSION_DURATION = 24 * 60 * 60 * 1000 // 24 hours
 
+const DEV_PASSWORD = 'RetroGroove$B4nd'
+
 export async function verifyPassword(password: string): Promise<boolean> {
   const hash = process.env.NEXT_PUBLIC_BAND_PASSWORD_HASH
+
+  // Dev fallback when hash not configured
   if (!hash) {
+    if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+      return password === DEV_PASSWORD
+    }
     console.error('NEXT_PUBLIC_BAND_PASSWORD_HASH not configured')
     return false
   }
+
   return bcrypt.compare(password, hash)
 }
 
