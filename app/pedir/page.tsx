@@ -6,7 +6,7 @@ import { Song, Bloque, getBloqueColor, getBloqueName } from '@/lib/types'
 
 type Step = 'guide' | 'select' | 'form' | 'success'
 
-const BAND_PHONE = '999 888 777'
+const BAND_PHONE = process.env.NEXT_PUBLIC_BAND_PHONE || '999 888 777'
 
 export default function PedirPage() {
   const [mounted, setMounted] = useState(false)
@@ -221,6 +221,54 @@ export default function PedirPage() {
           font-size: 1.4rem;
           color: var(--cyan);
           text-shadow: 0 0 10px rgba(0,229,255,0.4);
+        }
+
+        .qr-section {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem 0;
+        }
+
+        .qr-frame {
+          width: 150px;
+          height: 150px;
+          background: #fff;
+          border-radius: 12px;
+          padding: 8px;
+          box-shadow: 0 0 20px rgba(255,20,147,0.2), 0 0 40px rgba(191,0,255,0.1);
+        }
+
+        .qr-frame img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+
+        .qr-info {
+          text-align: center;
+        }
+
+        .qr-phone {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 2rem;
+          letter-spacing: 0.15em;
+          color: var(--cyan);
+          text-shadow: 0 0 15px rgba(0,229,255,0.5);
+          margin: 0;
+        }
+
+        .qr-hint {
+          font-size: 0.9rem;
+          color: rgba(255,255,255,0.5);
+          margin: 0.3rem 0 0;
+        }
+
+        .guide-divider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+          margin: 1rem 0 1.2rem;
         }
 
         .pedir-btn {
@@ -473,29 +521,32 @@ export default function PedirPage() {
           {/* Step: Guide */}
           {step === 'guide' && (
             <div className="pedir-card">
+              <div className="qr-section">
+                <div className="qr-frame">
+                  <img src="/images/plin-qr.jpg" alt="QR Plin/Yape" />
+                </div>
+                <div className="qr-info">
+                  <p className="qr-phone">{BAND_PHONE}</p>
+                  <p className="qr-hint">Escanea o yapea al numero</p>
+                </div>
+              </div>
+              <div className="guide-divider"></div>
               <div className="guide-step">
                 <div className="guide-number">1</div>
                 <div className="guide-text">
-                  Abre <strong>Yape</strong> en tu celular
+                  Escanea el QR o yapea al numero de arriba
                 </div>
               </div>
               <div className="guide-step">
                 <div className="guide-number">2</div>
                 <div className="guide-text">
-                  Yapea al numero de la banda:<br />
-                  <span className="guide-phone">{BAND_PHONE}</span>
+                  Guarda el <strong>numero de operacion</strong> (lo vas a necesitar)
                 </div>
               </div>
               <div className="guide-step">
                 <div className="guide-number">3</div>
                 <div className="guide-text">
-                  Guarda el <strong>numero de operacion</strong> (lo vas a necesitar)
-                </div>
-              </div>
-              <div className="guide-step">
-                <div className="guide-number">4</div>
-                <div className="guide-text">
-                  Regresa aqui, elige tu cancion y envianos el pedido
+                  Elige tu cancion y envianos el pedido
                 </div>
               </div>
               <button className="pedir-btn" onClick={() => setStep('select')}>
