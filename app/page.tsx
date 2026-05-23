@@ -143,7 +143,7 @@ Para fechas próximas, consulta disponibilidad por WhatsApp.`,
     category: 'LOGÍSTICA',
     color: '#bf00ff',
     question: '¿Qué zonas atienden?',
-    answer: `Cubrimos toda Lima Metropolitana y provincias. La movilidad del equipo (taxis, transporte) se cotiza por separado según la ubicación del evento. Para eventos fuera de Lima, coordinamos logística de transporte y hospedaje.`,
+    answer: `Cubrimos toda Lima Metropolitana y provincias. El transporte de la banda hacia el evento corre por cuenta del cliente y se incluye en la cotización según la ubicación. Para eventos grandes o corporativos, recomendamos garantizar transporte ida y vuelta para el equipo.`,
   },
   {
     category: 'COSTOS',
