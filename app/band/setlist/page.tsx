@@ -546,11 +546,18 @@ export default function SetlistPage() {
                     📋 Copiar
                   </button>
                   <button
+                    className="btn secondary"
+                    onClick={() => window.open(`/band/setlist/imprimir?songs=${mySetlist.join(',')}`, '_blank')}
+                    disabled={mySetlist.length === 0}
+                  >
+                    🖨️ Imprimir
+                  </button>
+                  <button
                     className="btn primary"
                     onClick={shareViaWhatsApp}
                     disabled={mySetlist.length === 0}
                   >
-                    💬 Enviar por WhatsApp
+                    💬 WhatsApp
                   </button>
                 </div>
               </div>
