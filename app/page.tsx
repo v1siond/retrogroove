@@ -143,7 +143,7 @@ Para fechas próximas, consulta disponibilidad por WhatsApp.`,
     category: 'LOGÍSTICA',
     color: '#bf00ff',
     question: '¿Qué zonas atienden?',
-    answer: `Cubrimos toda Lima Metropolitana sin costo adicional de movilidad. Para eventos en provincias o fuera de Lima, coordinamos logística de transporte y hospedaje del equipo según la ubicación.`,
+    answer: `Cubrimos toda Lima Metropolitana y provincias. La movilidad del equipo (taxis, transporte) se cotiza por separado según la ubicación del evento. Para eventos fuera de Lima, coordinamos logística de transporte y hospedaje.`,
   },
   {
     category: 'COSTOS',
