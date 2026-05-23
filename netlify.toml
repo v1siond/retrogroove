@@ -1,7 +1,7 @@
 # netlify.toml
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
 [functions]
   directory = "netlify/functions"
