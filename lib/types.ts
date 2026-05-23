@@ -1,15 +1,25 @@
-export type Bloque = 1 | 2 | 3 | 4 | 'extras'
+// lib/types.ts
 
 export interface Song {
   id: string
   title: string
   artist: string
-  bloque: Bloque
-  youtubePosition: number
   enabled: boolean
 }
 
 export interface SongsData {
+  songs: Song[]
+}
+
+export interface Setlist {
+  id: string
+  name: string
+  songIds: string[]
+}
+
+export interface SetlistWithSongs {
+  id: string
+  name: string
   songs: Song[]
 }
 
@@ -34,25 +44,14 @@ export interface RequestWithCount {
   requests: Request[]
 }
 
-export function getBloqueFromPosition(position: number): Bloque {
-  if (position <= 14) return 1
-  if (position <= 30) return 2
-  if (position <= 45) return 3
-  if (position <= 60) return 4
-  return 'extras'
+const SETLIST_COLORS: Record<string, string> = {
+  'bloque-1': '#ff1493',
+  'bloque-2': '#ffd700',
+  'bloque-3': '#00e5ff',
+  'bloque-4': '#bf00ff',
+  'extras': '#888888',
 }
 
-export function getBloqueColor(bloque: Bloque): string {
-  switch (bloque) {
-    case 1: return '#ff1493' // pink
-    case 2: return '#ffd700' // gold
-    case 3: return '#00e5ff' // cyan
-    case 4: return '#bf00ff' // purple
-    case 'extras': return '#888888' // gray
-  }
-}
-
-export function getBloqueName(bloque: Bloque): string {
-  if (bloque === 'extras') return 'Extras'
-  return `Bloque ${bloque}`
+export function getSetlistColor(id: string): string {
+  return SETLIST_COLORS[id] || '#ff1493'
 }

@@ -497,6 +497,10 @@ export default function BandDashboard() {
                 )}
               </div>
 
+              <a href="/band/setlist" className="band-btn" style={{ marginTop: '1rem' }}>
+                Imprimir Setlist
+              </a>
+
               <a href="/" className="back-link">Volver al inicio</a>
             </>
           )}

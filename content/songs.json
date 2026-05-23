@@ -1,627 +1,585 @@
 {
   "songs": [
     {
-      "id": "celebration",
-      "title": "Celebration",
-      "artist": "Kool & The Gang",
-      "bloque": 1,
-      "youtubePosition": 1,
-      "enabled": true
-    },
-    {
-      "id": "september",
-      "title": "September",
-      "artist": "Earth, Wind & Fire",
-      "bloque": 1,
-      "youtubePosition": 2,
-      "enabled": true
-    },
-    {
-      "id": "let-s-groove",
-      "title": "Let's Groove",
-      "artist": "Earth, Wind & Fire",
-      "bloque": 1,
-      "youtubePosition": 3,
-      "enabled": true
-    },
-    {
-      "id": "funkytown",
-      "title": "Funkytown",
-      "artist": "Lipps Inc.",
-      "bloque": 1,
-      "youtubePosition": 4,
-      "enabled": true
-    },
-    {
-      "id": "disco-inferno",
-      "title": "Disco Inferno",
-      "artist": "The Trammps",
-      "bloque": 1,
-      "youtubePosition": 5,
-      "enabled": true
-    },
-    {
-      "id": "i-will-survive",
-      "title": "I Will Survive",
-      "artist": "Gloria Gaynor",
-      "bloque": 1,
-      "youtubePosition": 6,
-      "enabled": true
-    },
-    {
-      "id": "hot-stuff",
-      "title": "Hot Stuff",
-      "artist": "Donna Summer",
-      "bloque": 1,
-      "youtubePosition": 7,
-      "enabled": true
-    },
-    {
-      "id": "bad-girls",
-      "title": "Bad Girls",
-      "artist": "Donna Summer",
-      "bloque": 1,
-      "youtubePosition": 8,
-      "enabled": true
-    },
-    {
-      "id": "le-freak",
-      "title": "Le Freak",
-      "artist": "Chic",
-      "bloque": 1,
-      "youtubePosition": 9,
-      "enabled": true
-    },
-    {
-      "id": "get-down-on-it",
-      "title": "Get Down on It",
-      "artist": "Kool & The Gang",
-      "bloque": 1,
-      "youtubePosition": 10,
-      "enabled": true
-    },
-    {
-      "id": "ladies-night",
-      "title": "Ladies Night",
-      "artist": "Kool & The Gang",
-      "bloque": 1,
-      "youtubePosition": 11,
-      "enabled": true
-    },
-    {
-      "id": "you-should-be-dancing",
-      "title": "You Should Be Dancing",
-      "artist": "Bee Gees",
-      "bloque": 1,
-      "youtubePosition": 12,
-      "enabled": true
-    },
-    {
-      "id": "rock-with-you",
-      "title": "Rock With You",
-      "artist": "Michael Jackson",
-      "bloque": 1,
-      "youtubePosition": 13,
-      "enabled": true
-    },
-    {
-      "id": "give-it-up",
-      "title": "Give It Up",
-      "artist": "KC & The Sunshine Band",
-      "bloque": 1,
-      "youtubePosition": 14,
-      "enabled": true
-    },
-    {
-      "id": "take-on-me",
-      "title": "Take On Me",
-      "artist": "a-ha",
-      "bloque": 2,
-      "youtubePosition": 15,
-      "enabled": true
-    },
-    {
-      "id": "footloose",
-      "title": "Footloose",
-      "artist": "Kenny Loggins",
-      "bloque": 2,
-      "youtubePosition": 16,
-      "enabled": true
-    },
-    {
-      "id": "maniac",
-      "title": "Maniac",
-      "artist": "Michael Sembello",
-      "bloque": 2,
-      "youtubePosition": 17,
-      "enabled": true
-    },
-    {
-      "id": "heart-of-glass",
-      "title": "Heart of Glass",
-      "artist": "Blondie",
-      "bloque": 2,
-      "youtubePosition": 18,
-      "enabled": true
-    },
-    {
       "id": "one-way-or-another",
       "title": "One Way or Another",
       "artist": "Blondie",
-      "bloque": 2,
-      "youtubePosition": 19,
-      "enabled": true
-    },
-    {
-      "id": "like-a-virgin",
-      "title": "Like a Virgin",
-      "artist": "Madonna",
-      "bloque": 2,
-      "youtubePosition": 20,
-      "enabled": true
-    },
-    {
-      "id": "mamma-mia",
-      "title": "Mamma Mia",
-      "artist": "ABBA",
-      "bloque": 2,
-      "youtubePosition": 21,
-      "enabled": true
-    },
-    {
-      "id": "dancing-with-myself",
-      "title": "Dancing with Myself",
-      "artist": "Billy Idol",
-      "bloque": 2,
-      "youtubePosition": 22,
-      "enabled": true
-    },
-    {
-      "id": "a-little-respect",
-      "title": "A Little Respect",
-      "artist": "Erasure",
-      "bloque": 2,
-      "youtubePosition": 23,
-      "enabled": true
-    },
-    {
-      "id": "dressed-for-success",
-      "title": "Dressed for Success",
-      "artist": "Roxette",
-      "bloque": 2,
-      "youtubePosition": 24,
-      "enabled": true
-    },
-    {
-      "id": "don-t-get-me-wrong",
-      "title": "Don't Get Me Wrong",
-      "artist": "The Pretenders",
-      "bloque": 2,
-      "youtubePosition": 25,
-      "enabled": true
-    },
-    {
-      "id": "heartbreaker",
-      "title": "Heartbreaker",
-      "artist": "Pat Benatar",
-      "bloque": 2,
-      "youtubePosition": 26,
-      "enabled": true
-    },
-    {
-      "id": "goodbye-to-you",
-      "title": "Goodbye to You",
-      "artist": "Scandal",
-      "bloque": 2,
-      "youtubePosition": 27,
-      "enabled": true
-    },
-    {
-      "id": "on-the-radio",
-      "title": "On the Radio",
-      "artist": "Donna Summer",
-      "bloque": 2,
-      "youtubePosition": 28,
-      "enabled": true
-    },
-    {
-      "id": "crazy-little-thing-called-love",
-      "title": "Crazy Little Thing Called Love",
-      "artist": "Queen",
-      "bloque": 2,
-      "youtubePosition": 29,
-      "enabled": true
-    },
-    {
-      "id": "jump",
-      "title": "Jump",
-      "artist": "Van Halen",
-      "bloque": 2,
-      "youtubePosition": 30,
-      "enabled": true
-    },
-    {
-      "id": "musica-ligera",
-      "title": "Música Ligera",
-      "artist": "Soda Stereo",
-      "bloque": 3,
-      "youtubePosition": 31,
-      "enabled": true
-    },
-    {
-      "id": "persiana-americana",
-      "title": "Persiana Americana",
-      "artist": "Soda Stereo",
-      "bloque": 3,
-      "youtubePosition": 32,
-      "enabled": true
-    },
-    {
-      "id": "profugos",
-      "title": "Prófugos",
-      "artist": "Soda Stereo",
-      "bloque": 3,
-      "youtubePosition": 33,
-      "enabled": true
-    },
-    {
-      "id": "lamento-boliviano",
-      "title": "Lamento Boliviano",
-      "artist": "Enanitos Verdes",
-      "bloque": 3,
-      "youtubePosition": 34,
-      "enabled": true
-    },
-    {
-      "id": "la-muralla-verde",
-      "title": "La Muralla Verde",
-      "artist": "Enanitos Verdes",
-      "bloque": 3,
-      "youtubePosition": 35,
-      "enabled": true
-    },
-    {
-      "id": "mil-horas",
-      "title": "Mil Horas",
-      "artist": "Los Abuelos de la Nada",
-      "bloque": 3,
-      "youtubePosition": 36,
-      "enabled": true
-    },
-    {
-      "id": "pronta-entrega",
-      "title": "Pronta Entrega",
-      "artist": "Virus",
-      "bloque": 3,
-      "youtubePosition": 37,
-      "enabled": true
-    },
-    {
-      "id": "luna-de-miel",
-      "title": "Luna de Miel",
-      "artist": "Virus",
-      "bloque": 3,
-      "youtubePosition": 38,
-      "enabled": true
-    },
-    {
-      "id": "entre-dos-tierras",
-      "title": "Entre Dos Tierras",
-      "artist": "Héroes del Silencio",
-      "bloque": 3,
-      "youtubePosition": 39,
-      "enabled": true
-    },
-    {
-      "id": "mujer-amante",
-      "title": "Mujer Amante",
-      "artist": "Rata Blanca",
-      "bloque": 3,
-      "youtubePosition": 40,
-      "enabled": true
-    },
-    {
-      "id": "devuelveme-a-mi-chica",
-      "title": "Devuélveme a Mi Chica",
-      "artist": "Hombres G",
-      "bloque": 3,
-      "youtubePosition": 41,
-      "enabled": true
-    },
-    {
-      "id": "lobo-hombre-en-paris",
-      "title": "Lobo-Hombre en París",
-      "artist": "La Unión",
-      "bloque": 3,
-      "youtubePosition": 42,
-      "enabled": true
-    },
-    {
-      "id": "auto-rojo",
-      "title": "Auto Rojo",
-      "artist": "Vilma Palma e Vampiros",
-      "bloque": 3,
-      "youtubePosition": 43,
-      "enabled": true
-    },
-    {
-      "id": "cuando-seas-grande",
-      "title": "Cuando Seas Grande",
-      "artist": "Miguel Mateos",
-      "bloque": 3,
-      "youtubePosition": 44,
-      "enabled": true
-    },
-    {
-      "id": "la-calle-es-su-lugar",
-      "title": "La Calle Es Su Lugar",
-      "artist": "GIT",
-      "bloque": 3,
-      "youtubePosition": 45,
-      "enabled": true
-    },
-    {
-      "id": "estoy-aqui",
-      "title": "Estoy Aquí",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 46,
-      "enabled": true
-    },
-    {
-      "id": "antologia",
-      "title": "Antología",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 47,
-      "enabled": true
-    },
-    {
-      "id": "ciega-sordomuda",
-      "title": "Ciega Sordomuda",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 48,
-      "enabled": true
-    },
-    {
-      "id": "inevitable",
-      "title": "Inevitable",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 49,
-      "enabled": true
-    },
-    {
-      "id": "pies-descalzos",
-      "title": "Pies Descalzos",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 50,
-      "enabled": true
-    },
-    {
-      "id": "te-aviso-te-anuncio",
-      "title": "Te Aviso Te Anuncio",
-      "artist": "Shakira",
-      "bloque": 4,
-      "youtubePosition": 51,
-      "enabled": true
-    },
-    {
-      "id": "azucar-amargo",
-      "title": "Azúcar Amargo",
-      "artist": "Fey",
-      "bloque": 4,
-      "youtubePosition": 52,
-      "enabled": true
-    },
-    {
-      "id": "eternamente-bella",
-      "title": "Eternamente Bella",
-      "artist": "Alejandra Guzmán",
-      "bloque": 4,
-      "youtubePosition": 53,
-      "enabled": true
-    },
-    {
-      "id": "mirala-miralo",
-      "title": "Mírala, Míralo",
-      "artist": "Alejandra Guzmán",
-      "bloque": 4,
-      "youtubePosition": 54,
-      "enabled": true
-    },
-    {
-      "id": "el-sol-no-regresa",
-      "title": "El Sol No Regresa",
-      "artist": "La 5a Estación",
-      "bloque": 4,
-      "youtubePosition": 55,
-      "enabled": true
-    },
-    {
-      "id": "oye-mi-amor",
-      "title": "Oye Mi Amor",
-      "artist": "Maná",
-      "bloque": 4,
-      "youtubePosition": 56,
-      "enabled": true
-    },
-    {
-      "id": "contestame",
-      "title": "Contéstame",
-      "artist": "Grupo Río",
-      "bloque": 4,
-      "youtubePosition": 57,
-      "enabled": true
-    },
-    {
-      "id": "decir-adios",
-      "title": "Decir Adiós",
-      "artist": "Amén",
-      "bloque": 4,
-      "youtubePosition": 58,
-      "enabled": true
-    },
-    {
-      "id": "nada-fue-un-error",
-      "title": "Nada Fue un Error",
-      "artist": "Coti",
-      "bloque": 4,
-      "youtubePosition": 59,
-      "enabled": true
-    },
-    {
-      "id": "avenida-larco",
-      "title": "Avenida Larco",
-      "artist": "Frágil",
-      "bloque": 4,
-      "youtubePosition": 60,
-      "enabled": true
-    },
-    {
-      "id": "me-estoy-enamorando",
-      "title": "Me Estoy Enamorando",
-      "artist": "Pedro Suárez-Vértiz",
-      "bloque": "extras",
-      "youtubePosition": 61,
-      "enabled": true
-    },
-    {
-      "id": "triciclo-peru",
-      "title": "Triciclo Perú",
-      "artist": "Los Mojarras",
-      "bloque": "extras",
-      "youtubePosition": 62,
-      "enabled": true
-    },
-    {
-      "id": "suna",
-      "title": "Suna",
-      "artist": "Mar de Copas",
-      "bloque": "extras",
-      "youtubePosition": 63,
-      "enabled": true
-    },
-    {
-      "id": "zombie",
-      "title": "Zombie",
-      "artist": "The Cranberries",
-      "bloque": "extras",
-      "youtubePosition": 64,
-      "enabled": true
-    },
-    {
-      "id": "creep",
-      "title": "Creep",
-      "artist": "Radiohead",
-      "bloque": "extras",
-      "youtubePosition": 65,
-      "enabled": true
-    },
-    {
-      "id": "mr-jones",
-      "title": "Mr. Jones",
-      "artist": "Counting Crows",
-      "bloque": "extras",
-      "youtubePosition": 66,
-      "enabled": true
-    },
-    {
-      "id": "semi-charmed-life",
-      "title": "Semi-Charmed Life",
-      "artist": "Third Eye Blind",
-      "bloque": "extras",
-      "youtubePosition": 67,
-      "enabled": true
-    },
-    {
-      "id": "santeria",
-      "title": "Santeria",
-      "artist": "Sublime",
-      "bloque": "extras",
-      "youtubePosition": 68,
-      "enabled": true
-    },
-    {
-      "id": "like-a-stone",
-      "title": "Like a Stone",
-      "artist": "Audioslave",
-      "bloque": "extras",
-      "youtubePosition": 69,
-      "enabled": true
-    },
-    {
-      "id": "you-oughta-know",
-      "title": "You Oughta Know",
-      "artist": "Alanis Morissette",
-      "bloque": "extras",
-      "youtubePosition": 70,
-      "enabled": true
-    },
-    {
-      "id": "rehab",
-      "title": "Rehab",
-      "artist": "Amy Winehouse",
-      "bloque": "extras",
-      "youtubePosition": 71,
-      "enabled": true
-    },
-    {
-      "id": "take-a-picture",
-      "title": "Take a Picture",
-      "artist": "Filter",
-      "bloque": "extras",
-      "youtubePosition": 72,
-      "enabled": true
-    },
-    {
-      "id": "new-year-s-day",
-      "title": "New Year's Day",
-      "artist": "U2",
-      "bloque": "extras",
-      "youtubePosition": 73,
-      "enabled": true
-    },
-    {
-      "id": "dancing-in-the-dark",
-      "title": "Dancing in the Dark",
-      "artist": "Bruce Springsteen",
-      "bloque": "extras",
-      "youtubePosition": 74,
       "enabled": true
     },
     {
       "id": "born-to-be-wild",
       "title": "Born to Be Wild",
       "artist": "Steppenwolf",
-      "bloque": "extras",
-      "youtubePosition": 75,
       "enabled": true
     },
     {
-      "id": "paranoid",
-      "title": "Paranoid",
-      "artist": "Black Sabbath",
-      "bloque": "extras",
-      "youtubePosition": 76,
+      "id": "mx-shakira-sordomuda-estoy-aqui",
+      "title": "Mix Shakira (Sordomuda / Estoy Aquí)",
+      "artist": "Shakira",
       "enabled": true
     },
     {
-      "id": "are-you-gonna-go-my-way",
+      "id": "luna-de-miel",
+      "title": "Luna de Miel",
+      "artist": "Virus",
+      "enabled": true
+    },
+    {
+      "id": "le-freak",
+      "title": "Le Freak",
+      "artist": "Chic",
+      "enabled": true
+    },
+    {
+      "id": "i-will-survive",
+      "title": "I Will Survive",
+      "artist": "Gloria Gaynor",
+      "enabled": true
+    },
+    {
+      "id": "aguajal",
+      "title": "Aguajal",
+      "artist": "Los Shapis",
+      "enabled": true
+    },
+    {
+      "id": "carinito",
+      "title": "Cariñito",
+      "artist": "Bareto",
+      "enabled": true
+    },
+    {
+      "id": "amor-prohibido",
+      "title": "Amor Prohibido",
+      "artist": "Selena",
+      "enabled": true
+    },
+    {
+      "id": "como-una-flor",
+      "title": "Como una Flor",
+      "artist": "Selena",
+      "enabled": true
+    },
+    {
+      "id": "celebration",
+      "title": "Celebration",
+      "artist": "Kool & The Gang",
+      "enabled": true
+    },
+    {
+      "id": "on-the-radio",
+      "title": "On the Radio",
+      "artist": "Donna Summer",
+      "enabled": true
+    },
+    {
+      "id": "september",
+      "title": "September",
+      "artist": "Earth, Wind & Fire",
+      "enabled": true
+    },
+    {
+      "id": "azucar-amargo",
+      "title": "Azúcar Amargo",
+      "artist": "Fey",
+      "enabled": true
+    },
+    {
+      "id": "persiana-americana",
+      "title": "Persiana Americana",
+      "artist": "Soda Stereo",
+      "enabled": true
+    },
+    {
+      "id": "muchachola-provinciano",
+      "title": "Muchachola / Provinciano",
+      "artist": "Chacalón",
+      "enabled": true
+    },
+    {
+      "id": "se-ha-muerto-mi-abuelo",
+      "title": "Se Ha Muerto Mi Abuelo",
+      "artist": "Bareto",
+      "enabled": true
+    },
+    {
+      "id": "mix-agua-bella",
+      "title": "Pasito tun tun + Agua De Veneno + Voy a Buscar un Amor",
+      "artist": "Maricarmen",
+      "enabled": true
+    },
+    {
+      "id": "si-antes-te-hubiera-conocido",
+      "title": "Si Antes Te Hubiera Conocido",
+      "artist": "Karol G",
+      "enabled": true
+    },
+    {
+      "id": "shake-shake-shake",
+      "title": "Shake Shake Shake + Give it Up",
+      "artist": "KC & The Sunshine Band",
+      "enabled": true
+    },
+    {
+      "id": "lets-groove",
+      "title": "Let's Groove",
+      "artist": "Earth, Wind & Fire",
+      "enabled": true
+    },
+    {
+      "id": "funky-town",
+      "title": "Funky Town",
+      "artist": "Lipps Inc.",
+      "enabled": true
+    },
+    {
+      "id": "indecorosa",
+      "title": "Indecorosa",
+      "artist": "Karla",
+      "enabled": true
+    },
+    {
+      "id": "porque-te-fuiste",
+      "title": "Porque Te Fuiste",
+      "artist": "Maricarmen",
+      "enabled": true
+    },
+    {
+      "id": "el-arbolito",
+      "title": "El Arbolito",
+      "artist": "Grupo Nectar",
+      "enabled": true
+    },
+    {
+      "id": "take-on-me",
+      "title": "Take on Me",
+      "artist": "a-ha",
+      "enabled": true
+    },
+    {
+      "id": "you-should-be-dancing",
+      "title": "You Should Be Dancing",
+      "artist": "Bee Gees",
+      "enabled": true
+    },
+    {
+      "id": "tu-falta-de-querer",
+      "title": "Tu Falta de Querer",
+      "artist": "Mon Laferte",
+      "enabled": true
+    },
+    {
+      "id": "amarrame",
+      "title": "Amárrame",
+      "artist": "Mon Laferte",
+      "enabled": true
+    },
+    {
+      "id": "corazon",
+      "title": "Corazón",
+      "artist": "Los Fabulosos Cadillacs",
+      "enabled": true
+    },
+    {
+      "id": "voy-en-coche",
+      "title": "Voy en Coche",
+      "artist": "Christina Rosenvinge",
+      "enabled": true
+    },
+    {
+      "id": "disco-inferno",
+      "title": "Disco Inferno",
+      "artist": "The Trammps",
+      "enabled": true
+    },
+    {
+      "id": "bar-girls",
+      "title": "Bad Girls",
+      "artist": "Donna Summer",
+      "enabled": true
+    },
+    {
+      "id": "hot-stuff",
+      "title": "Hot Stuff",
+      "artist": "Donna Summer",
+      "enabled": true
+    },
+    {
+      "id": "little-respect",
+      "title": "A Little Respect",
+      "artist": "Erasure",
+      "enabled": true
+    },
+    {
+      "id": "no-me-arrepiento-de-este-amor",
+      "title": "No Me Arrepiento de Este Amor",
+      "artist": "Gilda",
+      "enabled": true
+    },
+    {
+      "id": "quiero-amanecer",
+      "title": "Quiero Amanecer",
+      "artist": "Bareto",
+      "enabled": true
+    },
+    {
+      "id": "elsa",
+      "title": "Elsa",
+      "artist": "Bareto",
+      "enabled": true
+    },
+    {
+      "id": "mujer-hilandera",
+      "title": "Mujer Hilandera",
+      "artist": "Juaneco y Su Combo",
+      "enabled": true
+    },
+    {
+      "id": "si-te-vas-cumbia",
+      "title": "Si Te Vas (Cumbia)",
+      "artist": "Shakira",
+      "enabled": true
+    },
+    {
+      "id": "one-way-ticket",
+      "title": "One Way Ticket",
+      "artist": "Eruption",
+      "enabled": true
+    },
+    {
+      "id": "jump",
+      "title": "Jump",
+      "artist": "Van Halen",
+      "enabled": true
+    },
+    {
+      "id": "maniac",
+      "title": "Maniac",
+      "artist": "Michael Sembello",
+      "enabled": true
+    },
+    {
+      "id": "profugos",
+      "title": "Prófugos",
+      "artist": "Soda Stereo",
+      "enabled": true
+    },
+    {
+      "id": "tu-amor-fue-una-mentira",
+      "title": "Tu Amor Fue una Mentira",
+      "artist": "Grupo Cinco",
+      "enabled": true
+    },
+    {
+      "id": "miralo-mirala",
+      "title": "Míralo Mírala",
+      "artist": "Alejandra Guzmán",
+      "enabled": true
+    },
+    {
+      "id": "nada-fue-error",
+      "title": "Nada Fue un Error",
+      "artist": "Coti",
+      "enabled": true
+    },
+    {
+      "id": "sol-no-regresa",
+      "title": "El Sol No Regresa",
+      "artist": "La 5a Estación",
+      "enabled": true
+    },
+    {
+      "id": "zombie",
+      "title": "Zombie",
+      "artist": "The Cranberries",
+      "enabled": true
+    },
+    {
+      "id": "dancing-in-the-dark",
+      "title": "Dancing in the Dark",
+      "artist": "Bruce Springsteen",
+      "enabled": true
+    },
+    {
+      "id": "dancing-with-my-self",
+      "title": "Dancing with Myself",
+      "artist": "Billy Idol",
+      "enabled": true
+    },
+    {
+      "id": "oye-mi-amor",
+      "title": "Oye Mi Amor",
+      "artist": "Maná",
+      "enabled": true
+    },
+    {
+      "id": "te-aviso-y-anuncio",
+      "title": "Te Aviso, Te Anuncio",
+      "artist": "Shakira",
+      "enabled": true
+    },
+    {
+      "id": "dont-get-me-wrong",
+      "title": "Don't Get Me Wrong",
+      "artist": "The Pretenders",
+      "enabled": true
+    },
+    {
+      "id": "are-you-gonna-go",
       "title": "Are You Gonna Go My Way",
       "artist": "Lenny Kravitz",
-      "bloque": "extras",
-      "youtubePosition": 77,
       "enabled": true
     },
     {
-      "id": "voy-en-un-coche",
-      "title": "Voy en un Coche",
-      "artist": "Christina Rosenvinge",
-      "bloque": "extras",
-      "youtubePosition": 78,
+      "id": "av-larco",
+      "title": "Avenida Larco",
+      "artist": "Frágil",
+      "enabled": true
+    },
+    {
+      "id": "contestame",
+      "title": "Contéstame",
+      "artist": "Grupo Río",
+      "enabled": true
+    },
+    {
+      "id": "decir-adios",
+      "title": "Decir Adiós",
+      "artist": "Amén",
+      "enabled": true
+    },
+    {
+      "id": "suna",
+      "title": "Suna",
+      "artist": "Mar de Copas",
+      "enabled": true
+    },
+    {
+      "id": "entre-dos-tierras",
+      "title": "Entre Dos Tierras",
+      "artist": "Héroes del Silencio",
+      "enabled": true
+    },
+    {
+      "id": "la-calle-es-su-lugar",
+      "title": "La Calle Es Su Lugar",
+      "artist": "GIT",
+      "enabled": true
+    },
+    {
+      "id": "like-a-stone",
+      "title": "Like a Stone",
+      "artist": "Audioslave",
+      "enabled": true
+    },
+    {
+      "id": "lobo-en-paris",
+      "title": "Lobo Hombre en París",
+      "artist": "La Unión",
+      "enabled": true
+    },
+    {
+      "id": "mama-mia",
+      "title": "Mamma Mia",
+      "artist": "ABBA",
+      "enabled": true
+    },
+    {
+      "id": "me-estoy-enamorando",
+      "title": "Me Estoy Enamorando",
+      "artist": "Pedro Suárez-Vértiz",
+      "enabled": true
+    },
+    {
+      "id": "mujer-amante",
+      "title": "Mujer Amante",
+      "artist": "Rata Blanca",
+      "enabled": true
+    },
+    {
+      "id": "rehab",
+      "title": "Rehab",
+      "artist": "Amy Winehouse",
+      "enabled": true
+    },
+    {
+      "id": "santeria",
+      "title": "Santeria",
+      "artist": "Sublime",
+      "enabled": true
+    },
+    {
+      "id": "auto-rojo",
+      "title": "Auto Rojo",
+      "artist": "Vilma Palma e Vampiros",
+      "enabled": true
+    },
+    {
+      "id": "crazy-little-thing",
+      "title": "Crazy Little Thing Called Love",
+      "artist": "Queen",
+      "enabled": true
+    },
+    {
+      "id": "pies-descalzos",
+      "title": "Pies Descalzos, Sueños Blancos",
+      "artist": "Shakira",
+      "enabled": true
+    },
+    {
+      "id": "cuando-seas-grande",
+      "title": "Cuando Seas Grande",
+      "artist": "Miguel Mateos",
+      "enabled": true
+    },
+    {
+      "id": "devuelveme-a-mi-chica",
+      "title": "Devuélveme a Mi Chica",
+      "artist": "Hombres G",
+      "enabled": true
+    },
+    {
+      "id": "footlose",
+      "title": "Footloose",
+      "artist": "Kenny Loggins",
+      "enabled": true
+    },
+    {
+      "id": "muralla-verde",
+      "title": "Muralla Verde",
+      "artist": "Enanitos Verdes",
+      "enabled": true
+    },
+    {
+      "id": "lamento-boliviano",
+      "title": "Lamento Boliviano",
+      "artist": "Enanitos Verdes",
+      "enabled": true
+    },
+    {
+      "id": "mil-horas",
+      "title": "Mil Horas",
+      "artist": "Los Abuelos de la Nada",
+      "enabled": true
+    },
+    {
+      "id": "mr-jones",
+      "title": "Mr. Jones",
+      "artist": "Counting Crows",
+      "enabled": true
+    },
+    {
+      "id": "musica-ligera",
+      "title": "Música Ligera",
+      "artist": "Soda Stereo",
+      "enabled": true
+    },
+    {
+      "id": "new-years-day",
+      "title": "New Year's Day",
+      "artist": "U2",
+      "enabled": true
+    },
+    {
+      "id": "pronta-entrega",
+      "title": "Pronta Entrega",
+      "artist": "Virus",
+      "enabled": true
+    },
+    {
+      "id": "rock-with-you",
+      "title": "Rock with You",
+      "artist": "Michael Jackson",
+      "enabled": true
+    },
+    {
+      "id": "triciclo-peru",
+      "title": "Triciclo Perú",
+      "artist": "Los Mojarras",
+      "enabled": true
+    },
+    {
+      "id": "boys-dont-cry",
+      "title": "Boys Don't Cry",
+      "artist": "The Cure",
+      "enabled": true
+    },
+    {
+      "id": "heart-of-glass",
+      "title": "Heart of Glass",
+      "artist": "Blondie",
+      "enabled": true
+    },
+    {
+      "id": "creep",
+      "title": "Creep",
+      "artist": "Radiohead",
+      "enabled": true
+    },
+    {
+      "id": "inevitable",
+      "title": "Inevitable",
+      "artist": "Shakira",
+      "enabled": true
+    },
+    {
+      "id": "eternamente-bella",
+      "title": "Eternamente Bella",
+      "artist": "Alejandra Guzmán",
+      "enabled": true
+    },
+    {
+      "id": "es-por-amor",
+      "title": "Es por Amor",
+      "artist": "Maná",
+      "enabled": true
+    },
+    {
+      "id": "fresh",
+      "title": "Fresh",
+      "artist": "Kool & The Gang",
+      "enabled": true
+    },
+    {
+      "id": "boogie-wonderland",
+      "title": "Boogie Wonderland",
+      "artist": "Earth, Wind & Fire",
+      "enabled": true
+    },
+    {
+      "id": "good-times",
+      "title": "Good Times",
+      "artist": "Chic",
+      "enabled": true
+    },
+    {
+      "id": "ladies-night",
+      "title": "Ladies Night",
+      "artist": "Kool & The Gang",
+      "enabled": true
+    },
+    {
+      "id": "get-down-on-it",
+      "title": "Get Down On It",
+      "artist": "Kool & The Gang",
+      "enabled": true
+    },
+    {
+      "id": "like-a-virgin",
+      "title": "Like a Virgin",
+      "artist": "Madonna",
+      "enabled": true
+    },
+    {
+      "id": "ring-my-bell",
+      "title": "Ring My Bell",
+      "artist": "Anita Ward",
+      "enabled": true
+    },
+    {
+      "id": "rasputin",
+      "title": "Rasputin",
+      "artist": "Boney M",
       "enabled": true
     }
   ]
