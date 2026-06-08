@@ -283,3 +283,49 @@ test('Arena — fiesta disco, entrada general de precio único', async ({ page }
 
   await checkIn(page, token);
 });
+
+test('Asientos específicos — el comprador recibe EXACTAMENTE los asientos que eligió', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Función con Numeración',
+    when: '2026-12-26T20:00',
+    venue: 'Teatro Segura, Lima',
+    sections: [
+      { name: 'Platea', shape: 'rect', seating: 'rows', seatsPerTable: 30, seatsPerRow: 10, price1: '80', tables: [{ x: 350, y: 160 }] },
+    ],
+  });
+
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Función con Numeración' }).getByTestId('buy-link').click();
+  const platea = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
+
+  // The fan deliberately picks two SPECIFIC seats — B5 and C8 — not "first available".
+  const b5 = platea.getByRole('button', { name: 'Asiento B5', exact: true });
+  const c8 = platea.getByRole('button', { name: 'Asiento C8', exact: true });
+  const idB5 = await b5.getAttribute('data-seat-id');
+  const idC8 = await c8.getAttribute('data-seat-id');
+  await narrate(page, 'Elige asientos específicos: B5 y C8');
+  await b5.click();
+  await c8.click();
+  await expect(page.getByTestId('selection')).toContainText('S/ 160.00'); // 2 x 80
+  await beat(page);
+
+  await narrate(page, 'Ingresa sus datos y paga');
+  await page.getByLabel('Nombre', { exact: true }).pressSequentially('Ana', { delay: 30 });
+  await page.getByLabel('Apellido').pressSequentially('López', { delay: 30 });
+  await page.getByLabel('Email').pressSequentially('ana@example.com', { delay: 25 });
+  await page.getByRole('button', { name: 'Comprar' }).click();
+  await expect(page.getByTestId('order-total')).toBeVisible();
+  await page.getByRole('button', { name: /pagar/i }).click();
+  await expect(page.getByText(/compra confirmada/i)).toBeVisible();
+  await beat(page);
+
+  // Reopen the event: EXACTLY B5 and C8 are sold; a neighbor (B6) is still free.
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Función con Numeración' }).getByTestId('buy-link').click();
+  await narrate(page, 'Al reabrir, B5 y C8 figuran vendidos; B6 sigue libre');
+  await expect(page.locator(`[data-seat-id="${idB5}"]`)).toHaveAttribute('data-status', 'sold');
+  await expect(page.locator(`[data-seat-id="${idC8}"]`)).toHaveAttribute('data-status', 'sold');
+  const platea2 = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
+  await expect(platea2.getByRole('button', { name: 'Asiento B6', exact: true })).toHaveAttribute('data-status', 'available');
+  await beat(page);
+});
