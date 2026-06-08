@@ -167,47 +167,6 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Setup A — 1 escenario, varias mesas, 1 precio', async ({ page }) => {
-  await createEvent(page, {
-    name: 'Noche Disco',
-    when: '2026-12-20T21:00',
-    venue: 'Teatro Lima',
-    sections: [{ name: 'General', seatsPerTable: 4, price1: '50', tables: [{ x: 280, y: 150 }, { x: 560, y: 150 }] }],
-  });
-  await buyFromHome(page, 'Noche Disco', [{ section: 'General', count: 1 }], 'S/ 50.00');
-});
-
-test('Setup B — precios por combo (1=40, 2=70)', async ({ page }) => {
-  await createEvent(page, {
-    name: 'Gala Combo',
-    when: '2026-12-21T21:00',
-    venue: 'Gran Teatro',
-    sections: [{ name: 'Mesas', seatsPerTable: 4, price1: '40', price2: '70', tables: [{ x: 330, y: 150 }, { x: 660, y: 160 }] }],
-  });
-  // Two seats in the SAME section hit the combo bundle (S/ 70), not 2 x 40.
-  await buyFromHome(page, 'Gala Combo', [{ section: 'Mesas', count: 2 }], 'S/ 70.00');
-});
-
-test('Setup C — varias secciones, varios precios', async ({ page }) => {
-  await createEvent(page, {
-    name: 'Concierto Secciones',
-    when: '2026-12-22T21:00',
-    venue: 'Arena Sur',
-    sections: [
-      { name: 'VIP', seatsPerTable: 2, price1: '120', tables: [{ x: 350, y: 120 }] },
-      { name: 'General', seatsPerTable: 6, price1: '60', tables: [{ x: 350, y: 240 }] },
-    ],
-  });
-  // One VIP (120) + one General (60) = 180, picked by section name so the
-  // result doesn't depend on which section the API returns first.
-  await buyFromHome(
-    page,
-    'Concierto Secciones',
-    [{ section: 'VIP', count: 1 }, { section: 'General', count: 1 }],
-    'S/ 180.00'
-  );
-});
-
 test('Negativos — login inválido, asiento ocupado, doble check-in', async ({ page }) => {
   // (1) invalid admin login
   await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
@@ -255,35 +214,6 @@ test('Negativos — login inválido, asiento ocupado, doble check-in', async ({ 
   await beat(page);
 });
 
-test('Áreas — mesa redonda (restaurante) + filas de teatro', async ({ page }) => {
-  await createEvent(page, {
-    name: 'Cena Show RetroGroove',
-    when: '2026-12-28T21:00',
-    venue: 'Restaurante La Estación',
-    sections: [
-      { name: 'Restaurante', shape: 'round', seating: 'around', seatsPerTable: 8, price1: '90', tables: [{ x: 300, y: 160 }] },
-      { name: 'Teatro', shape: 'rect', seating: 'rows', seatsPerTable: 20, seatsPerRow: 10, price1: '50', tables: [{ x: 620, y: 200 }] },
-    ],
-  });
-
-  // The seat map renders both area shapes: a round table of 8 seats, and a
-  // theater block laid out in labeled rows (A1..A10, B1..B10).
-  await page.goto('/', { waitUntil: 'commit' });
-  await page.getByTestId('event-card').filter({ hasText: 'Cena Show RetroGroove' }).getByTestId('buy-link').click();
-  const restaurante = page.locator('section[data-section-id]').filter({ hasText: 'Restaurante' });
-  const teatro = page.locator('section[data-section-id]').filter({ hasText: 'Teatro' });
-  await expect(restaurante.locator('[data-status="available"]')).toHaveCount(8);
-  await expect(teatro.locator('[data-status="available"]')).toHaveCount(20);
-  await expect(teatro).toContainText('Fila B');
-  await beat(page);
-
-  // A fan buys one seat from each area (S/ 90 + S/ 50 = S/ 140).
-  await buyFromHome(page, 'Cena Show RetroGroove', [
-    { section: 'Restaurante', count: 1 },
-    { section: 'Teatro', count: 1 },
-  ], 'S/ 140.00');
-});
-
 test('Restaurante — cena show de cumbia: mesas redondas, combo de mesa, validación en puerta', async ({ page }) => {
   await createEvent(page, {
     name: 'Grupo 5 — Noche de Cumbia',
@@ -294,6 +224,14 @@ test('Restaurante — cena show de cumbia: mesas redondas, combo de mesa, valida
       { name: 'Mesas Generales', shape: 'round', seating: 'around', seatsPerTable: 6, price1: '70', tables: [{ x: 620, y: 200 }] },
     ],
   });
+
+  // The seat map renders VIP as a round table of 4 seats.
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Grupo 5' }).getByTestId('buy-link').click();
+  await expect(
+    page.locator('section[data-section-id]').filter({ hasText: 'VIP' }).locator('[data-status="available"]')
+  ).toHaveCount(4);
+  await beat(page);
 
   // A couple takes two VIP seats — the 2-seat combo (S/ 220), not 2 x 120.
   const token = await buyFromHome(page, 'Grupo 5 — Noche de Cumbia', [{ section: 'VIP', count: 2 }], 'S/ 220.00');
@@ -312,6 +250,14 @@ test('Teatro — rock en filas: Platea y Mezzanine, precio por zona, compra en g
       { name: 'Mezzanine', shape: 'rect', seating: 'rows', seatsPerTable: 30, seatsPerRow: 10, price1: '60', tables: [{ x: 350, y: 250 }] },
     ],
   });
+
+  // The seat map renders the zones as labeled theater rows (A1..A10, B1..B10).
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Líbido' }).getByTestId('buy-link').click();
+  const platea = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
+  await expect(platea.locator('[data-status="available"]')).toHaveCount(20);
+  await expect(platea).toContainText('Fila B');
+  await beat(page);
 
   // A group buys 1 Platea + 2 Mezzanine — per-zone flat pricing (90 + 2 x 60 = 210).
   const token = await buyFromHome(page, 'Líbido — Rock en el Teatro', [
