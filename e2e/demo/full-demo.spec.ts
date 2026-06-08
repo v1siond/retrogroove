@@ -148,6 +148,19 @@ async function buyFromHome(page: Page, eventName: string, picks: SeatPick[], exp
   return href!.split('token=')[1];
 }
 
+// Staff validates a ticket at the door: scan -> "Válida" -> register entry.
+async function checkIn(page: Page, token: string) {
+  await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
+  await ensureAdmin(page);
+  await narrate(page, 'En la puerta, el staff valida la entrada');
+  await page.getByPlaceholder(/código|token/i).pressSequentially(token, { delay: 15 });
+  await page.getByRole('button', { name: 'Verificar' }).click();
+  await expect(page.getByTestId('result')).toContainText('Válida');
+  await page.getByRole('button', { name: /registrar entrada/i }).click();
+  await expect(page.getByTestId('result')).toContainText('Entrada registrada');
+  await beat(page);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __CULQI_TEST_TOKEN__?: string }).__CULQI_TEST_TOKEN__ = 'tkn_demo';
@@ -269,4 +282,22 @@ test('Áreas — mesa redonda (restaurante) + filas de teatro', async ({ page })
     { section: 'Restaurante', count: 1 },
     { section: 'Teatro', count: 1 },
   ], 'S/ 140.00');
+});
+
+test('Restaurante — cena show de cumbia: mesas redondas, combo de mesa, validación en puerta', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Grupo 5 — Noche de Cumbia',
+    when: '2026-12-27T21:00',
+    venue: 'Restaurante El Huerto, Lima',
+    sections: [
+      { name: 'VIP Frente al Escenario', shape: 'round', seating: 'around', seatsPerTable: 4, price1: '120', price2: '220', tables: [{ x: 300, y: 150 }] },
+      { name: 'Mesas Generales', shape: 'round', seating: 'around', seatsPerTable: 6, price1: '70', tables: [{ x: 620, y: 200 }] },
+    ],
+  });
+
+  // A couple takes two VIP seats — the 2-seat combo (S/ 220), not 2 x 120.
+  const token = await buyFromHome(page, 'Grupo 5 — Noche de Cumbia', [{ section: 'VIP', count: 2 }], 'S/ 220.00');
+
+  // At the door, staff validates one of their tickets.
+  await checkIn(page, token);
 });
