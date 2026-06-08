@@ -51,6 +51,9 @@ interface SectionCfg {
   price1: string;
   price2?: string;
   tables: { x: number; y: number }[];
+  shape?: 'round' | 'rect';
+  seating?: 'around' | 'rows';
+  seatsPerRow?: number;
 }
 interface EventCfg {
   name: string;
@@ -78,6 +81,9 @@ async function createEvent(page: Page, cfg: EventCfg) {
     await page.getByTestId('section-tab').nth(s).click();
     await page.getByLabel('Nombre de la sección').fill(sec.name);
     await page.getByLabel('Asientos por mesa (nuevas)').fill(String(sec.seatsPerTable));
+    if (sec.shape) await page.getByLabel('Forma').selectOption(sec.shape);
+    if (sec.seating) await page.getByLabel('Distribución').selectOption(sec.seating);
+    if (sec.seatsPerRow) await page.getByLabel('Asientos por fila').fill(String(sec.seatsPerRow));
     await page.getByLabel('Precio 1 entrada').fill(sec.price1);
     await page.getByLabel(/combo/i).fill(sec.price2 || '');
     await narrate(page, `Coloca las mesas de "${sec.name}" en el escenario`);
@@ -234,4 +240,33 @@ test('Negativos — login inválido, asiento ocupado, doble check-in', async ({ 
   await page.getByRole('button', { name: 'Verificar' }).click();
   await expect(page.getByTestId('result')).toContainText('Ya usada');
   await beat(page);
+});
+
+test('Áreas — mesa redonda (restaurante) + filas de teatro', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Cena Show RetroGroove',
+    when: '2026-12-28T21:00',
+    venue: 'Restaurante La Estación',
+    sections: [
+      { name: 'Restaurante', shape: 'round', seating: 'around', seatsPerTable: 8, price1: '90', tables: [{ x: 300, y: 160 }] },
+      { name: 'Teatro', shape: 'rect', seating: 'rows', seatsPerTable: 20, seatsPerRow: 10, price1: '50', tables: [{ x: 620, y: 200 }] },
+    ],
+  });
+
+  // The seat map renders both area shapes: a round table of 8 seats, and a
+  // theater block laid out in labeled rows (A1..A10, B1..B10).
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Cena Show RetroGroove' }).getByTestId('buy-link').click();
+  const restaurante = page.locator('section[data-section-id]').filter({ hasText: 'Restaurante' });
+  const teatro = page.locator('section[data-section-id]').filter({ hasText: 'Teatro' });
+  await expect(restaurante.locator('[data-status="available"]')).toHaveCount(8);
+  await expect(teatro.locator('[data-status="available"]')).toHaveCount(20);
+  await expect(teatro).toContainText('Fila B');
+  await beat(page);
+
+  // A fan buys one seat from each area (S/ 90 + S/ 50 = S/ 140).
+  await buyFromHome(page, 'Cena Show RetroGroove', [
+    { section: 'Restaurante', count: 1 },
+    { section: 'Teatro', count: 1 },
+  ], 'S/ 140.00');
 });

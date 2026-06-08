@@ -11,6 +11,9 @@ interface TableDef {
   x: number; // percent of stage width
   y: number; // percent of stage height
   seats: number;
+  shape: 'round' | 'rect';
+  seating: 'around' | 'rows';
+  seatsPerRow: number;
 }
 interface SectionDef {
   name: string;
@@ -30,6 +33,9 @@ function NewEvent() {
   ]);
   const [active, setActive] = useState(0);
   const [seatsPerTable, setSeatsPerTable] = useState(4);
+  const [shape, setShape] = useState<'round' | 'rect'>('round');
+  const [seating, setSeating] = useState<'around' | 'rows'>('around');
+  const [seatsPerRow, setSeatsPerRow] = useState(10);
   const [creating, setCreating] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +59,7 @@ function NewEvent() {
     setSections((s) =>
       s.map((sec, idx) =>
         idx === active
-          ? { ...sec, tables: [...sec.tables, { label: `Mesa ${sec.tables.length + 1}`, x, y, seats: seatsPerTable }] }
+          ? { ...sec, tables: [...sec.tables, { label: `Mesa ${sec.tables.length + 1}`, x, y, seats: seatsPerTable, shape, seating, seatsPerRow }] }
           : sec
       )
     );
@@ -88,24 +94,17 @@ function NewEvent() {
         if (sec.price1) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 1, price: sec.price1 });
         if (sec.price2) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 2, price: sec.price2 });
 
-        let seatNum = 0;
+        // The backend generates the seat map from the area's shape + seating.
         for (const t of sec.tables) {
-          const { data: table } = await adminApi.createTable(section.id, {
+          await adminApi.createTable(section.id, {
             label: t.label,
             seat_count: t.seats,
             pos_x: t.x,
             pos_y: t.y,
+            shape: t.shape,
+            seating: t.seating,
+            seats_per_row: t.seating === 'rows' ? t.seatsPerRow : null,
           });
-          for (let i = 1; i <= t.seats; i++) {
-            seatNum += 1;
-            await adminApi.createSeat(section.id, {
-              table_id: table.id,
-              number: seatNum,
-              label: `${t.label}-${i}`,
-              pos_x: t.x,
-              pos_y: t.y,
-            });
-          }
         }
       }
 
@@ -178,6 +177,26 @@ function NewEvent() {
             <label className={ui.label} htmlFor="seats-per-table">Asientos por mesa (nuevas)</label>
             <input id="seats-per-table" type="number" min={1} className={ui.input} value={seatsPerTable} onChange={(e) => setSeatsPerTable(Number(e.target.value))} />
           </div>
+          <div>
+            <label className={ui.label} htmlFor="area-shape">Forma</label>
+            <select id="area-shape" className={ui.input} value={shape} onChange={(e) => setShape(e.target.value as 'round' | 'rect')}>
+              <option value="round">Redonda</option>
+              <option value="rect">Rectangular</option>
+            </select>
+          </div>
+          <div>
+            <label className={ui.label} htmlFor="area-seating">Distribución</label>
+            <select id="area-seating" className={ui.input} value={seating} onChange={(e) => setSeating(e.target.value as 'around' | 'rows')}>
+              <option value="around">Asientos alrededor</option>
+              <option value="rows">Filas</option>
+            </select>
+          </div>
+          {seating === 'rows' && (
+            <div>
+              <label className={ui.label} htmlFor="seats-per-row">Asientos por fila</label>
+              <input id="seats-per-row" type="number" min={1} className={ui.input} value={seatsPerRow} onChange={(e) => setSeatsPerRow(Number(e.target.value))} />
+            </div>
+          )}
           <div>
             <label className={ui.label} htmlFor="sec-price1">Precio 1 entrada</label>
             <input id="sec-price1" className={ui.input} value={sec.price1} onChange={(e) => patchSection(active, { price1: e.target.value })} />

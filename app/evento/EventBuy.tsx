@@ -6,7 +6,23 @@ import { ticketingApi, ApiError } from '@/lib/ticketing/api';
 import { bundleTotal } from '@/lib/ticketing/pricing';
 import { getCulqiToken } from '@/lib/ticketing/culqi';
 import { ui } from '@/lib/ticketing/ui';
-import type { TicketEvent, Order, Section } from '@/lib/ticketing/types';
+import type { TicketEvent, Order, Section, Seat } from '@/lib/ticketing/types';
+
+// Group a section's seats into display rows: seats with a `row` label (theater
+// rows) cluster under "Fila A/B/…"; seats without one (tables) share a single
+// unlabeled group. Within a row, seats are ordered by number.
+function groupSeatsByRow(seats: Seat[]): { row: string | null; seats: Seat[] }[] {
+  const groups = new Map<string | null, Seat[]>();
+  for (const seat of seats) {
+    const key = seat.row ?? null;
+    const existing = groups.get(key);
+    if (existing) existing.push(seat);
+    else groups.set(key, [seat]);
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => (a[0] ?? '').localeCompare(b[0] ?? ''))
+    .map(([row, rowSeats]) => ({ row, seats: [...rowSeats].sort((x, y) => x.number - y.number) }));
+}
 
 type Step = 'select' | 'pay' | 'done';
 
@@ -119,27 +135,34 @@ export default function EventBuy({ slug }: { slug: string }) {
                   </span>
                 )}
               </h3>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {section.seats.map((seat) => {
-                  const isSel = selected.includes(seat.id);
-                  const available = seat.status === 'available';
-                  return (
-                    <button
-                      key={seat.id}
-                      type="button"
-                      className={ui.seat}
-                      data-seat-id={seat.id}
-                      data-status={seat.status}
-                      data-selected={isSel}
-                      disabled={!available}
-                      aria-pressed={isSel}
-                      aria-label={`Asiento ${seat.label || seat.number}`}
-                      onClick={() => toggleSeat(seat.id)}
-                    >
-                      {seat.label || seat.number}
-                    </button>
-                  );
-                })}
+              <div className="mt-2 space-y-2">
+                {groupSeatsByRow(section.seats).map((group) => (
+                  <div key={group.row ?? 'around'} className="flex flex-wrap gap-2 items-center">
+                    {group.row && (
+                      <span className="text-white/50 text-xs w-16 shrink-0">Fila {group.row}</span>
+                    )}
+                    {group.seats.map((seat) => {
+                      const isSel = selected.includes(seat.id);
+                      const available = seat.status === 'available';
+                      return (
+                        <button
+                          key={seat.id}
+                          type="button"
+                          className={ui.seat}
+                          data-seat-id={seat.id}
+                          data-status={seat.status}
+                          data-selected={isSel}
+                          disabled={!available}
+                          aria-pressed={isSel}
+                          aria-label={`Asiento ${group.row ? group.row + seat.number : seat.label || seat.number}`}
+                          onClick={() => toggleSeat(seat.id)}
+                        >
+                          {group.row ? seat.number : seat.label || seat.number}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </section>
           ))}
