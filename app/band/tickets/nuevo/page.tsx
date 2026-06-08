@@ -70,15 +70,20 @@ function NewEvent() {
         venue_name: venue,
       });
 
+      // One sales phase for the whole event — every section's price bundles hang
+      // off it. A phase is an event-wide window (preventa); creating one per
+      // section left each section's bundles on a different phase, so only the
+      // active-phase section showed a price and the rest came back free.
+      const { data: phase } = await adminApi.createPhase(event.id, {
+        name: 'Preventa',
+        starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
+        ends_at: new Date(startsAt).toISOString(),
+      });
+
       for (const sec of sections) {
         const { data: section } = await adminApi.createSection(event.id, {
           name: sec.name,
           layout_type: 'tables',
-        });
-        const { data: phase } = await adminApi.createPhase(event.id, {
-          name: 'Preventa',
-          starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
-          ends_at: new Date(startsAt).toISOString(),
         });
         if (sec.price1) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 1, price: sec.price1 });
         if (sec.price2) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 2, price: sec.price2 });
