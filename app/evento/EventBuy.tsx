@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ticketingApi, ApiError } from '@/lib/ticketing/api';
 import { bundleTotal } from '@/lib/ticketing/pricing';
 import { getCulqiToken } from '@/lib/ticketing/culqi';
+import { ui } from '@/lib/ticketing/ui';
 import type { TicketEvent, Order, Section } from '@/lib/ticketing/types';
 
 type Step = 'select' | 'pay' | 'done';
@@ -13,6 +14,8 @@ export default function EventBuy({ slug }: { slug: string }) {
   const [event, setEvent] = useState<TicketEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<Step>('select');
@@ -58,16 +61,21 @@ export default function EventBuy({ slug }: { slug: string }) {
     setWorking(true);
     setError(null);
     try {
-      const { order } = await ticketingApi.createOrder(event.id, selected, { email, phone });
+      const { order } = await ticketingApi.createOrder(event.id, selected, {
+        email,
+        phone,
+        first_name: firstName,
+        last_name: lastName,
+      });
       setOrder(order);
       setStep('pay');
     } catch (err) {
       const data = (err as ApiError)?.data as { error?: string } | undefined;
-      if (data?.error === 'seats_unavailable') {
-        setError('Algunos asientos ya no están disponibles. Elige otros.');
-      } else {
-        setError('No se pudo crear la orden.');
-      }
+      setError(
+        data?.error === 'seats_unavailable'
+          ? 'Algunos asientos ya no están disponibles. Elige otros.'
+          : 'No se pudo crear la orden.'
+      );
     } finally {
       setWorking(false);
     }
@@ -89,22 +97,29 @@ export default function EventBuy({ slug }: { slug: string }) {
     }
   }
 
-  if (loading) return <main className="buy"><p>Cargando...</p></main>;
-  if (!event) return <main className="buy"><p>{error || 'Evento no encontrado'}</p></main>;
+  if (loading) return <main className={ui.page}><p>Cargando...</p></main>;
+  if (!event) return <main className={ui.page}><p>{error || 'Evento no encontrado'}</p></main>;
 
   return (
-    <main className="buy">
-      <h1>{event.name}</h1>
-      {event.venue_name && <p className="venue">{event.venue_name}</p>}
+    <main className={ui.page}>
+      <h1 className={ui.h1}>{event.name}</h1>
+      {event.venue_name && <p className={ui.muted}>{event.venue_name}</p>}
 
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p className={ui.error} role="alert">{error}</p>}
 
       {step === 'select' && (
         <>
           {event.sections.map((section) => (
-            <section key={section.id} className="zone" data-section-id={section.id}>
-              <h2>{section.name}</h2>
-              <div className="seats">
+            <section key={section.id} className={ui.card} data-section-id={section.id}>
+              <h3 className={ui.h3}>
+                {section.name}
+                {section.price_bundles[0] && (
+                  <span className="text-white/50 text-sm ml-2">
+                    desde S/ {section.price_bundles[0].price}
+                  </span>
+                )}
+              </h3>
+              <div className="flex flex-wrap gap-2 mt-2">
                 {section.seats.map((seat) => {
                   const isSel = selected.includes(seat.id);
                   const available = seat.status === 'available';
@@ -112,7 +127,7 @@ export default function EventBuy({ slug }: { slug: string }) {
                     <button
                       key={seat.id}
                       type="button"
-                      className="seat"
+                      className={ui.seat}
                       data-seat-id={seat.id}
                       data-status={seat.status}
                       data-selected={isSel}
@@ -129,55 +144,45 @@ export default function EventBuy({ slug }: { slug: string }) {
             </section>
           ))}
 
-          <div className="summary">
-            <p data-testid="selection">
+          <div className={ui.card}>
+            <p data-testid="selection" className="text-[#ffd700] font-semibold">
               {selected.length} asiento(s) — Total estimado: S/ {estimate.toFixed(2)}
             </p>
-            <label htmlFor="buyer-email">Email</label>
-            <input
-              id="buyer-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <label htmlFor="buyer-phone">Teléfono</label>
-            <input
-              id="buyer-phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-            <button
-              type="button"
-              className="primary"
-              disabled={selected.length === 0 || !email || working}
-              onClick={handleBuy}
-            >
-              Comprar
-            </button>
+            <label className={ui.label} htmlFor="buyer-first">Nombre</label>
+            <input id="buyer-first" className={ui.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <label className={ui.label} htmlFor="buyer-last">Apellido</label>
+            <input id="buyer-last" className={ui.input} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            <label className={ui.label} htmlFor="buyer-email">Email</label>
+            <input id="buyer-email" type="email" className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label className={ui.label} htmlFor="buyer-phone">Teléfono</label>
+            <input id="buyer-phone" type="tel" className={ui.input} value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <div>
+              <button type="button" className={ui.btn} disabled={selected.length === 0 || !email || working} onClick={handleBuy}>
+                Comprar
+              </button>
+            </div>
           </div>
         </>
       )}
 
       {step === 'pay' && order && (
-        <div className="pay">
-          <h2>Pago</h2>
-          <p data-testid="order-total">Total: S/ {order.total}</p>
-          <button type="button" className="primary" disabled={working} onClick={handlePay}>
+        <div className={ui.card}>
+          <h2 className={ui.h2}>Pago</h2>
+          <p data-testid="order-total" className="text-xl">Total: S/ {order.total}</p>
+          <button type="button" className={ui.btn} disabled={working} onClick={handlePay}>
             Pagar con Culqi
           </button>
         </div>
       )}
 
       {step === 'done' && order && (
-        <div className="done">
-          <h2>¡Compra confirmada!</h2>
-          <p>Te enviamos tus entradas por email. También puedes abrirlas aquí:</p>
-          <ul>
+        <div className={ui.card}>
+          <h2 className={ui.h2}>¡Compra confirmada!</h2>
+          <p className="text-white/70">Te enviamos tus entradas por email. También puedes abrirlas aquí:</p>
+          <ul className="mt-3 space-y-2">
             {order.tickets.map((t) => (
               <li key={t.id}>
-                <Link href={`/t?token=${t.public_token}`} data-testid="ticket-link">
+                <Link href={`/t?token=${t.public_token}`} className="text-[#00e5ff] underline" data-testid="ticket-link">
                   Ver entrada
                 </Link>
               </li>

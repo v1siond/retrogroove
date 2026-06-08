@@ -3,6 +3,7 @@
 import { useRef, useState, FormEvent } from 'react';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
+import { ui } from '@/lib/ticketing/ui';
 import type { Ticket } from '@/lib/ticketing/types';
 
 type Result = 'valid' | 'used' | 'invalid' | 'notfound' | 'checked' | null;
@@ -62,31 +63,35 @@ function CheckIn() {
     notfound: 'No encontrada',
     checked: 'Entrada registrada',
   };
+  const good = result === 'valid' || result === 'checked';
 
   return (
-    <main className="checkin">
-      <h1>Check-in</h1>
-      <p data-testid="count">{count === 1 ? '1 entrada' : `${count} entradas`} hoy</p>
+    <main className={`${ui.page} max-w-xl`}>
+      <h1 className={ui.h1}>Check-in</h1>
+      <p data-testid="count" className="text-[#00e5ff]">
+        {count === 1 ? '1 entrada' : `${count} entradas`} hoy
+      </p>
 
-      <form onSubmit={lookup}>
+      <form onSubmit={lookup} className="flex gap-2 items-end mt-4">
         <input
           ref={inputRef}
+          className={`${ui.input} flex-1`}
           placeholder="Código o token del ticket"
           value={token}
           onChange={(e) => setTokenValue(e.target.value)}
           autoFocus
         />
-        <button type="submit" disabled={working}>Verificar</button>
+        <button type="submit" className={ui.btn} disabled={working}>Verificar</button>
       </form>
 
       {result && (
-        <div className="result" data-testid="result" data-result={result}>
-          <p>{label[result]}</p>
+        <div className={ui.card} data-testid="result" data-result={result}>
+          <p className={`text-xl font-bold ${good ? 'text-[#22c55e]' : 'text-[#ff5a6e]'}`}>{label[result]}</p>
           {result === 'valid' && (
-            <button type="button" onClick={doCheckIn} disabled={working}>Registrar entrada</button>
+            <button type="button" className={ui.btn} onClick={doCheckIn} disabled={working}>Registrar entrada</button>
           )}
           {result !== 'valid' && (
-            <button type="button" onClick={reset}>Siguiente</button>
+            <button type="button" className={ui.btnGhost} onClick={reset}>Siguiente</button>
           )}
         </div>
       )}

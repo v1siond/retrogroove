@@ -61,10 +61,21 @@ export const adminApi = {
     return authed('/events', { method: 'POST', body: JSON.stringify({ event: attrs }) });
   },
 
+  publishEvent(id: string): Promise<{ event: TicketEvent }> {
+    return authed(`/events/${id}/publish`, { method: 'POST' });
+  },
+
   createSection(eventId: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
     return authed(`/events/${eventId}/sections`, {
       method: 'POST',
       body: JSON.stringify({ section: attrs }),
+    });
+  },
+
+  createTable(sectionId: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
+    return authed(`/sections/${sectionId}/tables`, {
+      method: 'POST',
+      body: JSON.stringify({ table: attrs }),
     });
   },
 

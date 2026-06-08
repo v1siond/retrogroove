@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { ticketingApi } from '@/lib/ticketing/api'
+import type { TicketEvent } from '@/lib/ticketing/types'
 
 const ACCENT = ['#ff1493', '#ffd700', '#00e5ff', '#bf00ff']
 
@@ -207,6 +209,13 @@ export default function Home() {
   }
 
   const upcomingShows = UPCOMING_SHOWS.filter(show => isUpcoming(show.date))
+
+  // Ticketed events come from the API (created by admins) and are linked to the
+  // purchase flow. They render inside the same "Próximos Shows" timeline.
+  const [ticketedEvents, setTicketedEvents] = useState<TicketEvent[]>([])
+  useEffect(() => {
+    ticketingApi.getUpcoming().then(r => setTicketedEvents(r.events)).catch(() => {})
+  }, [])
 
   return (
     <>
@@ -1010,8 +1019,27 @@ export default function Home() {
               <h2 className="section-title">Próximos Shows</h2>
               <p className="section-subtitle">Próximas presentaciones confirmadas</p>
             </div>
-            {upcomingShows.length > 0 ? (
+            {(ticketedEvents.length > 0 || upcomingShows.length > 0) ? (
               <div className="timeline">
+                {ticketedEvents.map((ev) => {
+                  const d = new Date(ev.starts_at)
+                  return (
+                    <div key={ev.id} className="timeline-item" data-testid="event-card">
+                      <div className="timeline-date-box">
+                        <div className="timeline-day">{d.getDate()}</div>
+                        <div className="timeline-month">{d.toLocaleDateString('es-PE', { month: 'short' }).toUpperCase()}</div>
+                      </div>
+                      <div className="timeline-divider" />
+                      <div className="timeline-info">
+                        <div className="timeline-title">{ev.name}</div>
+                        <div className="timeline-venue">{ev.venue_name}</div>
+                        <div className="timeline-links">
+                          <a href={`/evento?slug=${ev.slug}`} className="timeline-link" data-testid="buy-link">Comprar entradas</a>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
                 {upcomingShows.map((show, i) => {
                   const { day, month } = formatDate(show.date)
                   return (

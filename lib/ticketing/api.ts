@@ -23,6 +23,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const ticketingApi = {
+  getUpcoming(): Promise<{ events: TicketEvent[] }> {
+    return request('/events/upcoming');
+  },
+
   getEvent(slug: string): Promise<{ event: TicketEvent }> {
     return request(`/events/${slug}`);
   },

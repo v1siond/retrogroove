@@ -1,24 +1,63 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, MouseEvent } from 'react';
 import Link from 'next/link';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi } from '@/lib/ticketing/admin';
+import { ui } from '@/lib/ticketing/ui';
+
+interface TableDef {
+  label: string;
+  x: number; // percent of stage width
+  y: number; // percent of stage height
+  seats: number;
+}
+interface SectionDef {
+  name: string;
+  price1: string; // 1-seat price
+  price2: string; // 2-seat (combo) price, optional
+  tables: TableDef[];
+}
+
+const COLORS = ['#ff1493', '#00e5ff', '#ffd700', '#bf00ff', '#22c55e'];
 
 function NewEvent() {
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [venue, setVenue] = useState('');
-  const [sectionName, setSectionName] = useState('General');
-  const [seatCount, setSeatCount] = useState(10);
-  const [phaseName, setPhaseName] = useState('Preventa');
-  const [phaseStart, setPhaseStart] = useState('');
-  const [phaseEnd, setPhaseEnd] = useState('');
-  const [price1, setPrice1] = useState('40');
-  const [price2, setPrice2] = useState('70');
+  const [sections, setSections] = useState<SectionDef[]>([
+    { name: 'General', price1: '40', price2: '70', tables: [] },
+  ]);
+  const [active, setActive] = useState(0);
+  const [seatsPerTable, setSeatsPerTable] = useState(4);
   const [creating, setCreating] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const totalSeats = sections.reduce(
+    (sum, s) => sum + s.tables.reduce((t, tbl) => t + tbl.seats, 0),
+    0
+  );
+
+  function addSection() {
+    setSections((s) => [...s, { name: `Sección ${s.length + 1}`, price1: '50', price2: '', tables: [] }]);
+    setActive(sections.length);
+  }
+  function patchSection(i: number, patch: Partial<SectionDef>) {
+    setSections((s) => s.map((sec, idx) => (idx === i ? { ...sec, ...patch } : sec)));
+  }
+  function placeTable(e: MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.min(94, Math.max(6, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+    const y = Math.min(90, Math.max(20, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+    setSections((s) =>
+      s.map((sec, idx) =>
+        idx === active
+          ? { ...sec, tables: [...sec.tables, { label: `Mesa ${sec.tables.length + 1}`, x, y, seats: seatsPerTable }] }
+          : sec
+      )
+    );
+  }
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -30,20 +69,42 @@ function NewEvent() {
         starts_at: new Date(startsAt).toISOString(),
         venue_name: venue,
       });
-      const { data: section } = await adminApi.createSection(event.id, {
-        name: sectionName,
-        layout_type: 'rows',
-      });
-      const { data: phase } = await adminApi.createPhase(event.id, {
-        name: phaseName,
-        starts_at: new Date(phaseStart).toISOString(),
-        ends_at: phaseEnd ? new Date(phaseEnd).toISOString() : null,
-      });
-      if (price1) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 1, price: price1 });
-      if (price2) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 2, price: price2 });
-      for (let i = 1; i <= seatCount; i++) {
-        await adminApi.createSeat(section.id, { number: i, label: `${i}` });
+
+      for (const sec of sections) {
+        const { data: section } = await adminApi.createSection(event.id, {
+          name: sec.name,
+          layout_type: 'tables',
+        });
+        const { data: phase } = await adminApi.createPhase(event.id, {
+          name: 'Preventa',
+          starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
+          ends_at: new Date(startsAt).toISOString(),
+        });
+        if (sec.price1) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 1, price: sec.price1 });
+        if (sec.price2) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 2, price: sec.price2 });
+
+        let seatNum = 0;
+        for (const t of sec.tables) {
+          const { data: table } = await adminApi.createTable(section.id, {
+            label: t.label,
+            seat_count: t.seats,
+            pos_x: t.x,
+            pos_y: t.y,
+          });
+          for (let i = 1; i <= t.seats; i++) {
+            seatNum += 1;
+            await adminApi.createSeat(section.id, {
+              table_id: table.id,
+              number: seatNum,
+              label: `${t.label}-${i}`,
+              pos_x: t.x,
+              pos_y: t.y,
+            });
+          }
+        }
       }
+
+      await adminApi.publishEvent(event.id);
       setCreatedSlug(event.slug);
     } catch {
       setError('No se pudo crear el evento');
@@ -54,55 +115,109 @@ function NewEvent() {
 
   if (createdSlug) {
     return (
-      <main className="new-event">
-        <h1>Evento creado</h1>
-        <p>Listo para vender.</p>
-        <ul>
-          <li><Link href={`/evento?slug=${createdSlug}`}>Página pública de venta</Link></li>
-          <li><Link href={`/band/tickets/evento?slug=${createdSlug}`}>Administrar entradas</Link></li>
+      <main className={ui.page}>
+        <h1 className={ui.h1}>Evento publicado</h1>
+        <p className="text-white/70">Ya aparece en la home y está listo para vender.</p>
+        <ul className="mt-3 space-y-2">
+          <li><Link href={`/evento?slug=${createdSlug}`} className="text-[#00e5ff] underline" data-testid="public-link">Página pública de venta</Link></li>
+          <li><Link href={`/band/tickets/evento?slug=${createdSlug}`} className="text-[#00e5ff] underline">Administrar entradas</Link></li>
         </ul>
       </main>
     );
   }
 
+  const sec = sections[active];
+
   return (
-    <main className="new-event">
-      <h1>Nuevo evento</h1>
-      {error && <p className="error">{error}</p>}
+    <main className={ui.page}>
+      <h1 className={ui.h1}>Nuevo evento</h1>
+      {error && <p className={ui.error}>{error}</p>}
+
       <form onSubmit={create}>
-        <label htmlFor="ev-name">Nombre</label>
-        <input id="ev-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <div className={ui.card}>
+          <label className={ui.label} htmlFor="ev-name">Nombre</label>
+          <input id="ev-name" className={ui.input} value={name} onChange={(e) => setName(e.target.value)} required />
+          <label className={ui.label} htmlFor="ev-start">Fecha y hora</label>
+          <input id="ev-start" type="datetime-local" className={ui.input} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+          <label className={ui.label} htmlFor="ev-venue">Lugar</label>
+          <input id="ev-venue" className={ui.input} value={venue} onChange={(e) => setVenue(e.target.value)} />
+        </div>
 
-        <label htmlFor="ev-start">Fecha y hora</label>
-        <input id="ev-start" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+        <h2 className={ui.h2}>Configura el escenario</h2>
+        <p className={ui.muted}>Crea secciones (cada una con su precio) y haz clic en el escenario para colocar mesas.</p>
 
-        <label htmlFor="ev-venue">Lugar</label>
-        <input id="ev-venue" value={venue} onChange={(e) => setVenue(e.target.value)} />
+        {/* Section tabs */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {sections.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActive(i)}
+              data-testid="section-tab"
+              className={`px-4 py-2 rounded-full text-sm border ${i === active ? 'bg-[#ff1493] border-[#ff1493]' : 'border-white/20 text-white/80'}`}
+              style={{ borderColor: i === active ? COLORS[i % COLORS.length] : undefined }}
+            >
+              {s.name} ({s.tables.length})
+            </button>
+          ))}
+          <button type="button" className={ui.btnGhost} onClick={addSection} data-testid="add-section">+ Sección</button>
+        </div>
 
-        <h2>Sección</h2>
-        <label htmlFor="sec-name">Nombre de la sección</label>
-        <input id="sec-name" value={sectionName} onChange={(e) => setSectionName(e.target.value)} />
+        {/* Active section pricing */}
+        <div className={`${ui.card} grid gap-3 sm:grid-cols-2`}>
+          <div>
+            <label className={ui.label} htmlFor="sec-name">Nombre de la sección</label>
+            <input id="sec-name" className={ui.input} value={sec.name} onChange={(e) => patchSection(active, { name: e.target.value })} />
+          </div>
+          <div>
+            <label className={ui.label} htmlFor="seats-per-table">Asientos por mesa (nuevas)</label>
+            <input id="seats-per-table" type="number" min={1} className={ui.input} value={seatsPerTable} onChange={(e) => setSeatsPerTable(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className={ui.label} htmlFor="sec-price1">Precio 1 entrada</label>
+            <input id="sec-price1" className={ui.input} value={sec.price1} onChange={(e) => patchSection(active, { price1: e.target.value })} />
+          </div>
+          <div>
+            <label className={ui.label} htmlFor="sec-price2">Precio combo 2 entradas (opcional)</label>
+            <input id="sec-price2" className={ui.input} value={sec.price2} onChange={(e) => patchSection(active, { price2: e.target.value })} />
+          </div>
+        </div>
 
-        <label htmlFor="seat-count">Cantidad de asientos</label>
-        <input id="seat-count" type="number" min={1} value={seatCount} onChange={(e) => setSeatCount(Number(e.target.value))} />
+        {/* Stage canvas */}
+        <div
+          data-testid="stage-canvas"
+          onClick={placeTable}
+          className="relative h-80 rounded-xl border border-white/15 overflow-hidden mt-4 cursor-crosshair bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.18),transparent_60%),#0b0020]"
+        >
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gradient-to-br from-[#ff1493] to-[#bf00ff] text-white font-[Bebas_Neue] tracking-[0.2em] px-7 py-1 rounded text-sm pointer-events-none">
+            ESCENARIO
+          </div>
+          {sections.flatMap((s, si) =>
+            s.tables.map((t, ti) => (
+              <div
+                key={`${si}-${ti}`}
+                data-testid="stage-table"
+                className="absolute -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-2 flex items-center justify-center text-[0.65rem] leading-tight text-center pointer-events-none"
+                style={{
+                  left: `${t.x}%`,
+                  top: `${t.y}%`,
+                  borderColor: COLORS[si % COLORS.length],
+                  background: `${COLORS[si % COLORS.length]}22`,
+                }}
+              >
+                {t.label}
+                <br />
+                {t.seats}
+              </div>
+            ))
+          )}
+        </div>
 
-        <h2>Fase de venta y precios</h2>
-        <label htmlFor="ph-name">Nombre de la fase</label>
-        <input id="ph-name" value={phaseName} onChange={(e) => setPhaseName(e.target.value)} />
+        <p className="text-white/60 text-sm mt-2" data-testid="seat-total">{totalSeats} asientos en total</p>
 
-        <label htmlFor="ph-start">Inicio de venta</label>
-        <input id="ph-start" type="datetime-local" value={phaseStart} onChange={(e) => setPhaseStart(e.target.value)} required />
-
-        <label htmlFor="ph-end">Fin de venta (opcional)</label>
-        <input id="ph-end" type="datetime-local" value={phaseEnd} onChange={(e) => setPhaseEnd(e.target.value)} />
-
-        <label htmlFor="price1">Precio 1 entrada</label>
-        <input id="price1" value={price1} onChange={(e) => setPrice1(e.target.value)} />
-
-        <label htmlFor="price2">Precio 2 entradas (combo)</label>
-        <input id="price2" value={price2} onChange={(e) => setPrice2(e.target.value)} />
-
-        <button type="submit" disabled={creating}>{creating ? 'Creando...' : 'Crear evento'}</button>
+        <button type="submit" className={ui.btn} disabled={creating || totalSeats === 0}>
+          {creating ? 'Creando...' : 'Crear y publicar'}
+        </button>
       </form>
     </main>
   );

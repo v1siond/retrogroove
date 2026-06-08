@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
+import { ui } from '@/lib/ticketing/ui';
 import type { TicketEvent, Order } from '@/lib/ticketing/types';
 
 export default function EventAdmin({ slug }: { slug: string }) {
@@ -55,26 +56,26 @@ export default function EventAdmin({ slug }: { slug: string }) {
     URL.revokeObjectURL(url);
   }
 
-  if (loading) return <main className="event-admin"><p>Cargando...</p></main>;
-  if (!event) return <main className="event-admin"><p>{error || 'Evento no encontrado'}</p></main>;
+  if (loading) return <main className={ui.page}><p>Cargando...</p></main>;
+  if (!event) return <main className={ui.page}><p>{error || 'Evento no encontrado'}</p></main>;
 
   return (
-    <main className="event-admin">
-      <h1>{event.name}</h1>
-      <div className="toolbar">
-        <button type="button" onClick={downloadCsv}>Descargar CSV de compradores</button>
-        <Link href={`/band/tickets/check-in`}>Check-in</Link>
+    <main className={ui.page}>
+      <h1 className={ui.h1}>{event.name}</h1>
+      <div className={`${ui.card} flex gap-4 items-center flex-wrap`}>
+        <button type="button" className={ui.btn} onClick={downloadCsv}>Descargar CSV de compradores</button>
+        <Link href="/band/tickets/check-in" className="text-[#00e5ff] underline">Check-in</Link>
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className={ui.error}>{error}</p>}
 
-      <h2>Generar entradas (cortesía)</h2>
-      <p className="hint">Selecciona asientos y emítelos sin cobro por Culqi.</p>
+      <h2 className={ui.h2}>Generar entradas (cortesía)</h2>
+      <p className={ui.muted}>Selecciona asientos y emítelos sin cobro por Culqi.</p>
 
       {event.sections.map((section) => (
-        <section key={section.id} data-section-id={section.id}>
-          <h3>{section.name}</h3>
-          <div className="seats">
+        <section key={section.id} className={ui.card} data-section-id={section.id}>
+          <h3 className={ui.h3}>{section.name}</h3>
+          <div className="flex flex-wrap gap-2 mt-2">
             {section.seats.map((seat) => {
               const isSel = selected.includes(seat.id);
               const available = seat.status === 'available';
@@ -82,7 +83,7 @@ export default function EventAdmin({ slug }: { slug: string }) {
                 <button
                   key={seat.id}
                   type="button"
-                  className="seat"
+                  className={ui.seat}
                   data-seat-id={seat.id}
                   data-status={seat.status}
                   data-selected={isSel}
@@ -98,22 +99,24 @@ export default function EventAdmin({ slug }: { slug: string }) {
         </section>
       ))}
 
-      <div className="issue">
-        <p data-testid="selection">{selected.length} asiento(s) seleccionados</p>
-        <label htmlFor="comp-email">Email del invitado</label>
-        <input id="comp-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <button type="button" disabled={selected.length === 0 || !email || working} onClick={issue}>
-          Generar entradas
-        </button>
+      <div className={ui.card}>
+        <p data-testid="selection" className="text-[#ffd700] font-semibold">{selected.length} asiento(s) seleccionados</p>
+        <label className={ui.label} htmlFor="comp-email">Email del invitado</label>
+        <input id="comp-email" type="email" className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <div>
+          <button type="button" className={ui.btn} disabled={selected.length === 0 || !email || working} onClick={issue}>
+            Generar entradas
+          </button>
+        </div>
       </div>
 
       {issued && (
-        <div className="issued" data-testid="issued">
+        <div className={ui.card} data-testid="issued">
           <p>{issued.tickets.length} entrada(s) generada(s) y enviada(s).</p>
-          <ul>
+          <ul className="mt-2 space-y-1">
             {issued.tickets.map((t) => (
               <li key={t.id}>
-                <Link href={`/t?token=${t.public_token}`}>Ver entrada</Link>
+                <Link href={`/t?token=${t.public_token}`} className="text-[#00e5ff] underline">Ver entrada</Link>
               </li>
             ))}
           </ul>

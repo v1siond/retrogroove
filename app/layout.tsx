@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./ticketing.css";
 
 export const metadata: Metadata = {
   title: "RetroGroove — Disco & Rock en Vivo",

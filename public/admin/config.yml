@@ -21,16 +21,8 @@ collections:
           - { name: youtubePosition, label: YouTube Position, widget: number }
           - { name: enabled, label: Enabled, widget: boolean, default: true }
 
-  - name: events
-    label: Events
-    folder: content/events
-    create: true
-    slug: "{{fields.date}}"
-    fields:
-      - { name: date, label: Date, widget: datetime, format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false }
-      - { name: name, label: Name, widget: string }
-      - { name: venue, label: Venue, widget: string, required: false }
-      - { name: notes, label: Notes, widget: text, required: false }
+  # Events are managed in the ticketing admin (/band/tickets), backed by the
+  # RetroGroove API — not Decap. (Songs, requests and media stay in Decap.)
 
   - name: requests
     label: Requests
