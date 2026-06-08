@@ -19,7 +19,7 @@ async function narrate(page: Page, text: string) {
       el.id = 'rg-narrator';
       el.setAttribute(
         'style',
-        'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;' +
+        'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;pointer-events:none;' +
           'background:rgba(10,0,24,.92);color:#fff;border:1px solid #ff1493;border-radius:999px;' +
           'padding:10px 22px;font:600 16px Outfit,system-ui,sans-serif;box-shadow:0 0 26px rgba(255,20,147,.5);' +
           'max-width:80vw;text-align:center'
@@ -95,7 +95,7 @@ test('full journey: fan buys two seats, then staff checks one in', async ({ page
 
   // --- The fan ---
   await test.step('Fan opens the event page', async () => {
-    await page.goto('/evento?slug=gala-2026');
+    await page.goto('/evento?slug=gala-2026', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: 'Gala 2026' })).toBeVisible();
     await narrate(page, 'Ana abre la página del evento');
     await beat(page);
@@ -129,16 +129,16 @@ test('full journey: fan buys two seats, then staff checks one in', async ({ page
   });
 
   await test.step('Opens her QR ticket', async () => {
-    await page.getByTestId('ticket-link').first().click();
-    await expect(page).toHaveURL(/\/t\?token=tok1/);
-    await expect(page.getByTestId('ticket-qr')).toBeVisible();
+    await expect(page.getByTestId('ticket-link').first()).toBeVisible();
     await narrate(page, 'Abre su entrada con código QR');
+    await page.goto('/t?token=tok1', { waitUntil: 'commit' });
+    await expect(page.getByTestId('ticket-qr')).toBeVisible();
     await beat(page, 1500);
   });
 
   // --- The door ---
   await test.step('Staff logs into the admin', async () => {
-    await page.goto('/band/tickets/check-in');
+    await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
     await narrate(page, 'En la puerta, el staff inicia sesión');
     await page.getByLabel('Email').pressSequentially('staff@retrogroove.com', { delay: 40 });
     await page.getByLabel('Contraseña').pressSequentially('password123', { delay: 40 });

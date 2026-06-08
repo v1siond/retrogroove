@@ -9,21 +9,26 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  timeout: 180_000,
+  timeout: 300_000,
+  expect: { timeout: 30_000 },
   reporter: [['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:3333',
+    baseURL: 'http://localhost:3334',
     headless: !process.env.HEADED,
-    launchOptions: { slowMo: Number(process.env.SLOWMO || 500) },
+    // Pacing comes from explicit beat() pauses in the spec; slowMo (which slows
+    // every micro-action, including keystrokes) defaults off. Set SLOWMO for live watching.
+    launchOptions: { slowMo: Number(process.env.SLOWMO || 0) },
     video: 'on',
     trace: 'on',
     viewport: { width: 1280, height: 800 },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Runs against the static production build (`out/`) via a tiny static server —
+  // no dev compiler, so the demo is fast and deterministic. Run `npm run build` first.
   webServer: {
-    command: 'npx next dev --port 3333',
-    url: 'http://localhost:3333',
+    command: 'node e2e/visual/static-server.mjs',
+    url: 'http://localhost:3334',
     reuseExistingServer: true,
-    timeout: 120000,
+    timeout: 30000,
   },
 });

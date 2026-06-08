@@ -46,3 +46,4 @@ next-env.d.ts
 erl_crash.dump
 /test-results/
 /playwright-report/
+visual-journey.webm
