@@ -9,7 +9,8 @@
     "lint": "eslint",
     "e2e": "playwright test",
     "e2e:static": "playwright test --config playwright.static.config.ts",
-    "e2e:visual": "playwright test --config playwright.visual.config.ts"
+    "e2e:visual": "playwright test --config playwright.visual.config.ts",
+    "demo": "bash e2e/demo/run.sh"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/visual/**'],
+  // visual/ and demo/ have their own configs + servers (static build / real API);
+  // the default mocked run must not pick them up.
+  testIgnore: ['**/visual/**', '**/demo/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
