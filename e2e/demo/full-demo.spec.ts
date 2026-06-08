@@ -301,3 +301,39 @@ test('Restaurante — cena show de cumbia: mesas redondas, combo de mesa, valida
   // At the door, staff validates one of their tickets.
   await checkIn(page, token);
 });
+
+test('Teatro — rock en filas: Platea y Mezzanine, precio por zona, compra en grupo', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Líbido — Rock en el Teatro',
+    when: '2026-12-29T21:00',
+    venue: 'Teatro Municipal de Lima',
+    sections: [
+      { name: 'Platea', shape: 'rect', seating: 'rows', seatsPerTable: 20, seatsPerRow: 10, price1: '90', tables: [{ x: 350, y: 150 }] },
+      { name: 'Mezzanine', shape: 'rect', seating: 'rows', seatsPerTable: 30, seatsPerRow: 10, price1: '60', tables: [{ x: 350, y: 250 }] },
+    ],
+  });
+
+  // A group buys 1 Platea + 2 Mezzanine — per-zone flat pricing (90 + 2 x 60 = 210).
+  const token = await buyFromHome(page, 'Líbido — Rock en el Teatro', [
+    { section: 'Platea', count: 1 },
+    { section: 'Mezzanine', count: 2 },
+  ], 'S/ 210.00');
+
+  await checkIn(page, token);
+});
+
+test('Arena — fiesta disco, entrada general de precio único', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Fiebre Disco 70s — Arena 1',
+    when: '2026-12-30T21:00',
+    venue: 'Arena 1, Costa Verde',
+    sections: [
+      { name: 'General', shape: 'rect', seating: 'rows', seatsPerTable: 50, seatsPerRow: 25, price1: '50', tables: [{ x: 350, y: 180 }] },
+    ],
+  });
+
+  // A lone fan buys a single general ticket (flat S/ 50).
+  const token = await buyFromHome(page, 'Fiebre Disco 70s — Arena 1', [{ section: 'General', count: 1 }], 'S/ 50.00');
+
+  await checkIn(page, token);
+});
