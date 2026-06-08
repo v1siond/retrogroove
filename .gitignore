@@ -41,3 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .superpowers/
+
+# stray erlang crash dumps
+erl_crash.dump
+/test-results/
+/playwright-report/
