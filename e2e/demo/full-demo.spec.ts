@@ -256,7 +256,8 @@ test('Teatro — rock en filas: Platea y Mezzanine, precio por zona, compra en g
   await page.getByTestId('event-card').filter({ hasText: 'Líbido' }).getByTestId('buy-link').click();
   const platea = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
   await expect(platea.locator('[data-status="available"]')).toHaveCount(20);
-  await expect(platea).toContainText('Fila B');
+  // Row B renders on the seat map (rows A1..A10, B1..B10).
+  await expect(platea.getByRole('button', { name: 'Asiento B10', exact: true })).toBeVisible();
   await beat(page);
 
   // A group buys 1 Platea + 2 Mezzanine — per-zone flat pricing (90 + 2 x 60 = 210).

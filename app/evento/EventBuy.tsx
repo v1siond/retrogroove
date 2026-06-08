@@ -8,20 +8,30 @@ import { getCulqiToken } from '@/lib/ticketing/culqi';
 import { ui } from '@/lib/ticketing/ui';
 import type { TicketEvent, Order, Section, Seat } from '@/lib/ticketing/types';
 
-// Group a section's seats into display rows: seats with a `row` label (theater
-// rows) cluster under "Fila A/B/…"; seats without one (tables) share a single
-// unlabeled group. Within a row, seats are ordered by number.
-function groupSeatsByRow(seats: Seat[]): { row: string | null; seats: Seat[] }[] {
-  const groups = new Map<string | null, Seat[]>();
-  for (const seat of seats) {
-    const key = seat.row ?? null;
-    const existing = groups.get(key);
-    if (existing) existing.push(seat);
-    else groups.set(key, [seat]);
-  }
-  return Array.from(groups.entries())
-    .sort((a, b) => (a[0] ?? '').localeCompare(b[0] ?? ''))
-    .map(([row, rowSeats]) => ({ row, seats: [...rowSeats].sort((x, y) => x.number - y.number) }));
+// A seat's display label: theater rows read "B5"; table seats fall back to their
+// own label or number.
+function seatName(seat: Seat): string {
+  return seat.row ? `${seat.row}${seat.number}` : seat.label || String(seat.number);
+}
+
+// Place a section's seats on its own stage box. Each seat's stored pos_x/pos_y
+// (global stage-percent) is normalised into the box (with padding) so round
+// tables show as rings and theater blocks as grids, regardless of where the
+// section sits on the overall stage.
+function placeSeats(seats: Seat[]): (Seat & { left: number; top: number })[] {
+  if (seats.length === 0) return [];
+  const xs = seats.map((s) => s.pos_x);
+  const ys = seats.map((s) => s.pos_y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const spanX = Math.max(...xs) - minX || 1;
+  const spanY = Math.max(...ys) - minY || 1;
+  const PAD = 7;
+  return seats.map((s) => ({
+    ...s,
+    left: PAD + ((s.pos_x - minX) / spanX) * (100 - 2 * PAD),
+    top: PAD + ((s.pos_y - minY) / spanY) * (100 - 2 * PAD),
+  }));
 }
 
 type Step = 'select' | 'pay' | 'done';
@@ -135,34 +145,42 @@ export default function EventBuy({ slug }: { slug: string }) {
                   </span>
                 )}
               </h3>
-              <div className="mt-2 space-y-2">
-                {groupSeatsByRow(section.seats).map((group) => (
-                  <div key={group.row ?? 'around'} className="flex flex-wrap gap-2 items-center">
-                    {group.row && (
-                      <span className="text-white/50 text-xs w-16 shrink-0">Fila {group.row}</span>
-                    )}
-                    {group.seats.map((seat) => {
-                      const isSel = selected.includes(seat.id);
-                      const available = seat.status === 'available';
-                      return (
-                        <button
-                          key={seat.id}
-                          type="button"
-                          className={ui.seat}
-                          data-seat-id={seat.id}
-                          data-status={seat.status}
-                          data-selected={isSel}
-                          disabled={!available}
-                          aria-pressed={isSel}
-                          aria-label={`Asiento ${group.row ? group.row + seat.number : seat.label || seat.number}`}
-                          onClick={() => toggleSeat(seat.id)}
-                        >
-                          {group.row ? seat.number : seat.label || seat.number}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
+              <div
+                data-testid="seat-map"
+                className="relative mt-3 h-72 rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_60%),#0b0020]"
+              >
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-white/40 text-[0.6rem] tracking-[0.3em] pointer-events-none">
+                  ESCENARIO
+                </div>
+                {placeSeats(section.seats).map((seat) => {
+                  const isSel = selected.includes(seat.id);
+                  const available = seat.status === 'available';
+                  const label = seatName(seat);
+                  return (
+                    <button
+                      key={seat.id}
+                      type="button"
+                      data-seat-id={seat.id}
+                      data-status={seat.status}
+                      data-selected={isSel}
+                      disabled={!available}
+                      aria-pressed={isSel}
+                      aria-label={`Asiento ${label}`}
+                      title={`Asiento ${label}`}
+                      onClick={() => toggleSeat(seat.id)}
+                      style={{ left: `${seat.left}%`, top: `${seat.top}%` }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full border text-[0.55rem] flex items-center justify-center transition ${
+                        isSel
+                          ? 'bg-[#ff1493] border-[#ff1493] text-white'
+                          : available
+                            ? 'bg-[#00e5ff]/15 border-[#00e5ff]/60 text-[#00e5ff] hover:bg-[#00e5ff]/30'
+                            : 'bg-white/5 border-white/15 text-white/30 cursor-not-allowed'
+                      }`}
+                    >
+                      {seat.number}
+                    </button>
+                  );
+                })}
               </div>
             </section>
           ))}

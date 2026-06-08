@@ -22,8 +22,8 @@ export const mockEvent = {
       height: 200,
       tables: [],
       seats: [
-        { id: 's1', label: '1', number: 1, row: null, status: 'available', table_id: null, pos_x: 0, pos_y: 0 },
-        { id: 's2', label: '2', number: 2, row: null, status: 'available', table_id: null, pos_x: 0, pos_y: 0 },
+        { id: 's1', label: '1', number: 1, row: null, status: 'available', table_id: 't1', pos_x: 25, pos_y: 50 },
+        { id: 's2', label: '2', number: 2, row: null, status: 'available', table_id: 't1', pos_x: 70, pos_y: 50 },
       ],
       price_bundles: [
         { quantity: 1, price: '40' },

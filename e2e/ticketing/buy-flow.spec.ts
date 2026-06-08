@@ -55,4 +55,24 @@ test.describe('Fan ticket purchase flow', () => {
     await expect(page.locator('[data-seat-id="s2"]')).toBeDisabled();
     await expect(page.locator('[data-seat-id="s1"]')).toBeEnabled();
   });
+
+  test('renders a seat map with seats placed by their position', async ({ page }) => {
+    await setupTicketingMocks(page);
+
+    await page.goto('/evento?slug=gala-2026');
+    await expect(page.getByTestId('seat-map')).toBeVisible();
+
+    const s1 = page.locator('[data-seat-id="s1"]');
+    const s2 = page.locator('[data-seat-id="s2"]');
+
+    // Seats are absolutely positioned at their coordinates (not a flow list).
+    const style1 = await s1.getAttribute('style');
+    expect(style1).toMatch(/left:/);
+    expect(style1).toMatch(/top:/);
+
+    // s2 (pos_x 70) renders to the right of s1 (pos_x 25).
+    const box1 = await s1.boundingBox();
+    const box2 = await s2.boundingBox();
+    expect(box2!.x).toBeGreaterThan(box1!.x);
+  });
 });
