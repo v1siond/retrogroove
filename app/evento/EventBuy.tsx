@@ -26,12 +26,23 @@ function placeSeats(seats: Seat[]): (Seat & { left: number; top: number })[] {
   const minY = Math.min(...ys);
   const spanX = Math.max(...xs) - minX || 1;
   const spanY = Math.max(...ys) - minY || 1;
-  const PAD = 7;
+  // Reserve the top band for the "ESCENARIO" label and a left gutter for row tags.
+  const PAD_X = 11;
+  const PAD_TOP = 22;
+  const PAD_BOTTOM = 10;
   return seats.map((s) => ({
     ...s,
-    left: PAD + ((s.pos_x - minX) / spanX) * (100 - 2 * PAD),
-    top: PAD + ((s.pos_y - minY) / spanY) * (100 - 2 * PAD),
+    left: PAD_X + ((s.pos_x - minX) / spanX) * (100 - 2 * PAD_X),
+    top: PAD_TOP + ((s.pos_y - minY) / spanY) * (100 - PAD_TOP - PAD_BOTTOM),
   }));
+}
+
+// For row-seated sections, the distinct row labels and their vertical position
+// (taken from the first seat in each row) — for "Fila A/B/…" tags on the map.
+function rowTags(placed: (Seat & { left: number; top: number })[]): { row: string; top: number }[] {
+  const seen = new Map<string, number>();
+  for (const s of placed) if (s.row && !seen.has(s.row)) seen.set(s.row, s.top);
+  return Array.from(seen.entries()).map(([row, top]) => ({ row, top }));
 }
 
 type Step = 'select' | 'pay' | 'done';
@@ -183,13 +194,23 @@ export default function EventBuy({ slug }: { slug: string }) {
                   </div>
                 </div>
               ) : (
+              <>
               <div
                 data-testid="seat-map"
-                className="relative mt-3 h-72 rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_60%),#0b0020]"
+                className="relative mt-3 h-80 rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_60%),#0b0020]"
               >
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-white/40 text-[0.6rem] tracking-[0.3em] pointer-events-none">
+                <div className="absolute top-0 inset-x-0 py-1.5 text-center text-white/45 text-[0.6rem] tracking-[0.35em] bg-gradient-to-b from-[#ff1493]/20 to-transparent pointer-events-none">
                   ESCENARIO
                 </div>
+                {rowTags(placeSeats(section.seats)).map((t) => (
+                  <span
+                    key={t.row}
+                    style={{ top: `${t.top}%` }}
+                    className="absolute left-2 -translate-y-1/2 text-white/40 text-[0.65rem] font-semibold pointer-events-none"
+                  >
+                    {t.row}
+                  </span>
+                ))}
                 {placeSeats(section.seats).map((seat) => {
                   const isSel = selected.includes(seat.id);
                   const available = seat.status === 'available';
@@ -220,6 +241,12 @@ export default function EventBuy({ slug }: { slug: string }) {
                   );
                 })}
               </div>
+              <div className="mt-2 flex gap-4 text-[0.7rem] text-white/50">
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#00e5ff]/15 border border-[#00e5ff]/60" /> Disponible</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#ff1493] border border-[#ff1493]" /> Seleccionado</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white/5 border border-white/15" /> Vendido</span>
+              </div>
+              </>
               )}
             </section>
           ))}
