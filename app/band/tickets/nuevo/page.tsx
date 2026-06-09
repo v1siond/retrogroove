@@ -40,6 +40,8 @@ function NewEvent() {
   const [seatsPerRow, setSeatsPerRow] = useState(10);
   const [promoCode, setPromoCode] = useState('');
   const [promoPercent, setPromoPercent] = useState('20');
+  const [stageW, setStageW] = useState(1600);
+  const [stageH, setStageH] = useState(900);
   const [creating, setCreating] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,8 @@ function NewEvent() {
         name,
         starts_at: new Date(startsAt).toISOString(),
         venue_name: venue,
+        canvas_width: stageW,
+        canvas_height: stageH,
       });
 
       // One sales phase for the whole event — every section's price bundles hang
@@ -160,6 +164,16 @@ function NewEvent() {
           <input id="ev-start" type="datetime-local" className={ui.input} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
           <label className={ui.label} htmlFor="ev-venue">Lugar</label>
           <input id="ev-venue" className={ui.input} value={venue} onChange={(e) => setVenue(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={ui.label} htmlFor="stage-w">Ancho del escenario</label>
+              <input id="stage-w" type="number" min={400} className={ui.input} value={stageW} onChange={(e) => setStageW(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className={ui.label} htmlFor="stage-h">Alto del escenario</label>
+              <input id="stage-h" type="number" min={300} className={ui.input} value={stageH} onChange={(e) => setStageH(Number(e.target.value))} />
+            </div>
+          </div>
         </div>
 
         <h2 className={ui.h2}>Configura el escenario</h2>
@@ -239,7 +253,8 @@ function NewEvent() {
         <div
           data-testid="stage-canvas"
           onClick={placeTable}
-          className="relative h-80 rounded-xl border border-white/15 overflow-hidden mt-4 cursor-crosshair bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.18),transparent_60%),#0b0020]"
+          style={{ aspectRatio: `${stageW} / ${stageH}` }}
+          className="relative w-full rounded-xl border border-white/15 overflow-hidden mt-4 cursor-crosshair bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.18),transparent_60%),#0b0020]"
         >
           <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gradient-to-br from-[#ff1493] to-[#bf00ff] text-white font-[Bebas_Neue] tracking-[0.2em] px-7 py-1 rounded text-sm pointer-events-none">
             ESCENARIO

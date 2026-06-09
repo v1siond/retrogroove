@@ -8,41 +8,25 @@ import { getCulqiToken } from '@/lib/ticketing/culqi';
 import { ui } from '@/lib/ticketing/ui';
 import type { TicketEvent, Order, Section, Seat } from '@/lib/ticketing/types';
 
+const SECTION_COLORS = ['#ff1493', '#00e5ff', '#ffd700', '#bf00ff', '#22c55e', '#ff8c00'];
+
 // A seat's display label: theater rows read "B5"; table seats fall back to their
 // own label or number.
 function seatName(seat: Seat): string {
   return seat.row ? `${seat.row}${seat.number}` : seat.label || String(seat.number);
 }
 
-// Place a section's seats on its own stage box. Each seat's stored pos_x/pos_y
-// (global stage-percent) is normalised into the box (with padding) so round
-// tables show as rings and theater blocks as grids, regardless of where the
-// section sits on the overall stage.
-function placeSeats(seats: Seat[]): (Seat & { left: number; top: number })[] {
-  if (seats.length === 0) return [];
-  const xs = seats.map((s) => s.pos_x);
-  const ys = seats.map((s) => s.pos_y);
-  const minX = Math.min(...xs);
-  const minY = Math.min(...ys);
-  const spanX = Math.max(...xs) - minX || 1;
-  const spanY = Math.max(...ys) - minY || 1;
-  // Reserve the top band for the "ESCENARIO" label and a left gutter for row tags.
-  const PAD_X = 11;
-  const PAD_TOP = 22;
-  const PAD_BOTTOM = 10;
-  return seats.map((s) => ({
-    ...s,
-    left: PAD_X + ((s.pos_x - minX) / spanX) * (100 - 2 * PAD_X),
-    top: PAD_TOP + ((s.pos_y - minY) / spanY) * (100 - PAD_TOP - PAD_BOTTOM),
-  }));
-}
-
-// For row-seated sections, the distinct row labels and their vertical position
-// (taken from the first seat in each row) — for "Fila A/B/…" tags on the map.
-function rowTags(placed: (Seat & { left: number; top: number })[]): { row: string; top: number }[] {
-  const seen = new Map<string, number>();
-  for (const s of placed) if (s.row && !seen.has(s.row)) seen.set(s.row, s.top);
-  return Array.from(seen.entries()).map(([row, top]) => ({ row, top }));
+// Row tags for a section: each distinct row's label placed just left of its
+// leftmost seat — at the seat's TRUE position, so theater rows read "A/B/C" in
+// the exact spot the admin laid them out.
+function rowTagsFor(seats: Seat[]): { row: string; left: number; top: number }[] {
+  const byRow = new Map<string, Seat>();
+  for (const s of seats) {
+    if (!s.row) continue;
+    const cur = byRow.get(s.row);
+    if (!cur || s.pos_x < cur.pos_x) byRow.set(s.row, s);
+  }
+  return Array.from(byRow.values()).map((s) => ({ row: s.row as string, left: Math.max(1, s.pos_x - 4), top: s.pos_y }));
 }
 
 type Step = 'select' | 'pay' | 'done';
@@ -157,6 +141,14 @@ export default function EventBuy({ slug }: { slug: string }) {
   if (loading) return <main className={ui.page}><p>Cargando...</p></main>;
   if (!event) return <main className={ui.page}><p>{error || 'Evento no encontrado'}</p></main>;
 
+  // Seated sections render on one shared stage at their TRUE positions (so the buy
+  // page mirrors the admin layout exactly); GA sections sell by quantity.
+  const seatedSections = event.sections.filter((s) => s.layout_type !== 'general');
+  const gaSections = event.sections.filter((s) => s.layout_type === 'general');
+  const totalSeated = seatedSections.reduce((n, s) => n + s.seats.length, 0);
+  const showNums = totalSeated <= 120;
+  const seatCls = totalSeated <= 120 ? 'w-6 h-6 text-[0.55rem]' : totalSeated <= 800 ? 'w-3.5 h-3.5 text-[0]' : 'w-2 h-2 text-[0]';
+
   return (
     <main className={ui.page}>
       <h1 className={ui.h1}>{event.name}</h1>
@@ -166,78 +158,69 @@ export default function EventBuy({ slug }: { slug: string }) {
 
       {step === 'select' && (
         <>
-          {event.sections.map((section) => (
-            <section key={section.id} className={ui.card} data-section-id={section.id}>
-              <h3 className={ui.h3}>
-                {section.name}
-                {section.price_bundles[0] && (
-                  <span className="text-white/50 text-sm ml-2">
-                    desde S/ {section.price_bundles[0].price}
-                  </span>
-                )}
-              </h3>
-              {section.layout_type === 'general' ? (
-                <div className="mt-3 flex items-center justify-between gap-4">
-                  <p data-testid="ga-available" className="text-white/60 text-sm">
-                    {section.available ?? 0} disponibles
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <button type="button" data-testid="ga-minus" className={ui.btnGhost} onClick={() => bumpGa(section, -1)}>
-                      −
-                    </button>
-                    <span data-testid="ga-qty" className="text-xl font-semibold w-8 text-center">
-                      {gaQty[section.id] || 0}
-                    </span>
-                    <button type="button" data-testid="ga-plus" className={ui.btnGhost} onClick={() => bumpGa(section, 1)}>
-                      +
-                    </button>
-                  </div>
-                </div>
-              ) : (
-              <>
-              <div
-                data-testid="seat-map"
-                className="relative mt-3 h-80 rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_60%),#0b0020]"
-              >
-                <div className="absolute top-0 inset-x-0 py-1.5 text-center text-white/45 text-[0.6rem] tracking-[0.35em] bg-gradient-to-b from-[#ff1493]/20 to-transparent pointer-events-none">
-                  ESCENARIO
-                </div>
-                {rowTags(placeSeats(section.seats)).map((t) => (
-                  <span
-                    key={t.row}
-                    style={{ top: `${t.top}%` }}
-                    className="absolute left-2 -translate-y-1/2 text-white/40 text-[0.65rem] font-semibold pointer-events-none"
-                  >
-                    {t.row}
+          {seatedSections.length > 0 && (
+            <div className={ui.card}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mb-3">
+                {seatedSections.map((s, i) => (
+                  <span key={s.id} className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ background: SECTION_COLORS[i % SECTION_COLORS.length] }} />
+                    {s.name}
+                    {s.price_bundles[0] && <span className="text-white/45">· desde S/ {s.price_bundles[0].price}</span>}
                   </span>
                 ))}
-                {placeSeats(section.seats).map((seat) => {
-                  const isSel = selected.includes(seat.id);
-                  const available = seat.status === 'available';
-                  const label = seatName(seat);
+              </div>
+              <div
+                data-testid="seat-map"
+                className="relative w-full rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_55%),#0b0020]"
+                style={{ aspectRatio: `${event.canvas_width || 1600} / ${event.canvas_height || 900}` }}
+              >
+                <div className="absolute top-0 inset-x-0 py-1.5 text-center text-white/45 text-[0.6rem] tracking-[0.35em] bg-gradient-to-b from-[#ff1493]/20 to-transparent pointer-events-none z-10">
+                  ESCENARIO
+                </div>
+                {seatedSections.map((section, si) => {
+                  const color = SECTION_COLORS[si % SECTION_COLORS.length];
                   return (
-                    <button
-                      key={seat.id}
-                      type="button"
-                      data-seat-id={seat.id}
-                      data-status={seat.status}
-                      data-selected={isSel}
-                      disabled={!available}
-                      aria-pressed={isSel}
-                      aria-label={`Asiento ${label}`}
-                      title={`Asiento ${label}`}
-                      onClick={() => toggleSeat(seat.id)}
-                      style={{ left: `${seat.left}%`, top: `${seat.top}%` }}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full border text-[0.55rem] flex items-center justify-center transition ${
-                        isSel
-                          ? 'bg-[#ff1493] border-[#ff1493] text-white'
-                          : available
-                            ? 'bg-[#00e5ff]/15 border-[#00e5ff]/60 text-[#00e5ff] hover:bg-[#00e5ff]/30'
-                            : 'bg-white/5 border-white/15 text-white/30 cursor-not-allowed'
-                      }`}
-                    >
-                      {seat.number}
-                    </button>
+                    <section key={section.id} data-section-id={section.id} className="absolute inset-0 pointer-events-none">
+                      <span className="absolute w-px h-px overflow-hidden opacity-0">{section.name}</span>
+                      {rowTagsFor(section.seats).map((t) => (
+                        <span key={t.row} style={{ left: `${t.left}%`, top: `${t.top}%` }} className="absolute -translate-y-1/2 text-white/35 text-[0.6rem] font-semibold pointer-events-none">
+                          {t.row}
+                        </span>
+                      ))}
+                      {section.seats.map((seat) => {
+                        const isSel = selected.includes(seat.id);
+                        const available = seat.status === 'available';
+                        const label = seatName(seat);
+                        return (
+                          <button
+                            key={seat.id}
+                            type="button"
+                            data-seat-id={seat.id}
+                            data-status={seat.status}
+                            data-selected={isSel}
+                            disabled={!available}
+                            aria-pressed={isSel}
+                            aria-label={`Asiento ${label}`}
+                            title={`${section.name} · Asiento ${label}`}
+                            onClick={() => toggleSeat(seat.id)}
+                            style={{
+                              left: `${seat.pos_x}%`,
+                              top: `${seat.pos_y}%`,
+                              ...(available && !isSel ? { borderColor: color, background: `${color}26`, color } : {}),
+                            }}
+                            className={`absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto rounded-full border flex items-center justify-center transition ${seatCls} ${
+                              isSel
+                                ? 'bg-[#ff1493] border-[#ff1493] text-white'
+                                : !available
+                                  ? 'bg-white/5 border-white/15 text-white/25 cursor-not-allowed'
+                                  : 'hover:brightness-150'
+                            }`}
+                          >
+                            {showNums ? seat.number : ''}
+                          </button>
+                        );
+                      })}
+                    </section>
                   );
                 })}
               </div>
@@ -246,8 +229,23 @@ export default function EventBuy({ slug }: { slug: string }) {
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#ff1493] border border-[#ff1493]" /> Seleccionado</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-white/5 border border-white/15" /> Vendido</span>
               </div>
-              </>
-              )}
+            </div>
+          )}
+
+          {gaSections.map((section) => (
+            <section key={section.id} className={ui.card} data-section-id={section.id}>
+              <h3 className={ui.h3}>
+                {section.name}
+                {section.price_bundles[0] && <span className="text-white/50 text-sm ml-2">desde S/ {section.price_bundles[0].price}</span>}
+              </h3>
+              <div className="mt-3 flex items-center justify-between gap-4">
+                <p data-testid="ga-available" className="text-white/60 text-sm">{section.available ?? 0} disponibles</p>
+                <div className="flex items-center gap-3">
+                  <button type="button" data-testid="ga-minus" className={ui.btnGhost} onClick={() => bumpGa(section, -1)}>−</button>
+                  <span data-testid="ga-qty" className="text-xl font-semibold w-8 text-center">{gaQty[section.id] || 0}</span>
+                  <button type="button" data-testid="ga-plus" className={ui.btnGhost} onClick={() => bumpGa(section, 1)}>+</button>
+                </div>
+              </div>
             </section>
           ))}
 
