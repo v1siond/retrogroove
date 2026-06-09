@@ -14,9 +14,12 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['line']],
   use: {
     baseURL: 'http://localhost:3340',
-    video: 'on',
+    // Crisp 1080p recordings: render at 2x (supersampled) and record at full
+    // 1920x1080 (Playwright otherwise downscales video to an 800px box → blurry).
+    viewport: { width: 1920, height: 1080 },
+    deviceScaleFactor: 2,
+    video: { mode: 'on', size: { width: 1920, height: 1080 } },
     trace: 'on',
-    viewport: { width: 1366, height: 900 },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

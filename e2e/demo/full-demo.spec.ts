@@ -63,6 +63,7 @@ interface EventCfg {
   venue: string;
   sections: SectionCfg[];
   promo?: { code: string; percent: string };
+  stage?: { w: number; h: number };
 }
 
 async function createEvent(page: Page, cfg: EventCfg) {
@@ -73,6 +74,10 @@ async function createEvent(page: Page, cfg: EventCfg) {
   await page.getByLabel('Nombre', { exact: true }).pressSequentially(cfg.name, { delay: 25 });
   await page.getByLabel('Fecha y hora').fill(cfg.when);
   await page.getByLabel('Lugar').pressSequentially(cfg.venue, { delay: 25 });
+  if (cfg.stage) {
+    await page.getByLabel('Ancho del escenario').fill(String(cfg.stage.w));
+    await page.getByLabel('Alto del escenario').fill(String(cfg.stage.h));
+  }
   await beat(page);
 
   for (let s = 0; s < cfg.sections.length; s++) {
@@ -285,18 +290,69 @@ test('Teatro — rock en filas: Platea y Mezzanine, precio por zona, compra en g
   await checkIn(page, token);
 });
 
-test('Arena — fiesta disco, entrada general de precio único', async ({ page }) => {
+test('Arena — concierto masivo, miles de asientos en cuatro tribunas', async ({ page }) => {
   await createEvent(page, {
-    name: 'Fiebre Disco 70s — Arena 1',
-    when: '2026-12-30T21:00',
-    venue: 'Arena 1, Costa Verde',
+    name: 'Maná en Vivo — Estadio Nacional',
+    when: '2026-12-30T20:00',
+    venue: 'Estadio Nacional, Lima',
+    stage: { w: 1920, h: 1080 },
     sections: [
-      { name: 'General', shape: 'rect', seating: 'rows', seatsPerTable: 50, seatsPerRow: 25, price1: '50', tables: [{ x: 350, y: 180 }] },
+      // Four 300-seat tribunas (30 per row) at the four corners of the stage — 1200 seats.
+      {
+        name: 'Tribuna',
+        shape: 'rect',
+        seating: 'rows',
+        seatsPerTable: 300,
+        seatsPerRow: 30,
+        price1: '120',
+        tables: [{ x: 220, y: 160 }, { x: 640, y: 160 }, { x: 220, y: 360 }, { x: 640, y: 360 }],
+      },
     ],
   });
 
-  // A lone fan buys a single general ticket (flat S/ 50).
-  const token = await buyFromHome(page, 'Fiebre Disco 70s — Arena 1', [{ section: 'General', count: 1 }], 'S/ 50.00');
+  // Two fans buy adjacent seats out of the 1,200 (flat S/ 120 each → S/ 240).
+  const token = await buyFromHome(page, 'Maná en Vivo — Estadio Nacional', [{ section: 'Tribuna', count: 2 }], 'S/ 240.00');
+
+  await checkIn(page, token);
+});
+
+test('Restaurante íntimo — 6 mesas grandes + 4 mesas para dos, posicionadas', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Eva Ayllón — Cena Criolla',
+    when: '2026-12-25T21:00',
+    venue: 'La Casa de la Marquesa, Lima',
+    stage: { w: 1200, h: 900 },
+    sections: [
+      // 6 large round tables of 8 (two rows of three).
+      {
+        name: 'Mesas grandes',
+        shape: 'round',
+        seating: 'around',
+        seatsPerTable: 8,
+        price1: '90',
+        price2: '160',
+        tables: [{ x: 200, y: 150 }, { x: 430, y: 150 }, { x: 660, y: 150 }, { x: 200, y: 340 }, { x: 430, y: 340 }, { x: 660, y: 340 }],
+      },
+      // 4 intimate couple tables of 2 along the front.
+      {
+        name: 'Mesas para dos',
+        shape: 'round',
+        seating: 'around',
+        seatsPerTable: 2,
+        price1: '120',
+        price2: '200',
+        tables: [{ x: 200, y: 500 }, { x: 360, y: 500 }, { x: 520, y: 500 }, { x: 680, y: 500 }],
+      },
+    ],
+  });
+
+  // The seat map shows all 10 tables: 6 large (48 seats) + 4 couple (8 seats) = 56.
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Eva Ayllón' }).getByTestId('buy-link').click();
+  await expect(page.locator('[data-status="available"]')).toHaveCount(56);
+
+  // A couple takes a two-seat table (combo S/ 200).
+  const token = await buyFromHome(page, 'Eva Ayllón — Cena Criolla', [{ section: 'Mesas para dos', count: 2 }], 'S/ 200.00');
 
   await checkIn(page, token);
 });
@@ -414,5 +470,36 @@ test('Promo — código de descuento aplicado en la compra', async ({ page }) =>
   await expect(page.getByTestId('order-total')).toContainText('80');
   await page.getByRole('button', { name: /pagar/i }).click();
   await expect(page.getByText(/compra confirmada/i)).toBeVisible();
+  await beat(page);
+});
+
+test('Ticket + QR — el fan ve su entrada y el staff la valida escaneando el QR', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Show Acústico — Sala Roja',
+    when: '2026-12-26T21:00',
+    venue: 'Sala Roja, Barranco',
+    sections: [
+      { name: 'General', shape: 'round', seating: 'around', seatsPerTable: 6, price1: '50', tables: [{ x: 320, y: 180 }] },
+    ],
+  });
+
+  const token = await buyFromHome(page, 'Show Acústico — Sala Roja', [{ section: 'General', count: 1 }], 'S/ 50.00');
+
+  // The fan opens their ticket — status, scannable QR, and the short entry code.
+  await page.goto(`/t?token=${token}`, { waitUntil: 'commit' });
+  await narrate(page, 'El fan abre su entrada: estado, QR y código');
+  await expect(page.getByTestId('ticket-status')).toHaveText('Válida');
+  await expect(page.getByTestId('ticket-qr')).toBeVisible();
+  await expect(page.getByTestId('ticket-token')).toHaveText(token);
+  await beat(page, 1400);
+
+  // Staff "scans" the QR — the deep link opens check-in pre-loaded with the token and
+  // it auto-verifies (a single POST registers entry). No manual typing needed.
+  await page.goto(`/band/tickets/check-in?token=${token}`, { waitUntil: 'commit' });
+  await ensureAdmin(page);
+  await narrate(page, 'El staff escanea el QR: se valida automáticamente');
+  await expect(page.getByTestId('result')).toContainText('Válida');
+  await page.getByRole('button', { name: /registrar entrada/i }).click();
+  await expect(page.getByTestId('result')).toContainText('Entrada registrada');
   await beat(page);
 });

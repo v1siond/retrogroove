@@ -18,9 +18,11 @@ export default defineConfig({
     // Pacing comes from explicit beat() pauses in the spec; slowMo (which slows
     // every micro-action, including keystrokes) defaults off. Set SLOWMO for live watching.
     launchOptions: { slowMo: Number(process.env.SLOWMO || 0) },
-    video: 'on',
+    // Crisp 1080p recordings: render at 2x (supersampled), record at 1920x1080.
+    viewport: { width: 1920, height: 1080 },
+    deviceScaleFactor: 2,
+    video: { mode: 'on', size: { width: 1920, height: 1080 } },
     trace: 'on',
-    viewport: { width: 1280, height: 800 },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // Runs against the static production build (`out/`) via a tiny static server —
