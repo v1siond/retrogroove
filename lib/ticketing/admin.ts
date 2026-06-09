@@ -100,6 +100,13 @@ export const adminApi = {
     });
   },
 
+  createPromo(eventId: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
+    return authed(`/events/${eventId}/promo-codes`, {
+      method: 'POST',
+      body: JSON.stringify({ promo_code: attrs }),
+    });
+  },
+
   compOrder(eventId: string, seatIds: string[], buyer: Buyer): Promise<{ order: Order }> {
     return authed(`/events/${eventId}/comp-orders`, {
       method: 'POST',

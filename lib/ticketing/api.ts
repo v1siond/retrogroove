@@ -31,10 +31,10 @@ export const ticketingApi = {
     return request(`/events/${slug}`);
   },
 
-  createOrder(eventId: string, seatIds: string[], buyer: Buyer): Promise<{ order: Order }> {
+  createOrder(eventId: string, seatIds: string[], buyer: Buyer, promoCode?: string): Promise<{ order: Order }> {
     return request('/orders', {
       method: 'POST',
-      body: JSON.stringify({ event_id: eventId, seat_ids: seatIds, buyer }),
+      body: JSON.stringify({ event_id: eventId, seat_ids: seatIds, buyer, promo_code: promoCode || undefined }),
     });
   },
 

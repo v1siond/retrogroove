@@ -62,6 +62,7 @@ interface EventCfg {
   when: string; // datetime-local "YYYY-MM-DDTHH:MM"
   venue: string;
   sections: SectionCfg[];
+  promo?: { code: string; percent: string };
 }
 
 async function createEvent(page: Page, cfg: EventCfg) {
@@ -101,6 +102,11 @@ async function createEvent(page: Page, cfg: EventCfg) {
       await page.getByTestId('stage-canvas').click({ position: pos });
       await beat(page, 550);
     }
+  }
+
+  if (cfg.promo) {
+    await page.getByLabel('Código de descuento (opcional)').fill(cfg.promo.code);
+    await page.getByLabel('Descuento %').fill(cfg.promo.percent);
   }
 
   await beat(page);
@@ -377,4 +383,36 @@ test('Festival GA — entrada general por aforo (sin asientos), validación', as
 
   const href = await page.getByTestId('ticket-link').first().getAttribute('href');
   await checkIn(page, href!.split('token=')[1]);
+});
+
+test('Promo — código de descuento aplicado en la compra', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Concierto con Descuento',
+    when: '2026-12-24T21:00',
+    venue: 'Teatro Pirandello, Lima',
+    sections: [
+      { name: 'Platea', shape: 'rect', seating: 'rows', seatsPerTable: 20, seatsPerRow: 10, price1: '100', tables: [{ x: 350, y: 160 }] },
+    ],
+    promo: { code: 'FIESTA20', percent: '20' },
+  });
+
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Concierto con Descuento' }).getByTestId('buy-link').click();
+  const platea = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
+  await platea.locator('[data-status="available"]').first().click();
+  await expect(page.getByTestId('selection')).toContainText('S/ 100.00');
+
+  await narrate(page, 'Aplica el código FIESTA20 (20% de descuento)');
+  await page.getByLabel('Nombre', { exact: true }).pressSequentially('Ana', { delay: 25 });
+  await page.getByLabel('Apellido').pressSequentially('López', { delay: 25 });
+  await page.getByLabel('Email').pressSequentially('ana@example.com', { delay: 20 });
+  await page.getByLabel('Código de descuento (opcional)').fill('FIESTA20');
+  await beat(page);
+  await page.getByRole('button', { name: 'Comprar' }).click();
+
+  // The authoritative order total reflects the 20% discount: S/ 80, not S/ 100.
+  await expect(page.getByTestId('order-total')).toContainText('80');
+  await page.getByRole('button', { name: /pagar/i }).click();
+  await expect(page.getByText(/compra confirmada/i)).toBeVisible();
+  await beat(page);
 });

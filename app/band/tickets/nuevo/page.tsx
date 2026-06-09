@@ -38,6 +38,8 @@ function NewEvent() {
   const [shape, setShape] = useState<'round' | 'rect'>('round');
   const [seating, setSeating] = useState<'around' | 'rows'>('around');
   const [seatsPerRow, setSeatsPerRow] = useState(10);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoPercent, setPromoPercent] = useState('20');
   const [creating, setCreating] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +117,10 @@ function NewEvent() {
             });
           }
         }
+      }
+
+      if (promoCode.trim()) {
+        await adminApi.createPromo(event.id, { code: promoCode.trim(), kind: 'percent', value: promoPercent || '20' });
       }
 
       await adminApi.publishEvent(event.id);
@@ -260,6 +266,17 @@ function NewEvent() {
         </div>
 
         <p className="text-white/60 text-sm mt-2" data-testid="seat-total">{totalSeats} asientos en total</p>
+
+        <div className={`${ui.card} grid gap-3 sm:grid-cols-2`}>
+          <div>
+            <label className={ui.label} htmlFor="promo-code">Código de descuento (opcional)</label>
+            <input id="promo-code" className={ui.input} value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Ej: FIESTA20" />
+          </div>
+          <div>
+            <label className={ui.label} htmlFor="promo-percent">Descuento %</label>
+            <input id="promo-percent" type="number" min={1} max={100} className={ui.input} value={promoPercent} onChange={(e) => setPromoPercent(e.target.value)} />
+          </div>
+        </div>
 
         <button type="submit" className={ui.btn} disabled={creating || !hasInventory}>
           {creating ? 'Creando...' : 'Crear y publicar'}

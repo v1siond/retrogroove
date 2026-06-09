@@ -41,6 +41,7 @@ export default function EventBuy({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
   const [gaQty, setGaQty] = useState<Record<string, number>>({});
+  const [promo, setPromo] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -107,7 +108,7 @@ export default function EventBuy({ slug }: { slug: string }) {
       const ga = Object.entries(gaQty).find(([, q]) => q > 0);
       const { order } = ga
         ? await ticketingApi.createGeneralOrder(ga[0], ga[1], buyer)
-        : await ticketingApi.createOrder(event.id, selected, buyer);
+        : await ticketingApi.createOrder(event.id, selected, buyer, promo.trim() || undefined);
       setOrder(order);
       setStep('pay');
     } catch (err) {
@@ -117,7 +118,9 @@ export default function EventBuy({ slug }: { slug: string }) {
           ? 'Algunos asientos ya no están disponibles. Elige otros.'
           : data?.error === 'sold_out'
             ? 'Ya no quedan entradas disponibles.'
-            : 'No se pudo crear la orden.'
+            : data?.error === 'invalid_promo'
+              ? 'El código de descuento no es válido.'
+              : 'No se pudo crear la orden.'
       );
     } finally {
       setWorking(false);
@@ -233,6 +236,8 @@ export default function EventBuy({ slug }: { slug: string }) {
             <input id="buyer-email" type="email" className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} required />
             <label className={ui.label} htmlFor="buyer-phone">Teléfono</label>
             <input id="buyer-phone" type="tel" className={ui.input} value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label className={ui.label} htmlFor="buyer-promo">Código de descuento (opcional)</label>
+            <input id="buyer-promo" className={ui.input} value={promo} onChange={(e) => setPromo(e.target.value)} />
             <div>
               <button type="button" className={ui.btn} disabled={selectedCount === 0 || !email || working} onClick={handleBuy}>
                 Comprar
