@@ -38,6 +38,13 @@ export const ticketingApi = {
     });
   },
 
+  createGeneralOrder(sectionId: string, quantity: number, buyer: Buyer): Promise<{ order: Order }> {
+    return request('/general-orders', {
+      method: 'POST',
+      body: JSON.stringify({ section_id: sectionId, quantity, buyer }),
+    });
+  },
+
   payOrder(orderId: string, token: string): Promise<{ order: Order }> {
     return request(`/orders/${orderId}/pay`, {
       method: 'POST',

@@ -29,7 +29,9 @@ export interface PriceBundle {
 export interface Section {
   id: string;
   name: string;
-  layout_type: 'tables' | 'rows';
+  layout_type: 'tables' | 'rows' | 'general';
+  capacity: number | null;
+  available?: number;
   pos_x: number;
   pos_y: number;
   width: number;

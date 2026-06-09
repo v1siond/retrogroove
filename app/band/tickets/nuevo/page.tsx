@@ -20,6 +20,8 @@ interface SectionDef {
   price1: string; // 1-seat price
   price2: string; // 2-seat (combo) price, optional
   tables: TableDef[];
+  layoutType: 'tables' | 'general'; // seated tables/rows, or general admission
+  capacity: number; // general-admission aforo
 }
 
 const COLORS = ['#ff1493', '#00e5ff', '#ffd700', '#bf00ff', '#22c55e'];
@@ -29,7 +31,7 @@ function NewEvent() {
   const [startsAt, setStartsAt] = useState('');
   const [venue, setVenue] = useState('');
   const [sections, setSections] = useState<SectionDef[]>([
-    { name: 'General', price1: '40', price2: '70', tables: [] },
+    { name: 'General', price1: '40', price2: '70', tables: [], layoutType: 'tables', capacity: 100 },
   ]);
   const [active, setActive] = useState(0);
   const [seatsPerTable, setSeatsPerTable] = useState(4);
@@ -44,9 +46,12 @@ function NewEvent() {
     (sum, s) => sum + s.tables.reduce((t, tbl) => t + tbl.seats, 0),
     0
   );
+  // Publishable if there's any seated inventory OR a general-admission section.
+  const hasInventory =
+    totalSeats > 0 || sections.some((s) => s.layoutType === 'general' && s.capacity > 0);
 
   function addSection() {
-    setSections((s) => [...s, { name: `Sección ${s.length + 1}`, price1: '50', price2: '', tables: [] }]);
+    setSections((s) => [...s, { name: `Sección ${s.length + 1}`, price1: '50', price2: '', tables: [], layoutType: 'tables', capacity: 100 }]);
     setActive(sections.length);
   }
   function patchSection(i: number, patch: Partial<SectionDef>) {
@@ -89,22 +94,26 @@ function NewEvent() {
       for (const sec of sections) {
         const { data: section } = await adminApi.createSection(event.id, {
           name: sec.name,
-          layout_type: 'tables',
+          layout_type: sec.layoutType,
+          capacity: sec.layoutType === 'general' ? sec.capacity : null,
         });
         if (sec.price1) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 1, price: sec.price1 });
         if (sec.price2) await adminApi.createBundle(section.id, { phase_id: phase.id, quantity: 2, price: sec.price2 });
 
-        // The backend generates the seat map from the area's shape + seating.
-        for (const t of sec.tables) {
-          await adminApi.createTable(section.id, {
-            label: t.label,
-            seat_count: t.seats,
-            pos_x: t.x,
-            pos_y: t.y,
-            shape: t.shape,
-            seating: t.seating,
-            seats_per_row: t.seating === 'rows' ? t.seatsPerRow : null,
-          });
+        // Seated sections place tables (the backend generates their seat map);
+        // general-admission sections sell by capacity, no tables.
+        if (sec.layoutType === 'tables') {
+          for (const t of sec.tables) {
+            await adminApi.createTable(section.id, {
+              label: t.label,
+              seat_count: t.seats,
+              pos_x: t.x,
+              pos_y: t.y,
+              shape: t.shape,
+              seating: t.seating,
+              seats_per_row: t.seating === 'rows' ? t.seatsPerRow : null,
+            });
+          }
         }
       }
 
@@ -174,6 +183,19 @@ function NewEvent() {
             <input id="sec-name" className={ui.input} value={sec.name} onChange={(e) => patchSection(active, { name: e.target.value })} />
           </div>
           <div>
+            <label className={ui.label} htmlFor="section-type">Tipo de sección</label>
+            <select id="section-type" className={ui.input} value={sec.layoutType} onChange={(e) => patchSection(active, { layoutType: e.target.value as 'tables' | 'general' })}>
+              <option value="tables">Con asientos</option>
+              <option value="general">Entrada general (aforo)</option>
+            </select>
+          </div>
+          {sec.layoutType === 'general' && (
+            <div>
+              <label className={ui.label} htmlFor="section-capacity">Aforo</label>
+              <input id="section-capacity" type="number" min={1} className={ui.input} value={sec.capacity} onChange={(e) => patchSection(active, { capacity: Number(e.target.value) })} />
+            </div>
+          )}
+          <div>
             <label className={ui.label} htmlFor="seats-per-table">Asientos por mesa (nuevas)</label>
             <input id="seats-per-table" type="number" min={1} className={ui.input} value={seatsPerTable} onChange={(e) => setSeatsPerTable(Number(e.target.value))} />
           </div>
@@ -239,7 +261,7 @@ function NewEvent() {
 
         <p className="text-white/60 text-sm mt-2" data-testid="seat-total">{totalSeats} asientos en total</p>
 
-        <button type="submit" className={ui.btn} disabled={creating || totalSeats === 0}>
+        <button type="submit" className={ui.btn} disabled={creating || !hasInventory}>
           {creating ? 'Creando...' : 'Crear y publicar'}
         </button>
       </form>

@@ -54,6 +54,8 @@ interface SectionCfg {
   shape?: 'round' | 'rect';
   seating?: 'around' | 'rows';
   seatsPerRow?: number;
+  general?: boolean; // general-admission section
+  capacity?: number;
 }
 interface EventCfg {
   name: string;
@@ -80,6 +82,14 @@ async function createEvent(page: Page, cfg: EventCfg) {
     }
     await page.getByTestId('section-tab').nth(s).click();
     await page.getByLabel('Nombre de la sección').fill(sec.name);
+
+    if (sec.general) {
+      await page.getByLabel('Tipo de sección').selectOption('general');
+      await page.getByLabel('Aforo').fill(String(sec.capacity ?? 100));
+      await page.getByLabel('Precio 1 entrada').fill(sec.price1);
+      continue;
+    }
+
     await page.getByLabel('Asientos por mesa (nuevas)').fill(String(sec.seatsPerTable));
     if (sec.shape) await page.getByLabel('Forma').selectOption(sec.shape);
     if (sec.seating) await page.getByLabel('Distribución').selectOption(sec.seating);
@@ -329,4 +339,42 @@ test('Asientos específicos — el comprador recibe EXACTAMENTE los asientos que
   const platea2 = page.locator('section[data-section-id]').filter({ hasText: 'Platea' });
   await expect(platea2.getByRole('button', { name: 'Asiento B6', exact: true })).toHaveAttribute('data-status', 'available');
   await beat(page);
+});
+
+test('Festival GA — entrada general por aforo (sin asientos), validación', async ({ page }) => {
+  await createEvent(page, {
+    name: 'Festival Electrónico — Campo',
+    when: '2026-12-31T22:00',
+    venue: 'Costa Verde, Lima',
+    sections: [
+      { name: 'Campo', general: true, capacity: 200, price1: '40', seatsPerTable: 0, tables: [] },
+    ],
+  });
+
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.getByTestId('event-card').filter({ hasText: 'Festival Electrónico' }).getByTestId('buy-link').click();
+  const campo = page.locator('section[data-section-id]').filter({ hasText: 'Campo' });
+  await expect(campo.getByTestId('ga-available')).toContainText('200');
+
+  // No seat map — buy by quantity (3 general tickets x S/ 40 = S/ 120).
+  await narrate(page, 'Elige 3 entradas generales (sin asiento asignado)');
+  await campo.getByTestId('ga-plus').click();
+  await campo.getByTestId('ga-plus').click();
+  await campo.getByTestId('ga-plus').click();
+  await expect(campo.getByTestId('ga-qty')).toHaveText('3');
+  await expect(page.getByTestId('selection')).toContainText('S/ 120.00');
+  await beat(page);
+
+  await narrate(page, 'Ingresa sus datos y paga');
+  await page.getByLabel('Nombre', { exact: true }).pressSequentially('Ana', { delay: 25 });
+  await page.getByLabel('Apellido').pressSequentially('López', { delay: 25 });
+  await page.getByLabel('Email').pressSequentially('ana@example.com', { delay: 20 });
+  await page.getByRole('button', { name: 'Comprar' }).click();
+  await expect(page.getByTestId('order-total')).toBeVisible();
+  await page.getByRole('button', { name: /pagar/i }).click();
+  await expect(page.getByText(/compra confirmada/i)).toBeVisible();
+  await beat(page);
+
+  const href = await page.getByTestId('ticket-link').first().getAttribute('href');
+  await checkIn(page, href!.split('token=')[1]);
 });

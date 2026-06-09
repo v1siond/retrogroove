@@ -40,6 +40,7 @@ export default function EventBuy({ slug }: { slug: string }) {
   const [event, setEvent] = useState<TicketEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
+  const [gaQty, setGaQty] = useState<Record<string, number>>({});
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -75,24 +76,38 @@ export default function EventBuy({ slug }: { slug: string }) {
       const sec = event.sections.find((s) => s.id === sectionId);
       if (sec) total += bundleTotal(sec.price_bundles, count);
     });
+    // General-admission: quantity x unit price.
+    for (const sec of event.sections) {
+      const q = gaQty[sec.id] || 0;
+      if (q > 0) total += q * Number(sec.price_bundles[0]?.price || 0);
+    }
     return total;
-  }, [selected, event, seatSection]);
+  }, [selected, event, seatSection, gaQty]);
+
+  const gaTotalQty = Object.values(gaQty).reduce((a, b) => a + b, 0);
+  const selectedCount = selected.length + gaTotalQty;
 
   function toggleSeat(id: string) {
     setSelected((cur) => (cur.includes(id) ? cur.filter((s) => s !== id) : [...cur, id]));
   }
 
+  function bumpGa(section: Section, delta: number) {
+    setGaQty((cur) => {
+      const next = Math.max(0, Math.min(section.available ?? 0, (cur[section.id] || 0) + delta));
+      return { ...cur, [section.id]: next };
+    });
+  }
+
   async function handleBuy() {
-    if (!event || selected.length === 0 || !email) return;
+    if (!event || selectedCount === 0 || !email) return;
     setWorking(true);
     setError(null);
     try {
-      const { order } = await ticketingApi.createOrder(event.id, selected, {
-        email,
-        phone,
-        first_name: firstName,
-        last_name: lastName,
-      });
+      const buyer = { email, phone, first_name: firstName, last_name: lastName };
+      const ga = Object.entries(gaQty).find(([, q]) => q > 0);
+      const { order } = ga
+        ? await ticketingApi.createGeneralOrder(ga[0], ga[1], buyer)
+        : await ticketingApi.createOrder(event.id, selected, buyer);
       setOrder(order);
       setStep('pay');
     } catch (err) {
@@ -100,7 +115,9 @@ export default function EventBuy({ slug }: { slug: string }) {
       setError(
         data?.error === 'seats_unavailable'
           ? 'Algunos asientos ya no están disponibles. Elige otros.'
-          : 'No se pudo crear la orden.'
+          : data?.error === 'sold_out'
+            ? 'Ya no quedan entradas disponibles.'
+            : 'No se pudo crear la orden.'
       );
     } finally {
       setWorking(false);
@@ -145,6 +162,24 @@ export default function EventBuy({ slug }: { slug: string }) {
                   </span>
                 )}
               </h3>
+              {section.layout_type === 'general' ? (
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <p data-testid="ga-available" className="text-white/60 text-sm">
+                    {section.available ?? 0} disponibles
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button type="button" data-testid="ga-minus" className={ui.btnGhost} onClick={() => bumpGa(section, -1)}>
+                      −
+                    </button>
+                    <span data-testid="ga-qty" className="text-xl font-semibold w-8 text-center">
+                      {gaQty[section.id] || 0}
+                    </span>
+                    <button type="button" data-testid="ga-plus" className={ui.btnGhost} onClick={() => bumpGa(section, 1)}>
+                      +
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div
                 data-testid="seat-map"
                 className="relative mt-3 h-72 rounded-xl border border-white/10 overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(255,20,147,0.12),transparent_60%),#0b0020]"
@@ -182,12 +217,13 @@ export default function EventBuy({ slug }: { slug: string }) {
                   );
                 })}
               </div>
+              )}
             </section>
           ))}
 
           <div className={ui.card}>
             <p data-testid="selection" className="text-[#ffd700] font-semibold">
-              {selected.length} asiento(s) — Total estimado: S/ {estimate.toFixed(2)}
+              {selectedCount} asiento(s) — Total estimado: S/ {estimate.toFixed(2)}
             </p>
             <label className={ui.label} htmlFor="buyer-first">Nombre</label>
             <input id="buyer-first" className={ui.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -198,7 +234,7 @@ export default function EventBuy({ slug }: { slug: string }) {
             <label className={ui.label} htmlFor="buyer-phone">Teléfono</label>
             <input id="buyer-phone" type="tel" className={ui.input} value={phone} onChange={(e) => setPhone(e.target.value)} />
             <div>
-              <button type="button" className={ui.btn} disabled={selected.length === 0 || !email || working} onClick={handleBuy}>
+              <button type="button" className={ui.btn} disabled={selectedCount === 0 || !email || working} onClick={handleBuy}>
                 Comprar
               </button>
             </div>
