@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, FormEvent } from 'react';
+import { Suspense, useEffect, useRef, useState, FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import { ui } from '@/lib/ticketing/ui';
@@ -8,22 +9,22 @@ import type { Ticket } from '@/lib/ticketing/types';
 
 type Result = 'valid' | 'used' | 'invalid' | 'notfound' | 'checked' | null;
 
-function CheckIn() {
+function CheckIn({ scannedToken }: { scannedToken: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [token, setTokenValue] = useState('');
+  const [token, setTokenValue] = useState(scannedToken);
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [result, setResult] = useState<Result>(null);
   const [count, setCount] = useState(0);
   const [working, setWorking] = useState(false);
 
-  async function lookup(e: FormEvent) {
-    e.preventDefault();
-    if (!token.trim()) return;
+  async function runLookup(raw: string) {
+    const tok = raw.trim();
+    if (!tok) return;
     setWorking(true);
     setTicket(null);
     setResult(null);
     try {
-      const { ticket } = await adminApi.getTicket(token.trim());
+      const { ticket } = await adminApi.getTicket(tok);
       setTicket(ticket);
       setResult(ticket.status === 'used' ? 'used' : ticket.status === 'valid' ? 'valid' : 'invalid');
     } catch {
@@ -32,6 +33,20 @@ function CheckIn() {
       setWorking(false);
     }
   }
+
+  function lookup(e: FormEvent) {
+    e.preventDefault();
+    void runLookup(token);
+  }
+
+  // A QR scan opens this page with ?token=… — auto-verify it (manual entry is the fallback).
+  useEffect(() => {
+    if (scannedToken) {
+      setTokenValue(scannedToken);
+      void runLookup(scannedToken);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scannedToken]);
 
   async function doCheckIn() {
     if (!ticket?.public_token) return;
@@ -71,6 +86,7 @@ function CheckIn() {
       <p data-testid="count" className="text-[#00e5ff]">
         {count === 1 ? '1 entrada' : `${count} entradas`} hoy
       </p>
+      <p className="text-white/50 text-sm">Escanea el QR del ticket, o ingresa el código manualmente.</p>
 
       <form onSubmit={lookup} className="flex gap-2 items-end mt-4">
         <input
@@ -99,10 +115,19 @@ function CheckIn() {
   );
 }
 
-export default function CheckInPage() {
+function CheckInScreen() {
+  const scannedToken = useSearchParams().get('token') || '';
   return (
     <AdminGate>
-      <CheckIn />
+      <CheckIn scannedToken={scannedToken} />
     </AdminGate>
+  );
+}
+
+export default function CheckInPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckInScreen />
+    </Suspense>
   );
 }

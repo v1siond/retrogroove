@@ -26,9 +26,6 @@ export default function TicketView({ token }: { token: string }) {
       <p data-testid="ticket-status" className={`text-xl font-semibold ${ticket.status === 'used' ? 'text-[#ff5a6e]' : 'text-[#22c55e]'}`}>
         {ticket.status === 'used' ? 'Usada' : 'Válida'}
       </p>
-      {ticket.code && (
-        <p className="font-[Bebas_Neue] tracking-[0.2em] text-[#ffd700] text-xl mt-2">Código: {ticket.code}</p>
-      )}
       {ticket.qr_svg && (
         <div
           className="inline-block bg-white p-4 rounded-xl my-4 max-w-[280px] [&_svg]:w-full [&_svg]:h-auto"
@@ -36,7 +33,11 @@ export default function TicketView({ token }: { token: string }) {
           dangerouslySetInnerHTML={{ __html: ticket.qr_svg }}
         />
       )}
-      <div>
+      <p className="text-white/60 text-sm">Escanea el QR en la puerta, o usa el código:</p>
+      <p data-testid="ticket-token" className="font-[Bebas_Neue] tracking-[0.35em] text-[#ffd700] text-2xl mt-1">
+        {ticket.public_token}
+      </p>
+      <div className="mt-4">
         <button type="button" className={ui.btn} onClick={() => window.print()}>Imprimir</button>
       </div>
     </main>

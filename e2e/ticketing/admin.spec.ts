@@ -82,4 +82,20 @@ test.describe('Admin', () => {
 
     await expect(page.getByTestId('issued')).toContainText('2 entrada');
   });
+
+  test('a scanned QR (check-in deep link with ?token=) auto-verifies, then registers entry', async ({ page }) => {
+    const valid = { id: 't1', code: 'C1', public_token: 'ABCD1234', status: 'valid', qr_svg: null, checked_in_at: null, seat_id: 's1' };
+    await page.route('**/api/tickets/ABCD1234', (r) => r.fulfill({ status: 200, json: { ticket: valid } }));
+    await page.route('**/api/tickets/ABCD1234/check-in', (r) =>
+      r.fulfill({ status: 200, json: { ticket: { ...valid, status: 'used', checked_in_at: '2026-12-31T22:00:00Z' } } })
+    );
+
+    // Staff scans the ticket QR -> the deep link opens check-in pre-loaded with the
+    // token -> after login it auto-verifies (no typing). Then they register the entry.
+    await login(page, '/band/tickets/check-in?token=ABCD1234');
+    await expect(page.getByTestId('result')).toContainText('Válida');
+    await page.getByRole('button', { name: /registrar entrada/i }).click();
+    await expect(page.getByTestId('result')).toContainText('Entrada registrada');
+    await expect(page.getByTestId('count')).toContainText('1 entrada');
+  });
 });
