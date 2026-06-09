@@ -54,5 +54,20 @@ echo "==> 4/4 run demo suite"
 npx playwright test --config playwright.demo.config.ts
 STATUS=$?
 
-echo "==> done (exit $STATUS). API log: /tmp/rg-demo-api.log"
+# Save the recordings to a stable, readable folder. Playwright wipes its output
+# dir on every run, so the per-test videos in demo-results/ don't survive the
+# next run of any suite — these named copies do.
+echo "==> saving recordings to $SITE/demo-videos/"
+rm -rf "$SITE/demo-videos"
+mkdir -p "$SITE/demo-videos"
+i=1
+for d in "$SITE"/demo-results/full-demo-*/; do
+  [[ -f "$d/video.webm" ]] || continue
+  name=$(basename "$d" | sed -E 's/^full-demo-//; s/-chromium$//' | cut -c1-48)
+  cp "$d/video.webm" "$(printf '%s/demo-videos/%02d-%s.webm' "$SITE" "$i" "$name")"
+  i=$((i + 1))
+done
+ls -1 "$SITE/demo-videos/" 2>/dev/null
+
+echo "==> done (exit $STATUS). videos: $SITE/demo-videos/ · API log: /tmp/rg-demo-api.log"
 exit $STATUS

@@ -6,6 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
 // Run with: npm run demo
 export default defineConfig({
   testDir: './e2e/demo',
+  // Own output dir so the mocked/static/screenshot runs (which use test-results/)
+  // can't wipe the demo recordings. run.sh saves readable copies after the run.
+  outputDir: './demo-results',
   fullyParallel: false,
   workers: 1,
   retries: 0,
