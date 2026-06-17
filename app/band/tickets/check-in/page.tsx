@@ -3,19 +3,27 @@
 import { Suspense, useEffect, useRef, useState, FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminGate } from '@/components/admin2/AdminGate';
-import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
+import { adminApi } from '@/lib/ticketing/admin';
 import type { Ticket } from '@/lib/ticketing/types';
 
-type Result = 'valid' | 'used' | 'invalid' | 'notfound' | 'checked' | null;
+// ─── result state type ──────────────────────────────────────────────────────
+
+type ResultState = 'valid' | 'used' | 'notfound' | 'checked' | null;
+
+// ─── main check-in component ─────────────────────────────────────────────────
 
 function CheckIn({ scannedToken }: { scannedToken: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [token, setTokenValue] = useState(scannedToken);
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [result, setResult] = useState<Result>(null);
+  const [result, setResult] = useState<ResultState>(null);
   const [count, setCount] = useState(0);
   const [working, setWorking] = useState(false);
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   async function runLookup(raw: string) {
     const tok = raw.trim();
@@ -24,9 +32,15 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     setTicket(null);
     setResult(null);
     try {
-      const { ticket } = await adminApi.getTicket(tok);
-      setTicket(ticket);
-      setResult(ticket.status === 'used' ? 'used' : ticket.status === 'valid' ? 'valid' : 'invalid');
+      const { ticket: t } = await adminApi.getTicket(tok);
+      setTicket(t);
+      if (t.status === 'used') {
+        setResult('used');
+      } else if (t.status === 'valid') {
+        setResult('valid');
+      } else {
+        setResult('notfound');
+      }
     } catch {
       setResult('notfound');
     } finally {
@@ -34,12 +48,12 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     }
   }
 
-  function lookup(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     void runLookup(token);
   }
 
-  // A QR scan opens this page with ?token=… — auto-verify it (manual entry is the fallback).
+  // Auto-verify when ?token= is present
   useEffect(() => {
     if (scannedToken) {
       setTokenValue(scannedToken);
@@ -48,22 +62,6 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedToken]);
 
-  async function doCheckIn() {
-    if (!ticket?.public_token) return;
-    setWorking(true);
-    try {
-      const { ticket: used } = await adminApi.checkIn(ticket.public_token);
-      setTicket(used);
-      setResult('checked');
-      setCount((c) => c + 1);
-    } catch (err) {
-      const data = (err as ApiError)?.data as { reason?: string } | undefined;
-      setResult(data?.reason === 'already_used' ? 'used' : 'invalid');
-    } finally {
-      setWorking(false);
-    }
-  }
-
   function reset() {
     setTokenValue('');
     setTicket(null);
@@ -71,49 +69,132 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     inputRef.current?.focus();
   }
 
-  const label: Record<Exclude<Result, null>, string> = {
-    valid: 'Válida',
-    used: 'Ya usada',
-    invalid: 'Inválida',
-    notfound: 'No encontrada',
-    checked: 'Entrada registrada',
-  };
-  const good = result === 'valid' || result === 'checked';
+  // suppress unused vars (result panels come in task 2)
+  void ticket;
+  void result;
+  void count;
+  void reset;
 
   return (
-    <main className={`${ui.page} max-w-xl`}>
-      <h1 className={ui.h1}>Check-in</h1>
-      <p data-testid="count" className="text-[#00e5ff]">
-        {count === 1 ? '1 entrada' : `${count} entradas`} hoy
-      </p>
-      <p className="text-white/50 text-sm">Escanea el QR del ticket, o ingresa el código manualmente.</p>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'var(--color-bg)',
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '20px 16px 48px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 360, fontFamily: 'var(--font-body)', color: 'var(--color-text)' }}>
 
-      <form onSubmit={lookup} className="flex gap-2 items-end mt-4">
-        <input
-          ref={inputRef}
-          className={`${ui.input} flex-1`}
-          placeholder="Código o token del ticket"
-          value={token}
-          onChange={(e) => setTokenValue(e.target.value)}
-          autoFocus
-        />
-        <button type="submit" className={ui.btn} disabled={working}>Verificar</button>
-      </form>
-
-      {result && (
-        <div className={ui.card} data-testid="result" data-result={result}>
-          <p className={`text-xl font-bold ${good ? 'text-[#22c55e]' : 'text-[#ff5a6e]'}`}>{label[result]}</p>
-          {result === 'valid' && (
-            <button type="button" className={ui.btn} onClick={doCheckIn} disabled={working}>Registrar entrada</button>
-          )}
-          {result !== 'valid' && (
-            <button type="button" className={ui.btnGhost} onClick={reset}>Siguiente</button>
-          )}
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span
+            data-testid="checkin-title"
+            style={{
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '.04em',
+              fontSize: '1.25rem',
+            }}
+          >
+            CONTROL DE PUERTA
+          </span>
+          <span
+            data-testid="ingress-count"
+            style={{
+              fontSize: '.64rem',
+              padding: '3px 11px',
+              borderRadius: 'var(--radius-pill)',
+              background: 'rgba(0,229,255,.12)',
+              border: '1px solid rgba(0,229,255,.5)',
+              color: 'var(--color-cyan)',
+              fontWeight: 600,
+            }}
+          >
+            {count} ingresos
+          </span>
         </div>
-      )}
+
+        {/* ── Divider ── */}
+        <div
+          style={{
+            textAlign: 'center',
+            fontSize: '.6rem',
+            color: 'var(--color-text-faint)',
+            margin: '8px 0',
+          }}
+        >
+          Ingresa el código del ticket
+        </div>
+
+        {/* ── Manual entry form ── */}
+        <form onSubmit={handleSubmit}>
+          <input
+            ref={inputRef}
+            data-testid="token-input"
+            placeholder="Código o token del ticket"
+            value={token}
+            onChange={(e) => setTokenValue(e.target.value)}
+            autoFocus
+            autoComplete="off"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,.05)',
+              border: '1px solid rgba(255,255,255,.15)',
+              color: 'var(--color-text)',
+              fontFamily: 'var(--font-body)',
+              fontSize: '1rem',
+              outline: 'none',
+              marginBottom: 8,
+            }}
+          />
+          <button
+            data-testid="btn-validar"
+            type="submit"
+            disabled={working}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '13px 0',
+              borderRadius: 'var(--radius-pill)',
+              background: working ? 'rgba(255,20,147,.5)' : 'var(--color-pink)',
+              border: 'none',
+              color: '#fff',
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '.06em',
+              fontSize: '1.1rem',
+              boxShadow: working ? 'none' : 'var(--shadow-cta)',
+              cursor: working ? 'not-allowed' : 'pointer',
+            }}
+          >
+            VALIDAR
+          </button>
+        </form>
+
+        {/* ── States legend ── */}
+        <div
+          style={{
+            marginTop: 20,
+            display: 'flex',
+            gap: 10,
+            justifyContent: 'center',
+            fontSize: '.6rem',
+            color: 'var(--color-text-faint)',
+          }}
+        >
+          <span style={{ color: 'var(--color-green)' }}>● Válida</span>
+          <span style={{ color: 'var(--color-red)' }}>● Ya usada</span>
+          <span style={{ color: 'var(--color-text-faint)' }}>● No encontrada</span>
+        </div>
+      </div>
     </main>
   );
 }
+
+// ─── wrapper with AdminGate + Suspense ───────────────────────────────────────
 
 function CheckInScreen() {
   const scannedToken = useSearchParams().get('token') || '';

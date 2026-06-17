@@ -35,16 +35,16 @@ test.describe('Admin', () => {
     );
 
     await login(page, '/band/tickets/check-in');
-    await expect(page.getByRole('heading', { name: 'Check-in' })).toBeVisible();
-    await expect(page.getByTestId('count')).toContainText('0 entradas');
+    await expect(page.getByTestId('checkin-title')).toContainText('CONTROL DE PUERTA');
+    await expect(page.getByTestId('ingress-count')).toContainText('0');
 
-    await page.getByPlaceholder(/código|token/i).fill('tok1');
-    await page.getByRole('button', { name: 'Verificar' }).click();
-    await expect(page.getByTestId('result')).toContainText('Válida');
+    await page.getByTestId('token-input').fill('tok1');
+    await page.getByTestId('btn-validar').click();
+    await expect(page.getByTestId('result-panel')).toContainText('VÁLIDA');
 
-    await page.getByRole('button', { name: /registrar entrada/i }).click();
-    await expect(page.getByTestId('result')).toContainText('Entrada registrada');
-    await expect(page.getByTestId('count')).toContainText('1 entrada');
+    await page.getByTestId('btn-registrar').click();
+    await expect(page.getByTestId('result-panel')).toContainText('ENTRADA REGISTRADA');
+    await expect(page.getByTestId('ingress-count')).toContainText('1');
   });
 
   test('manually issues comp tickets for selected seats', async ({ page }) => {
@@ -93,9 +93,9 @@ test.describe('Admin', () => {
     // Staff scans the ticket QR -> the deep link opens check-in pre-loaded with the
     // token -> after login it auto-verifies (no typing). Then they register the entry.
     await login(page, '/band/tickets/check-in?token=ABCD1234');
-    await expect(page.getByTestId('result')).toContainText('Válida');
-    await page.getByRole('button', { name: /registrar entrada/i }).click();
-    await expect(page.getByTestId('result')).toContainText('Entrada registrada');
-    await expect(page.getByTestId('count')).toContainText('1 entrada');
+    await expect(page.getByTestId('result-panel')).toContainText('VÁLIDA');
+    await page.getByTestId('btn-registrar').click();
+    await expect(page.getByTestId('result-panel')).toContainText('ENTRADA REGISTRADA');
+    await expect(page.getByTestId('ingress-count')).toContainText('1');
   });
 });
