@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RetroGroove — Ticketing Redesign · Mockups</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#08020e; --surface:rgba(255,255,255,.04); --border:rgba(255,255,255,.08);
+    --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --text:#ECE6F0; --muted:rgba(236,230,240,.6);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:
+      radial-gradient(120% 70% at 50% 0%, rgba(255,20,147,.22), transparent 60%),
+      radial-gradient(70% 60% at 82% 6%, rgba(0,229,255,.16), transparent 55%),
+      var(--bg);
+    color:var(--text);font-family:Outfit,system-ui,sans-serif;min-height:100vh;padding:48px 24px 80px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .eyebrow{font:600 .68rem/1 Outfit;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+  h1{font-family:'Bebas Neue',Impact,sans-serif;font-size:clamp(2.6rem,6vw,4.4rem);letter-spacing:.02em;line-height:.95}
+  h1 .pink{color:var(--pink)}
+  .sub{color:var(--muted);max-width:60ch;margin:14px 0 8px;font-size:1rem}
+  .note{color:var(--muted);font-size:.82rem;margin-bottom:34px}
+  h2{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.9rem;letter-spacing:.04em;color:var(--gold);
+     margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--surface);
+     border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;transition:.15s}
+  a.card:hover{border-color:var(--pink);box-shadow:0 0 22px rgba(255,20,147,.25);transform:translateY(-2px)}
+  .tag{display:inline-block;font:600 .62rem/1 Outfit;letter-spacing:.12em;text-transform:uppercase;
+     color:var(--pink);background:rgba(255,20,147,.1);border:1px solid rgba(255,20,147,.4);
+     border-radius:999px;padding:4px 10px;margin-bottom:10px}
+  a.card h3{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.35rem;letter-spacing:.03em;font-weight:400}
+  a.card p{color:var(--muted);font-size:.85rem;margin-top:5px;line-height:1.4}
+  .ref .tag{color:var(--cyan);background:rgba(0,229,255,.1);border-color:rgba(0,229,255,.4)}
+  footer{margin-top:48px;color:var(--muted);font-size:.78rem;border-top:1px solid var(--border);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">RetroGroove · Rediseño de Ticketing</div>
+  <h1>Mockups <span class="pink">aprobados</span></h1>
+  <p class="sub">El contrato visual de todo el ciclo de venta — listo para tomar capturas y compartir con socios.
+     Haz clic en cualquiera para abrirlo a pantalla completa.</p>
+  <p class="note">Estética: <strong>Neon Editorial</strong>. Tipografías: Bebas Neue + Outfit.</p>
+
+  <h2>Flujo del fan</h2>
+  <div class="grid">
+    <a class="card" href="F1-event-page.html"><span class="tag">F1</span><h3>Detalle del evento</h3><p>Hero del flyer, local + cómo llegar, lista de precios, caja de compra fija.</p></a>
+    <a class="card" href="F2-seat-selection-page.html"><span class="tag">F2</span><h3>Selección de asientos</h3><p>Mapa a escala real, Mapa/Lista, combos, leyenda neón, resumen con combo automático.</p></a>
+    <a class="card" href="F3-payment-page.html"><span class="tag">F3</span><h3>Pago</h3><p>Resumen de orden + “Pagar con Culqi”. Sin formulario de comprador.</p></a>
+    <a class="card" href="F4-success-page.html"><span class="tag">F4</span><h3>Confirmación</h3><p>Compra lista + enlaces a las entradas.</p></a>
+    <a class="card" href="F5-tickets-page.html"><span class="tag">F5</span><h3>Mis entradas</h3><p>Tarjetas de entrada, QR sobre blanco, descargar PDF.</p></a>
+    <a class="card" href="F6-ticket-pdf.html"><span class="tag">F6</span><h3>Entrada PDF</h3><p>A4 imprimible, talón desprendible en puerta, QR en parche blanco.</p></a>
+  </div>
+
+  <h2>Admin & puerta</h2>
+  <div class="grid">
+    <a class="card" href="05-admin-event-builder.html"><span class="tag">05</span><h3>Constructor de evento (admin)</h3><p>Escenario posicionable, mesas a escala, editor de tarifas.</p></a>
+    <a class="card" href="_brainstorm-source/admin-and-checkin.html"><span class="tag">Puerta</span><h3>Control de puerta (check-in)</h3><p>Estados grandes: Válida / Ya usada / No encontrada.</p></a>
+  </div>
+
+  <h2>Referencias de componentes</h2>
+  <div class="grid ref">
+    <a class="card" href="01-event-detail.html"><span class="tag">01</span><h3>Detalle de evento</h3><p>Referencia compacta.</p></a>
+    <a class="card" href="02-seat-selection.html"><span class="tag">02</span><h3>Selección de asientos</h3><p>Referencia compacta.</p></a>
+    <a class="card" href="03-checkout.html"><span class="tag">03</span><h3>Checkout</h3><p>Referencia compacta.</p></a>
+    <a class="card" href="04-ticket-qr.html"><span class="tag">04</span><h3>Entrada / QR</h3><p>Referencia compacta.</p></a>
+    <a class="card" href="DESIGN-TOKENS.md"><span class="tag">Tokens</span><h3>Design tokens</h3><p>Colores, tipografías, radios, sombras — el contrato exacto.</p></a>
+    <a class="card" href="README.md"><span class="tag">Léeme</span><h3>Reglas del diseño</h3><p>Cómo se usa este contrato visual.</p></a>
+  </div>
+
+  <footer>RetroGroove — La Basílica 640 · Av. Primavera 640, Surco, Lima. Mockups del rediseño de ticketing.</footer>
+</div>
+</body>
+</html>
