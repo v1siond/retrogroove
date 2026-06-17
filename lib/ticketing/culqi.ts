@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-export async function getCulqiToken(): Promise<string> {
+export async function getCulqiToken(amount: number = 0): Promise<string> {
   if (typeof window !== 'undefined' && window.__CULQI_TEST_TOKEN__) {
     return window.__CULQI_TEST_TOKEN__;
   }
@@ -38,7 +38,7 @@ export async function getCulqiToken(): Promise<string> {
       title: 'RetroGroove',
       currency: 'PEN',
       description: 'Entradas RetroGroove',
-      amount: 0,
+      amount,
     });
   });
 }

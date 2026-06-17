@@ -89,7 +89,7 @@ export interface Order {
 }
 
 export interface Buyer {
-  email: string;
+  email?: string;
   phone?: string;
   first_name?: string;
   last_name?: string;
