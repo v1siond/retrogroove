@@ -720,7 +720,7 @@ export default function EventBuy({ slug }: { slug: string }) {
                         }}
                       >
                         {/* Stage — positioned from event data or fallback band */}
-                        <div style={stageStyle}>ESCENARIO</div>
+                        <div data-testid="buyer-stage" style={stageStyle}>ESCENARIO</div>
 
                         {seatedSections.map((section, si) => {
                           const color = SECTION_COLORS[si % SECTION_COLORS.length];
