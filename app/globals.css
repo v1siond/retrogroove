@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+@theme {
+  /* Colors */
+  --color-bg: #08020e;
+  --color-bg-deep: #050010;
+  --color-surface: rgba(255, 255, 255, 0.03);
+  --color-surface-card: rgba(255, 255, 255, 0.05);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-pink: #ff1493;
+  --color-gold: #ffd700;
+  --color-cyan: #00e5ff;
+  --color-purple: #bf00ff;
+  --color-green: #22c55e;
+  --color-red: #ff5a6e;
+  --color-text: #ece6f0;
+  --color-text-muted: rgba(236, 230, 240, 0.62);
+  --color-text-faint: rgba(236, 230, 240, 0.42);
+
+  /* Fonts */
+  --font-display: "Bebas Neue", Impact, sans-serif;
+  --font-body: Outfit, system-ui, sans-serif;
+
+  /* Radii */
+  --radius-pill: 999px;
+  --radius-card: 12px;
+  --radius-frame: 16px;
+  --radius-combo: 10px;
+
+  /* Shadows */
+  --shadow-cta: 0 0 22px rgba(255, 20, 147, 0.45);
+  --shadow-frame: 0 24px 80px rgba(0, 0, 0, 0.6);
+  --shadow-seat-selected: 0 0 8px #ff1493;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,8 +40,8 @@
 }
 
 body {
-  background: #050010;
-  color: #fff;
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }

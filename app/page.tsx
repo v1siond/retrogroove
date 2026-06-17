@@ -223,8 +223,6 @@ export default function Home() {
       <meta name="description" content="RetroGroove - La experiencia musical definitiva para tu evento. Especialistas en disco, rock y pop de los 70s, 80s y 90s. Bodas, corporativos y eventos exclusivos en Lima." />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap');
-
         * { box-sizing: border-box; }
 
         .rg-page {
