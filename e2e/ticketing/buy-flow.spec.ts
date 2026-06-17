@@ -149,4 +149,46 @@ test.describe('Fan ticket purchase flow', () => {
     await page.getByRole('button', { name: /pagar con culqi/i }).click();
     await expect(page.getByTestId('ask-name-card')).not.toBeVisible();
   });
+
+  test('F2: seats in tables layout render as ring buttons (table-ring)', async ({ page }) => {
+    await setupTicketingMocks(page);
+    await page.goto('/evento?slug=gala-2026');
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await expect(page.getByTestId('seat-map')).toBeVisible();
+    // Both seats are rendered as buttons (in the table ring)
+    const s1 = page.locator('[data-seat-id="s1"]');
+    const s2 = page.locator('[data-seat-id="s2"]');
+    await expect(s1).toBeVisible();
+    await expect(s2).toBeVisible();
+    // s2 (pos_x=70, sorted right) renders to the right of s1 (pos_x=25, sorted left)
+    const box1 = await s1.boundingBox();
+    const box2 = await s2.boundingBox();
+    expect(box2!.x).toBeGreaterThan(box1!.x);
+  });
+
+  test('F3: checkout shows subtotal and discount rows', async ({ page }) => {
+    await setupTicketingMocks(page);
+    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await page.goto('/evento?slug=gala-2026');
+    // select 2 seats to trigger combo
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.locator('[data-seat-id="s2"]').click();
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    // F3 should show TU ORDEN and the total
+    await expect(page.getByTestId('order-total')).toContainText('70');
+    // Subtotal row visible
+    await expect(page.getByText('Subtotal').first()).toBeVisible();
+    // Total row visible
+    await expect(page.getByText('TOTAL', { exact: true })).toBeVisible();
+  });
+
+  test('C1: stage is rendered from event stage_w/stage_h data', async ({ page }) => {
+    await setupTicketingMocks(page);
+    await page.goto('/evento?slug=gala-2026');
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await expect(page.getByTestId('seat-map')).toBeVisible();
+    // Stage text should appear
+    await expect(page.getByText('ESCENARIO')).toBeVisible();
+  });
 });

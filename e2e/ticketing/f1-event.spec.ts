@@ -21,3 +21,10 @@ test('F1 renders title, venue address, Cómo llegar link, price, and CTA', async
   await cta.click();
   await expect(page.getByTestId('seat-map')).toBeVisible();
 });
+
+test('F1 has Nav brand wordmark', async ({ page }) => {
+  await setupTicketingMocks(page);
+  await page.goto('/evento?slug=gala-2026');
+  await expect(page.getByTestId('nav-brand')).toBeVisible();
+  await expect(page.getByTestId('nav-brand')).toContainText('RETROGROOVE');
+});
