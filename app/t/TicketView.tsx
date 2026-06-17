@@ -28,7 +28,7 @@ function statusLabel(status: Ticket['status']): string {
 function statusColor(status: Ticket['status']): string {
   switch (status) {
     case 'valid': return 'var(--color-green)';
-    case 'used': return '#ff5a6e';
+    case 'used': return 'var(--color-red)';
     case 'pending': return 'var(--color-gold)';
     default: return 'var(--color-text-muted)';
   }
