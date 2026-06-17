@@ -6,10 +6,17 @@
 // For e2e tests, set `window.__CULQI_TEST_TOKEN__` to a stub token so the buy
 // flow can run end-to-end without the external script.
 
+interface CulqiInstance {
+  publicKey: string;
+  token?: { id: string };
+  open(opts: { title: string; currency: string; description: string; amount: number }): void;
+}
+
 declare global {
   interface Window {
     __CULQI_TEST_TOKEN__?: string;
     Culqi?: unknown;
+    culqi?: () => void;
   }
 }
 
@@ -18,7 +25,20 @@ export async function getCulqiToken(): Promise<string> {
     return window.__CULQI_TEST_TOKEN__;
   }
 
-  // Production tokenization is wired here once the Culqi public key is configured
-  // (NEXT_PUBLIC_CULQI_PUBLIC_KEY) and the Culqi.js script is loaded.
-  throw new Error('Culqi.js no está configurado');
+  const culqi = (window as Window & { Culqi?: CulqiInstance }).Culqi;
+  if (!culqi) throw new Error('Culqi.js no está cargado');
+
+  return new Promise((resolve, reject) => {
+    (window as Window & { culqi?: () => void }).culqi = () => {
+      const token = culqi.token?.id;
+      if (token) resolve(token);
+      else reject(new Error('Token cancelado'));
+    };
+    culqi.open({
+      title: 'RetroGroove',
+      currency: 'PEN',
+      description: 'Entradas RetroGroove',
+      amount: 0,
+    });
+  });
 }

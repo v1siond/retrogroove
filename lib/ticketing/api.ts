@@ -55,4 +55,11 @@ export const ticketingApi = {
   getTicket(token: string): Promise<{ ticket: Ticket }> {
     return request(`/tickets/${token}`);
   },
+
+  updateOrderBuyer(orderId: string, buyer: { first_name: string; last_name: string }): Promise<{ order: Order }> {
+    return request(`/orders/${orderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ buyer }),
+    });
+  },
 };
