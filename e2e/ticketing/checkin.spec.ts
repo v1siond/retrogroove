@@ -217,3 +217,27 @@ test.describe('Task 2 — VÁLIDA / YA USADA / NO ENCONTRADA result states', () 
     await expect(page.getByTestId('ingress-count')).toContainText('1');
   });
 });
+
+// ── Task 3: Camera-scan seam ─────────────────────────────────────────────────
+
+test.describe('Task 3 — Camera-scan seam (Phase-2 stub)', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAdminLogin(page);
+  });
+
+  test('shows a visible but disabled camera-scan affordance with "próximamente" label', async ({ page }) => {
+    await login(page);
+
+    const seam = page.getByTestId('camera-scan-seam');
+    await expect(seam).toBeVisible();
+    await expect(seam).toContainText(/próximamente/i);
+  });
+
+  test('camera-scan control is disabled (not interactive)', async ({ page }) => {
+    await login(page);
+
+    const btn = page.getByTestId('camera-scan-btn');
+    await expect(btn).toBeVisible();
+    await expect(btn).toBeDisabled();
+  });
+});

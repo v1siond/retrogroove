@@ -416,6 +416,54 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
           </span>
         </div>
 
+        {/* ── Phase-2 camera seam ── */}
+        <div
+          data-testid="camera-scan-seam"
+          style={{
+            border: '1.5px dashed rgba(255,20,147,.3)',
+            borderRadius: 14,
+            padding: 20,
+            textAlign: 'center',
+            background: 'rgba(255,20,147,.03)',
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '1.6rem', marginBottom: 4, opacity: 0.3 }}>⃝</div>
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '.05em',
+              fontSize: '.95rem',
+              color: 'rgba(236,230,240,.35)',
+              marginBottom: 3,
+            }}
+          >
+            ESCANEAR QR
+          </div>
+          <div style={{ fontSize: '.6rem', color: 'rgba(236,230,240,.3)', marginBottom: 10 }}>
+            Apunta la cámara al código del fan
+          </div>
+          <button
+            data-testid="camera-scan-btn"
+            type="button"
+            disabled
+            aria-label="Escanear con cámara — próximamente"
+            style={{
+              display: 'inline-block',
+              padding: '7px 18px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid rgba(255,255,255,.12)',
+              background: 'rgba(255,255,255,.03)',
+              color: 'rgba(236,230,240,.3)',
+              fontSize: '.7rem',
+              fontFamily: 'var(--font-body)',
+              cursor: 'not-allowed',
+            }}
+          >
+            Escanear con cámara — próximamente
+          </button>
+        </div>
+
         {/* ── Divider ── */}
         <div
           style={{
@@ -425,7 +473,7 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
             margin: '8px 0',
           }}
         >
-          Ingresa el código del ticket
+          o ingresa el código
         </div>
 
         {/* ── Manual entry form ── */}
