@@ -3,12 +3,299 @@
 import { Suspense, useEffect, useRef, useState, FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminGate } from '@/components/admin2/AdminGate';
-import { adminApi } from '@/lib/ticketing/admin';
+import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import type { Ticket } from '@/lib/ticketing/types';
 
 // ─── result state type ──────────────────────────────────────────────────────
 
 type ResultState = 'valid' | 'used' | 'notfound' | 'checked' | null;
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ─── result panel sub-components ────────────────────────────────────────────
+
+function ValidPanel({
+  ticket,
+  onRegistrar,
+  onSiguiente,
+  working,
+}: {
+  ticket: Ticket;
+  onRegistrar: () => void;
+  onSiguiente: () => void;
+  working: boolean;
+}) {
+  return (
+    <div
+      data-testid="result-panel"
+      data-result="valid"
+      style={{
+        marginTop: 16,
+        border: '1px solid rgba(34,197,94,.5)',
+        background: 'rgba(34,197,94,.08)',
+        borderRadius: 14,
+        padding: 16,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '2rem',
+          color: 'var(--color-green)',
+          letterSpacing: '.04em',
+          lineHeight: 1,
+        }}
+      >
+        ● VÁLIDA
+      </div>
+      <div
+        style={{
+          fontSize: '.8rem',
+          color: 'rgba(236,230,240,.85)',
+          marginTop: 8,
+          lineHeight: 1.5,
+        }}
+      >
+        {ticket.section_name && <span>{ticket.section_name} · </span>}
+        {ticket.seat_label && <span>{ticket.seat_label}</span>}
+        {ticket.event_name && (
+          <div style={{ marginTop: 4, color: 'var(--color-cyan)', fontSize: '.74rem' }}>
+            {ticket.event_name}
+          </div>
+        )}
+      </div>
+      <button
+        data-testid="btn-registrar"
+        type="button"
+        onClick={onRegistrar}
+        disabled={working}
+        style={{
+          marginTop: 14,
+          display: 'block',
+          width: '100%',
+          padding: '13px 0',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--color-pink)',
+          border: 'none',
+          color: '#fff',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '.05em',
+          fontSize: '1.05rem',
+          boxShadow: 'var(--shadow-cta)',
+          cursor: working ? 'not-allowed' : 'pointer',
+          opacity: working ? 0.6 : 1,
+        }}
+      >
+        REGISTRAR ENTRADA
+      </button>
+      <button
+        data-testid="btn-siguiente"
+        type="button"
+        onClick={onSiguiente}
+        style={{
+          marginTop: 10,
+          background: 'none',
+          border: 'none',
+          color: 'var(--color-text-muted)',
+          fontSize: '.7rem',
+          textDecoration: 'underline',
+          cursor: 'pointer',
+        }}
+      >
+        Siguiente →
+      </button>
+    </div>
+  );
+}
+
+function CheckedPanel({
+  ticket,
+  onSiguiente,
+}: {
+  ticket: Ticket;
+  onSiguiente: () => void;
+}) {
+  return (
+    <div
+      data-testid="result-panel"
+      data-result="checked"
+      style={{
+        marginTop: 16,
+        border: '1px solid rgba(34,197,94,.6)',
+        background: 'rgba(34,197,94,.1)',
+        borderRadius: 14,
+        padding: 16,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '1.8rem',
+          color: 'var(--color-green)',
+          letterSpacing: '.04em',
+          lineHeight: 1,
+        }}
+      >
+        ✓ ENTRADA REGISTRADA
+      </div>
+      <div style={{ fontSize: '.76rem', color: 'rgba(236,230,240,.7)', marginTop: 8 }}>
+        {ticket.section_name} · {ticket.seat_label}
+      </div>
+      <button
+        data-testid="btn-siguiente"
+        type="button"
+        onClick={onSiguiente}
+        style={{
+          marginTop: 14,
+          display: 'block',
+          width: '100%',
+          padding: '11px 0',
+          borderRadius: 'var(--radius-pill)',
+          background: 'rgba(34,197,94,.18)',
+          border: '1px solid rgba(34,197,94,.4)',
+          color: 'var(--color-green)',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '.05em',
+          fontSize: '.95rem',
+          cursor: 'pointer',
+        }}
+      >
+        SIGUIENTE →
+      </button>
+    </div>
+  );
+}
+
+function UsedPanel({
+  ticket,
+  onSiguiente,
+}: {
+  ticket: Ticket;
+  onSiguiente: () => void;
+}) {
+  return (
+    <div
+      data-testid="result-panel"
+      data-result="used"
+      style={{
+        marginTop: 16,
+        border: '1px solid rgba(255,90,110,.5)',
+        background: 'rgba(255,90,110,.08)',
+        borderRadius: 14,
+        padding: 16,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '2rem',
+          color: 'var(--color-red)',
+          letterSpacing: '.04em',
+          lineHeight: 1,
+        }}
+      >
+        ● YA USADA
+      </div>
+      {ticket.checked_in_at && (
+        <div style={{ fontSize: '.76rem', color: 'rgba(236,230,240,.65)', marginTop: 8 }}>
+          Ingresó el {fmtDate(ticket.checked_in_at)}
+        </div>
+      )}
+      <button
+        data-testid="btn-siguiente"
+        type="button"
+        onClick={onSiguiente}
+        style={{
+          marginTop: 14,
+          display: 'block',
+          width: '100%',
+          padding: '11px 0',
+          borderRadius: 'var(--radius-pill)',
+          background: 'rgba(255,90,110,.14)',
+          border: '1px solid rgba(255,90,110,.35)',
+          color: 'var(--color-red)',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '.05em',
+          fontSize: '.95rem',
+          cursor: 'pointer',
+        }}
+      >
+        SIGUIENTE →
+      </button>
+    </div>
+  );
+}
+
+function NotFoundPanel({ onSiguiente }: { onSiguiente: () => void }) {
+  return (
+    <div
+      data-testid="result-panel"
+      data-result="notfound"
+      style={{
+        marginTop: 16,
+        border: '1px solid rgba(255,255,255,.15)',
+        background: 'rgba(255,255,255,.04)',
+        borderRadius: 14,
+        padding: 16,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '2rem',
+          color: 'rgba(236,230,240,.45)',
+          letterSpacing: '.04em',
+          lineHeight: 1,
+        }}
+      >
+        ● NO ENCONTRADA
+      </div>
+      <div style={{ fontSize: '.74rem', color: 'var(--color-text-muted)', marginTop: 8 }}>
+        Código inválido o ticket no existe.
+      </div>
+      <button
+        data-testid="btn-siguiente"
+        type="button"
+        onClick={onSiguiente}
+        style={{
+          marginTop: 14,
+          display: 'block',
+          width: '100%',
+          padding: '11px 0',
+          borderRadius: 'var(--radius-pill)',
+          background: 'rgba(255,255,255,.06)',
+          border: '1px solid rgba(255,255,255,.18)',
+          color: 'var(--color-text-muted)',
+          fontFamily: 'var(--font-display)',
+          letterSpacing: '.05em',
+          fontSize: '.95rem',
+          cursor: 'pointer',
+        }}
+      >
+        SIGUIENTE →
+      </button>
+    </div>
+  );
+}
 
 // ─── main check-in component ─────────────────────────────────────────────────
 
@@ -62,18 +349,32 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedToken]);
 
+  async function doCheckIn() {
+    if (!ticket?.public_token) return;
+    setWorking(true);
+    try {
+      const { ticket: used } = await adminApi.checkIn(ticket.public_token);
+      setTicket(used);
+      setResult('checked');
+      setCount((c) => c + 1);
+    } catch (err) {
+      const data = (err as ApiError)?.data as { reason?: string } | undefined;
+      if (data?.reason === 'already_used') {
+        setResult('used');
+      } else {
+        setResult('notfound');
+      }
+    } finally {
+      setWorking(false);
+    }
+  }
+
   function reset() {
     setTokenValue('');
     setTicket(null);
     setResult(null);
     inputRef.current?.focus();
   }
-
-  // suppress unused vars (result panels come in task 2)
-  void ticket;
-  void result;
-  void count;
-  void reset;
 
   return (
     <main
@@ -174,10 +475,29 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
           </button>
         </form>
 
+        {/* ── Result panels ── */}
+        {result === 'valid' && ticket && (
+          <ValidPanel
+            ticket={ticket}
+            onRegistrar={doCheckIn}
+            onSiguiente={reset}
+            working={working}
+          />
+        )}
+        {result === 'checked' && ticket && (
+          <CheckedPanel ticket={ticket} onSiguiente={reset} />
+        )}
+        {result === 'used' && ticket && (
+          <UsedPanel ticket={ticket} onSiguiente={reset} />
+        )}
+        {result === 'notfound' && (
+          <NotFoundPanel onSiguiente={reset} />
+        )}
+
         {/* ── States legend ── */}
         <div
           style={{
-            marginTop: 20,
+            marginTop: 16,
             display: 'flex',
             gap: 10,
             justifyContent: 'center',
