@@ -555,7 +555,7 @@ function NewEvent() {
       size: 64,
       shape: activeTool === 'rect-table' ? 'rect' : 'round',
       seat_count: 4,
-      seating: 'around',
+      seating: activeTool === 'rows' ? 'rows' : 'around',
     };
 
     patchSection(activeSection, { tables: [...sec.tables, newTable] });
