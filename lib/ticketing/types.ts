@@ -19,6 +19,7 @@ export interface VenueTable {
   seat_count: number;
   pos_x: number;
   pos_y: number;
+  size?: number;
 }
 
 export interface PriceBundle {
@@ -47,11 +48,18 @@ export interface TicketEvent {
   name: string;
   description: string | null;
   venue_name: string | null;
+  venue_address?: string | null;
+  venue_photo_url?: string | null;
+  map_url?: string | null;
   starts_at: string;
   status: string;
   flyer_url: string | null;
   canvas_width: number;
   canvas_height: number;
+  stage_x?: number;
+  stage_y?: number;
+  stage_w?: number;
+  stage_h?: number;
   sections: Section[];
 }
 
@@ -63,6 +71,10 @@ export interface Ticket {
   qr_svg: string | null;
   checked_in_at: string | null;
   seat_id: string;
+  event_name?: string | null;
+  event_starts_at?: string | null;
+  seat_label?: string | null;
+  section_name?: string | null;
 }
 
 export interface Order {
