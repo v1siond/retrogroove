@@ -3,9 +3,9 @@
 @theme {
   /* Colors */
   --color-bg: #08020e;
-  --color-bg-deep: #050010;
-  --color-surface: rgba(255, 255, 255, 0.03);
-  --color-surface-card: rgba(255, 255, 255, 0.05);
+  --color-bg-deep: #020006;
+  --color-surface: rgba(255, 255, 255, 0.02);
+  --color-surface-card: rgba(255, 255, 255, 0.04);
   --color-border: rgba(255, 255, 255, 0.08);
   --color-pink: #ff1493;
   --color-gold: #ffd700;
@@ -14,8 +14,8 @@
   --color-green: #22c55e;
   --color-red: #ff5a6e;
   --color-text: #ece6f0;
-  --color-text-muted: rgba(236, 230, 240, 0.62);
-  --color-text-faint: rgba(236, 230, 240, 0.42);
+  --color-text-muted: rgba(236, 230, 240, 0.6);
+  --color-text-faint: rgba(236, 230, 240, 0.45);
 
   /* Fonts */
   --font-display: "Bebas Neue", Impact, sans-serif;
