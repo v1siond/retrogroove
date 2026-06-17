@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "RetroGroove — Disco & Rock en Vivo",
-  description: "RetroGroove es tu banda de covers de disco y rock. Mira nuestro repertorio, pide tu canción favorita y entérate de nuestros próximos shows.",
+  description:
+    "RetroGroove es tu banda de covers de disco y rock. Mira nuestro repertorio, pide tu canción favorita y entérate de nuestros próximos shows.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const culqiKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY ?? '';
   return (
     <html lang="es">
       <head>
@@ -17,7 +20,22 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Script
+          src="https://checkout.culqi.com/js/v3"
+          strategy="afterInteractive"
+        />
+        {culqiKey && (
+          <Script
+            id="culqi-init"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `window.addEventListener('load',function(){if(window.Culqi)window.Culqi.publicKey=${JSON.stringify(culqiKey)};});`,
+            }}
+          />
+        )}
+      </body>
     </html>
   );
 }
