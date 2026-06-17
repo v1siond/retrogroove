@@ -9,21 +9,21 @@ test.describe('Fan ticket purchase flow', () => {
     });
 
     await page.goto('/evento?slug=gala-2026');
-    await expect(page.getByRole('heading', { name: 'Gala 2026' })).toBeVisible();
+    // F1: event detail page - click CTA to advance to seat selection
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await expect(page.getByTestId('seat-map')).toBeVisible();
 
     // Select two seats -> running estimate uses the 2-bundle (S/ 70)
     await page.locator('[data-seat-id="s1"]').click();
     await page.locator('[data-seat-id="s2"]').click();
-    await expect(page.getByTestId('selection')).toContainText('2 asiento');
-    await expect(page.getByTestId('selection')).toContainText('70.00');
+    await expect(page.getByTestId('order-total-value')).toContainText('70');
 
-    // Buyer details -> create order
-    await page.getByLabel('Email').fill('fan@example.com');
-    await page.getByRole('button', { name: 'Comprar' }).click();
+    // Advance to pay
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
 
     // Pay step shows the authoritative total
     await expect(page.getByTestId('order-total')).toContainText('70');
-    await page.getByRole('button', { name: /pagar/i }).click();
+    await page.getByRole('button', { name: /pagar con culqi/i }).click();
 
     // Confirmation + ticket links
     await expect(page.getByText(/compra confirmada/i)).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('Fan ticket purchase flow', () => {
     // Open the printable ticket
     await links.first().click();
     await expect(page).toHaveURL(/\/t\?token=tok1/);
-    await expect(page.getByTestId('ticket-status')).toHaveText('Válida');
+    await expect(page.getByTestId('ticket-status')).toContainText('Válida');
     await expect(page.getByTestId('ticket-qr')).toBeVisible();
   });
 
@@ -41,9 +41,10 @@ test.describe('Fan ticket purchase flow', () => {
     await setupTicketingMocks(page, { ordersFail: true });
 
     await page.goto('/evento?slug=gala-2026');
+    // advance to seat selection
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
-    await page.getByLabel('Email').fill('x@y.com');
-    await page.getByRole('button', { name: 'Comprar' }).click();
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
 
     await expect(page.getByText(/no están disponibles/i)).toBeVisible();
   });
@@ -52,6 +53,8 @@ test.describe('Fan ticket purchase flow', () => {
     await setupTicketingMocks(page, { soldSeat: 's2' });
 
     await page.goto('/evento?slug=gala-2026');
+    // advance to seat selection
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
     await expect(page.locator('[data-seat-id="s2"]')).toBeDisabled();
     await expect(page.locator('[data-seat-id="s1"]')).toBeEnabled();
   });
@@ -60,6 +63,8 @@ test.describe('Fan ticket purchase flow', () => {
     await setupTicketingMocks(page);
 
     await page.goto('/evento?slug=gala-2026');
+    // advance to seat selection
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
     await expect(page.getByTestId('seat-map')).toBeVisible();
 
     const s1 = page.locator('[data-seat-id="s1"]');
@@ -74,5 +79,74 @@ test.describe('Fan ticket purchase flow', () => {
     const box1 = await s1.boundingBox();
     const box2 = await s2.boundingBox();
     expect(box2!.x).toBeGreaterThan(box1!.x);
+  });
+
+  test('F2: select 2 seats shows combo discount and correct total', async ({ page }) => {
+    await setupTicketingMocks(page);
+    await page.goto('/evento?slug=gala-2026');
+    // advance to seat selection
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+
+    // select 2 seats (bundle: 2×S/40=S/80 but bundle price S/70 so saving S/10)
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.locator('[data-seat-id="s2"]').click();
+
+    // combo discount shown
+    await expect(page.getByText('Combo aplicado')).toBeVisible();
+
+    // total shows bundle price S/70
+    await expect(page.getByTestId('order-total-value')).toContainText('70');
+
+    // Mapa/Lista toggle works
+    await page.getByRole('button', { name: 'Lista' }).click();
+    await expect(page.getByTestId('seat-list')).toBeVisible();
+    await page.getByRole('button', { name: 'Mapa' }).click();
+    await expect(page.getByTestId('seat-map')).toBeVisible();
+  });
+
+  test('F3: checkout has NO buyer inputs and pay advances to success', async ({ page }) => {
+    await setupTicketingMocks(page);
+    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await page.goto('/evento?slug=gala-2026');
+
+    // reach F3
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
+
+    // no buyer form
+    await expect(page.getByLabel(/nombre/i)).not.toBeVisible();
+    await expect(page.getByLabel(/email/i)).not.toBeVisible();
+
+    // pay button present
+    await expect(page.getByRole('button', { name: /pagar con culqi/i })).toBeVisible();
+
+    // click pay -> advances to success
+    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await expect(page.getByText(/compra confirmada/i)).toBeVisible();
+  });
+
+  test('F4: with name shows no ask-name; without name shows ask-name card', async ({ page }) => {
+    // Without name
+    await setupTicketingMocks(page, { noName: true });
+    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await page.goto('/evento?slug=gala-2026');
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await expect(page.getByTestId('ask-name-card')).toBeVisible();
+  });
+
+  test('F4: with name hides ask-name card', async ({ page }) => {
+    // With name (default mock returns Juan Pérez)
+    await setupTicketingMocks(page);
+    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await page.goto('/evento?slug=gala-2026');
+    await page.getByRole('button', { name: /comprar entradas/i }).click();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await expect(page.getByTestId('ask-name-card')).not.toBeVisible();
   });
 });
