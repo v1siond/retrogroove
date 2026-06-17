@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Pago (full) — DESIGN CONTRACT</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<!--
+  FLOW CHANGE (vs 03-checkout.html): this page does NOT collect a buyer form upfront.
+  No Nombre/Apellido/Email/Teléfono inputs. Culqi.js opens its OWN secure window (card/Yape)
+  which collects the email; we read name/email from the charge response and only ask for a
+  name AFTER paying if Culqi didn't return one. Tokenization model unchanged:
+  "Pagar con Culqi" -> getCulqiToken() -> POST /orders/:id/pay -> Culqi v2 /charges
+  (amount, currency_code PEN, email, source_id). No payment-method picker / inline Yape /
+  Apple-Google Pay — Culqi owns that UI. The powered-by row below is informational only.
+-->
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#050010; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;line-height:1.6}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  a{color:inherit;text-decoration:none}
+  /* nav (verbatim from F1) */
+  .nav{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+       padding:14px 28px;background:rgba(8,2,14,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue';letter-spacing:.16em;font-size:1.4rem;
+        background:linear-gradient(90deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav .links{display:flex;gap:22px;font-size:.82rem;color:var(--muted)}
+  .nav .mini-cta{background:var(--pink);color:#fff;padding:8px 18px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:.95rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  /* slim event-context header */
+  .ctx{border-bottom:1px solid var(--border);background:var(--surface)}
+  .ctx-inner{max-width:760px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .ctx .back{font-size:.8rem;color:var(--muted);white-space:nowrap}
+  .ctx .back:hover{color:var(--text)}
+  .ctx .ev{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .ctx .ev .title{font-family:'Bebas Neue';font-size:1.15rem;letter-spacing:.06em}
+  .ctx .ev .when{font-size:.74rem;color:var(--muted)}
+  .ctx .ev .when .k{color:var(--cyan);font-weight:600}
+  /* checkout shell */
+  .wrap{max-width:720px;margin:0 auto;padding:34px 28px 64px}
+  .eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:10px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+  .h{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.25rem}
+  .hold{font-size:.62rem;color:var(--faint);margin:2px 0 14px}
+  /* order summary (reuses F1 .price-row look) */
+  .price-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+  .price-row .n{font-size:.9rem}
+  .price-row .n small{display:block;color:var(--faint);font-size:.7rem;margin-top:2px}
+  .price-row .p{font-family:'Bebas Neue';font-size:1.3rem;color:var(--pink)}
+  .combo{margin-top:12px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.55);border-radius:10px;padding:11px 13px}
+  .combo .t{display:flex;justify-content:space-between;font-size:.78rem;color:var(--gold);font-weight:600}
+  .combo .s{font-size:.66rem;color:rgba(255,215,0,.7);margin-top:3px}
+  .srow{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);margin-top:14px}
+  .srow.d{color:var(--gold);margin-top:4px}
+  .rule{height:1px;background:var(--border);margin:12px 0}
+  .total{display:flex;justify-content:space-between;align-items:baseline}
+  .total .l{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.15rem;letter-spacing:.04em}
+  .total .v{font-family:'Bebas Neue',Impact,sans-serif;font-size:2rem;color:var(--gold)}
+  .finalnote{margin-top:8px;font-size:.62rem;color:var(--faint)}
+  .promo{margin-top:16px;font-size:.74rem;color:var(--cyan);text-decoration:underline;display:inline-block}
+  /* primary CTA (F1 .cta) */
+  .cta{margin-top:20px;display:block;text-align:center;background:var(--pink);color:#fff;padding:15px;border-radius:999px;
+       font-family:'Bebas Neue';letter-spacing:.06em;font-size:1.3rem;box-shadow:0 0 24px rgba(255,20,147,.45)}
+  .paysub{margin-top:10px;font-size:.66rem;color:var(--muted);text-align:center}
+  .paysub strong{color:var(--text);font-weight:600}
+  /* powered-by row — informational, NOT selectable */
+  .powered{margin-top:12px;display:flex;gap:8px;justify-content:center;align-items:center;opacity:.7;
+           font-size:.62rem;color:var(--muted);user-select:none;pointer-events:none}
+  .powered .lab{color:var(--faint);letter-spacing:.1em;text-transform:uppercase;font-size:.56rem}
+  .powered .g{padding:3px 9px;border:1px solid rgba(255,255,255,.18);border-radius:5px;letter-spacing:.04em}
+  .powered .g.yape{color:#a050ff;border-color:rgba(160,80,255,.4)}
+  /* note card */
+  .note{margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+        padding:13px 15px;font-size:.78rem;color:var(--muted);display:flex;gap:11px;align-items:flex-start}
+  .note .ic{color:var(--cyan);font-size:1rem;line-height:1.4}
+  /* cómo funciona strip */
+  .how{margin-top:18px;border:1px solid var(--border);border-radius:12px;background:var(--surface);
+       padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.72rem;color:var(--muted)}
+  .how .lab{font:600 .58rem/1 Outfit;letter-spacing:.14em;color:var(--faint);text-transform:uppercase;width:100%}
+  .step{padding:6px 11px;border-radius:999px;background:var(--surface2);border:1px solid var(--border)}
+  .step.pink{background:rgba(255,20,147,.12);border-color:rgba(255,20,147,.4);color:var(--text)}
+  .step.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#22c55e}
+  .step.err{background:rgba(255,90,110,.1);border-color:rgba(255,90,110,.4);color:#ff5a6e}
+  .arrow{opacity:.5}
+  /* footer (verbatim from F1) */
+  .foot{border-top:1px solid var(--border);padding:24px 28px;text-align:center;color:var(--faint);font-size:.78rem}
+  @media(max-width:560px){
+    .ctx-inner{padding:12px 18px}
+    .wrap{padding:24px 18px 48px}
+    .panel{padding:18px}
+  }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="logo">RETROGROOVE</span>
+    <span class="links"><a>Eventos</a><a>La banda</a><a>Contacto</a></span>
+    <a class="mini-cta">Comprar</a>
+  </nav>
+
+  <!-- slim event-context header -->
+  <header class="ctx">
+    <div class="ctx-inner">
+      <a class="back">← Volver</a>
+      <div class="ev">
+        <span class="title">GRUPO 5 · NOCHE DE CUMBIA</span>
+        <span class="when"><span class="k">Sáb 27 Dic</span> · 9:00 PM · Arena 1, Lima</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="panel">
+      <div class="h">TU ORDEN</div>
+      <div class="hold">⏱ Reservado por 18:30</div>
+
+      <div class="price-row"><span class="n">VIP · Mesa 1 — Asiento N</span><span class="p">S/ 120</span></div>
+      <div class="price-row"><span class="n">VIP · Mesa 1 — Asiento E</span><span class="p">S/ 120</span></div>
+
+      <div class="combo">
+        <div class="t"><span>💎 Combo pareja VIP</span><span>−S/ 20</span></div>
+        <div class="s">Aplicado automáticamente — no tienes que elegirlo.</div>
+      </div>
+
+      <div class="srow"><span>Subtotal</span><span>S/ 240</span></div>
+      <div class="srow d"><span>Descuento combo</span><span>−S/ 20</span></div>
+      <div class="rule"></div>
+      <div class="total"><span class="l">TOTAL</span><span class="v">S/ 220.00</span></div>
+      <div class="finalnote">Precio final, sin cargos sorpresa</div>
+
+      <a class="promo">+ Ingresar código de descuento</a>
+
+      <a class="cta">PAGAR CON CULQI · S/ 220.00</a>
+      <div class="paysub">🔒 Se abre la ventana segura de <strong>Culqi</strong> — paga con <strong>tarjeta</strong> o <strong>Yape</strong></div>
+
+      <div class="powered">
+        <span class="lab">Pagos vía Culqi</span>
+        <span class="g">VISA</span>
+        <span class="g">Mastercard</span>
+        <span class="g yape">Yape</span>
+      </div>
+
+      <div class="note">
+        <span class="ic">✉</span>
+        <span>Tomamos tu nombre y correo de Culqi para enviarte las entradas. Si falta algo, te lo pedimos después de pagar.</span>
+      </div>
+    </div>
+
+    <div class="how">
+      <span class="lab">Cómo funciona</span>
+      <span class="step pink">1 · Pagar con Culqi</span><span class="arrow">→</span>
+      <span class="step">2 · Ventana Culqi (tarjeta / Yape)</span><span class="arrow">→</span>
+      <span class="step ok">3a · ✓ Compra confirmada</span>
+      <span class="step err">3b · ✕ Reintentar</span>
+    </div>
+  </main>
+
+  <footer class="foot">RetroGroove · La cumbia más grande del Perú, en vivo · © 2026</footer>
+</body>
+</html>

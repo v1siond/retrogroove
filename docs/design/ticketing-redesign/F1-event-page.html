@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Página de evento (full) — APPROVED REFERENCE</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#050010; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;line-height:1.6}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  a{color:inherit;text-decoration:none}
+  /* nav */
+  .nav{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+       padding:14px 28px;background:rgba(8,2,14,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue';letter-spacing:.16em;font-size:1.4rem;
+        background:linear-gradient(90deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav .links{display:flex;gap:22px;font-size:.82rem;color:var(--muted)}
+  .nav .mini-cta{background:var(--pink);color:#fff;padding:8px 18px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:.95rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  /* hero */
+  .hero{position:relative;height:62vh;min-height:440px;display:flex;align-items:flex-end;
+        background:
+          radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%),
+          radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%),
+          radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%),
+          linear-gradient(180deg,#1a0626,#08020e)}
+  .hero::after{content:"";position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% -10%,rgba(255,255,255,.03) 0 5deg,transparent 5deg 11deg);mix-blend-mode:screen;opacity:.5;pointer-events:none}
+  .hero-inner{position:relative;z-index:2;max-width:1120px;margin:0 auto;width:100%;padding:0 28px 40px}
+  .badges{display:flex;gap:9px;margin-bottom:16px}
+  .badge{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;font-weight:600;padding:6px 12px;border-radius:999px}
+  .badge.pre{background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.5);color:var(--cyan)}
+  .badge.cumbia{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.5);color:var(--gold)}
+  .hero h1{font-family:'Bebas Neue';font-size:clamp(3rem,9vw,6.5rem);line-height:.9;letter-spacing:.01em;
+           text-shadow:0 0 30px rgba(255,20,147,.35)}
+  .hero .sub{font-family:'Bebas Neue';font-size:clamp(1.4rem,4vw,2.4rem);color:var(--gold);letter-spacing:.04em}
+  .hero .meta{margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:.95rem;color:var(--text)}
+  .hero .meta .k{color:var(--cyan);font-weight:600;letter-spacing:.04em}
+  /* layout */
+  .wrap{max-width:1120px;margin:0 auto;padding:36px 28px 80px;display:grid;grid-template-columns:1fr 360px;gap:34px}
+  @media(max-width:880px){.wrap{grid-template-columns:1fr}}
+  .section{margin-bottom:34px}
+  .eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:10px}
+  h2.bebas{font-size:1.9rem;letter-spacing:.03em;margin-bottom:12px}
+  .lede{color:var(--muted);margin-bottom:12px}
+  .lede strong{color:var(--text)}
+  /* venue */
+  .venue{display:grid;grid-template-columns:1fr 1fr;gap:18px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  @media(max-width:560px){.venue{grid-template-columns:1fr}}
+  .venue-photo{min-height:200px;background:
+      radial-gradient(70% 80% at 30% 20%,rgba(0,229,255,.25),transparent 60%),
+      radial-gradient(80% 80% at 80% 90%,rgba(255,20,147,.3),transparent 60%),
+      linear-gradient(135deg,#1a1230,#0c0820);display:flex;align-items:flex-end;padding:14px}
+  .venue-photo span{font-size:.66rem;color:rgba(255,255,255,.7);background:rgba(0,0,0,.35);padding:4px 9px;border-radius:6px}
+  .venue-info{padding:18px}
+  .venue-info h3{font-family:'Bebas Neue';font-size:1.4rem;letter-spacing:.03em}
+  .venue-info .addr{color:var(--muted);font-size:.88rem;margin:6px 0 12px}
+  .map{margin-top:14px;height:120px;border-radius:12px;border:1px solid var(--border);position:relative;overflow:hidden;
+       background:
+         linear-gradient(0deg,rgba(0,229,255,.06),transparent),
+         repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 26px),
+         repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 26px),#0b0820}
+  .map .pin{position:absolute;left:46%;top:42%;color:var(--pink);font-size:1.5rem;filter:drop-shadow(0 0 8px rgba(255,20,147,.7))}
+  .map .go{position:absolute;right:10px;bottom:10px;font-size:.72rem;background:var(--pink);color:#fff;padding:6px 12px;border-radius:999px}
+  .facts{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .fact{font-size:.74rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:6px 12px}
+  /* sidebar pricing */
+  .buybox{position:sticky;top:84px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;align-self:start}
+  .buybox .when{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);font-weight:600}
+  .buybox .venuelin{font-size:.85rem;color:var(--muted);margin:4px 0 14px}
+  .prices .eyebrow{margin-bottom:8px}
+  .price-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+  .price-row:last-child{border-bottom:0}
+  .price-row .n{font-size:.9rem}
+  .price-row .n small{display:block;color:var(--gold);font-size:.7rem;margin-top:2px}
+  .price-row .p{font-family:'Bebas Neue';font-size:1.3rem;color:var(--pink)}
+  .desde{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px}
+  .desde .l{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .desde .v{font-family:'Bebas Neue';font-size:2rem;color:var(--gold)}
+  .cta{margin-top:12px;display:block;text-align:center;background:var(--pink);color:#fff;padding:15px;border-radius:999px;
+       font-family:'Bebas Neue';letter-spacing:.06em;font-size:1.3rem;box-shadow:0 0 24px rgba(255,20,147,.45)}
+  .reassure{margin-top:10px;font-size:.62rem;color:var(--faint);text-align:center}
+  .scarce{margin-top:12px;text-align:center;font-size:.72rem;color:var(--cyan)}
+  .foot{border-top:1px solid var(--border);padding:24px 28px;text-align:center;color:var(--faint);font-size:.78rem}
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="logo">RETROGROOVE</span>
+    <span class="links"><a>Eventos</a><a>La banda</a><a>Contacto</a></span>
+    <a class="mini-cta">Comprar</a>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="badges"><span class="badge pre">● Preventa · hasta agotar stock</span><span class="badge cumbia">Cumbia en vivo</span></div>
+      <h1>GRUPO 5</h1>
+      <div class="sub">NOCHE DE CUMBIA</div>
+      <div class="meta">
+        <span><span class="k">SÁB 27 DIC</span> · 9:00 PM</span>
+        <span><span class="k">Arena 1</span> · Lima</span>
+        <span><span class="k">Desde</span> S/ 70.00</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div>
+      <!-- description -->
+      <section class="section">
+        <div class="eyebrow">Acerca del evento</div>
+        <h2 class="bebas">Una noche con la leyenda de la cumbia peruana</h2>
+        <p class="lede"><strong>Grupo 5</strong> vuelve a Lima para una noche inolvidable de cumbia. Más de tres horas en vivo con los clásicos que marcaron generaciones — <em>Motor y Motivo</em>, <em>Te Vas</em>, <em>Cariñito</em> — y su nueva producción 2026.</p>
+        <p class="lede">Cena show con mesas frente al escenario, zona general de pie y tribunas. Llega temprano: las puertas abren a las 7:30 PM y la preventa tiene cupos limitados por zona.</p>
+        <div class="facts">
+          <span class="fact">⏱ Puertas 7:30 PM</span>
+          <span class="fact">🎤 +3 horas en vivo</span>
+          <span class="fact">🍽 Cena show disponible</span>
+          <span class="fact">🔞 Todas las edades</span>
+        </div>
+      </section>
+
+      <!-- venue -->
+      <section class="section">
+        <div class="eyebrow">El lugar</div>
+        <div class="venue">
+          <div class="venue-photo"><span>Arena 1 · Lima</span></div>
+          <div class="venue-info">
+            <h3>Arena 1</h3>
+            <div class="addr">Av. La Rosa Toro 1234, San Borja, Lima</div>
+            <p class="lede" style="font-size:.86rem">Recinto techado con aforo para 1,800 personas, estacionamiento propio y acceso para sillas de ruedas. Zona de food trucks afuera.</p>
+            <div class="map">
+              <span class="pin">📍</span>
+              <a class="go">Cómo llegar →</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- sticky buy box -->
+    <aside>
+      <div class="buybox">
+        <div class="when">SÁB 27 DIC · 9:00 PM</div>
+        <div class="venuelin">Arena 1 · San Borja, Lima</div>
+        <div class="prices">
+          <div class="eyebrow">Entradas</div>
+          <div class="price-row"><span class="n">VIP Frente al Escenario<small>Combo pareja 2 × S/ 220 · ahorras S/ 20</small></span><span class="p">S/ 120</span></div>
+          <div class="price-row"><span class="n">Mesas Generales<small>Combo 2 × S/ 130</small></span><span class="p">S/ 70</span></div>
+          <div class="price-row"><span class="n">Campo (De pie)</span><span class="p">S/ 40</span></div>
+        </div>
+        <div class="desde"><span class="l">Desde</span><span class="v">S/ 40.00</span></div>
+        <a class="cta">COMPRAR ENTRADAS</a>
+        <div class="reassure">Precio final, sin cargos sorpresa · Yape · tarjeta</div>
+        <div class="scarce">● Preventa activa — quedan 38 mesas</div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="foot">RetroGroove · La cumbia más grande del Perú, en vivo · © 2026</footer>
+</body>
+</html>

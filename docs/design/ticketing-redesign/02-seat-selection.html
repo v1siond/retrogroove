@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Seat Selection + Combo Deals — APPROVED REFERENCE</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#020006;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       padding:32px;font-family:Outfit,system-ui,sans-serif}
+  .screen{width:880px;max-width:100%;border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);
+          background:#08020e;color:#ECE6F0}
+  .cols{display:flex;min-height:460px}
+  .map{flex:1.55;padding:18px 20px;border-right:1px solid rgba(255,255,255,.07)}
+  .summary{flex:1;padding:18px 20px;background:rgba(255,255,255,.02)}
+  .toprow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .toggle{display:inline-flex;border:1px solid rgba(255,255,255,.14);border-radius:999px;overflow:hidden;font-size:.72rem}
+  .toggle .on{padding:6px 16px;background:#ff1493;color:#fff;font-weight:600}
+  .toggle .off{padding:6px 16px;color:rgba(236,230,240,.6)}
+  .scarcity{font:600 .64rem/1 Outfit;letter-spacing:.14em;color:#00e5ff;text-transform:uppercase}
+  .deals{margin-top:13px;display:flex;gap:8px;flex-wrap:wrap}
+  .deal-gold{font-size:.72rem;padding:7px 12px;border-radius:999px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.55);color:#ffd700}
+  .deal-plain{font-size:.72rem;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:rgba(236,230,240,.75)}
+  .stage{margin-top:15px;text-align:center}
+  .stage span{display:inline-block;background:linear-gradient(180deg,rgba(255,20,147,.35),transparent);
+    border:1px solid rgba(255,20,147,.3);border-radius:8px;padding:6px 46px;
+    font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.35em;font-size:.78rem;color:#fff}
+  .zone-label{font:600 .62rem/1 Outfit;letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px}
+  .vip{color:#ff1493}.gen{color:#00e5ff}
+  .tables{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+  .table-vip{position:relative;width:80px;height:80px;border-radius:50%;border:1px dashed rgba(255,20,147,.35);background:rgba(255,20,147,.05)}
+  .table-gen{width:60px;height:60px;border-radius:50%;border:1px dashed rgba(0,229,255,.3);background:rgba(0,229,255,.04);
+             display:flex;align-items:center;justify-content:center;font-size:.55rem;color:rgba(236,230,240,.45)}
+  .table-full{border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:rgba(236,230,240,.3)}
+  .tname{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.55rem;color:rgba(236,230,240,.5)}
+  .seat{position:absolute;width:14px;height:14px;border-radius:50%}
+  .s-sel{background:#ff1493;box-shadow:0 0 8px #ff1493}
+  .s-avail{border:1.5px solid #00e5ff;background:rgba(0,229,255,.12)}
+  .s-taken{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)}
+  .pos-n{top:-7px;left:50%;transform:translateX(-50%)}
+  .pos-e{right:-7px;top:50%;transform:translateY(-50%)}
+  .pos-s{bottom:-7px;left:50%;transform:translateX(-50%)}
+  .pos-w{left:-7px;top:50%;transform:translateY(-50%)}
+  .legend{margin-top:20px;display:flex;gap:18px;justify-content:center;font-size:.68rem;color:rgba(236,230,240,.6)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:6px}
+  .summary h3{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.3rem;font-weight:400}
+  .hold{font-size:.64rem;color:rgba(236,230,240,.5);margin-bottom:14px}
+  .line{display:flex;justify-content:space-between;font-size:.82rem;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .x{color:rgba(236,230,240,.4)}
+  .combo{margin-top:11px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.35);border-radius:10px;padding:10px 12px}
+  .combo .top{display:flex;justify-content:space-between;font-size:.74rem;color:#ffd700;font-weight:600}
+  .combo .sub{font-size:.64rem;color:rgba(236,230,240,.55);margin-top:2px}
+  .srow{display:flex;justify-content:space-between;font-size:.76rem;color:rgba(236,230,240,.55);margin-top:13px}
+  .srow.disc{color:#ffd700;margin-top:3px}
+  .srule{height:1px;background:rgba(255,255,255,.08);margin:10px 0}
+  .total{display:flex;justify-content:space-between;align-items:baseline}
+  .total .l{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.05em;font-size:1.2rem}
+  .total .v{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.9rem;color:#ffd700}
+  .pay{margin-top:15px;background:#ff1493;color:#fff;text-align:center;padding:13px;border-radius:999px;
+       font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.15rem;box-shadow:0 0 22px rgba(255,20,147,.45)}
+  .fine{margin-top:10px;font-size:.62rem;color:rgba(236,230,240,.4);text-align:center}
+</style>
+</head>
+<body>
+  <div class="screen">
+    <div class="cols">
+      <!-- ===== MAP ===== -->
+      <div class="map">
+        <div class="toprow">
+          <div class="toggle"><span class="on">Mapa</span><span class="off">Lista</span></div>
+          <div class="scarcity">Preventa · quedan 38</div>
+        </div>
+        <div class="deals">
+          <span class="deal-gold">💎 Combo pareja VIP · 2 × S/ 220 <span style="opacity:.8">(ahorras S/ 20)</span></span>
+          <span class="deal-plain">Mesa Gral · combo 2 × S/ 130</span>
+        </div>
+        <div class="stage"><span>ESCENARIO</span></div>
+
+        <div style="margin-top:18px">
+          <div class="zone-label vip">VIP Frente al Escenario · S/ 120</div>
+          <div class="tables">
+            <div class="table-vip">
+              <span class="seat s-sel pos-n"></span><span class="seat s-sel pos-e"></span>
+              <span class="seat s-taken pos-s"></span><span class="seat s-avail pos-w"></span>
+              <span class="tname">Mesa 1</span>
+            </div>
+            <div class="table-vip">
+              <span class="seat s-avail pos-n"></span><span class="seat s-avail pos-e"></span>
+              <span class="seat s-avail pos-s"></span><span class="seat s-avail pos-w"></span>
+              <span class="tname">Mesa 2</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <div class="zone-label gen">Mesas Generales · S/ 70</div>
+          <div class="tables">
+            <div class="table-gen">6 libres</div>
+            <div class="table-gen">4 libres</div>
+            <div class="table-gen table-full">llena</div>
+            <div class="table-gen">6 libres</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="s-avail"></i>Disponible</span>
+          <span><i class="s-sel"></i>Seleccionado</span>
+          <span><i class="s-taken"></i>Ocupado</span>
+        </div>
+      </div>
+
+      <!-- ===== SUMMARY ===== -->
+      <div class="summary">
+        <h3>TU SELECCIÓN</h3>
+        <div class="hold">⏱ Reservado por 19:48</div>
+        <div class="line"><span>VIP · Mesa 1 — Asiento N <span class="x">✕</span></span><span>S/ 120</span></div>
+        <div class="line"><span>VIP · Mesa 1 — Asiento E <span class="x">✕</span></span><span>S/ 120</span></div>
+        <div class="combo">
+          <div class="top"><span>💎 Combo pareja VIP aplicado</span><span>−S/ 20</span></div>
+          <div class="sub">2 entradas VIP a precio de combo</div>
+        </div>
+        <div class="srow"><span>Subtotal</span><span>S/ 240</span></div>
+        <div class="srow disc"><span>Descuento combo</span><span>−S/ 20</span></div>
+        <div class="srule"></div>
+        <div class="total"><span class="l">TOTAL</span><span class="v">S/ 220.00</span></div>
+        <div class="pay">IR A PAGAR</div>
+        <div class="fine">Precio final, sin cargos sorpresa · Yape · PLIN · tarjeta</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

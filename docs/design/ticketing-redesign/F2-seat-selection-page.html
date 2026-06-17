@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Selección de asientos (full) — CONTRACT</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#050010; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;line-height:1.6}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  a{color:inherit;text-decoration:none}
+  /* nav (verbatim from F1) */
+  .nav{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+       padding:14px 28px;background:rgba(8,2,14,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue';letter-spacing:.16em;font-size:1.4rem;
+        background:linear-gradient(90deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav .links{display:flex;gap:22px;font-size:.82rem;color:var(--muted)}
+  .nav .mini-cta{background:var(--pink);color:#fff;padding:8px 18px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:.95rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  /* event-context header bar */
+  .ctxbar{position:sticky;top:57px;z-index:40;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+          padding:12px 28px;background:rgba(8,2,14,.72);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .ctxbar .back{font-size:.82rem;color:var(--cyan);font-weight:500;white-space:nowrap}
+  .ctxbar .ctitle{font-family:'Bebas Neue';font-size:1.45rem;letter-spacing:.05em;line-height:1;color:var(--text)}
+  .ctxbar .cmeta{font-size:.84rem;color:var(--muted);margin-left:auto}
+  .ctxbar .cmeta .k{color:var(--cyan);font-weight:600;letter-spacing:.03em}
+  @media(max-width:880px){.ctxbar .cmeta{margin-left:0;width:100%}}
+  /* layout */
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 28px 80px;display:grid;grid-template-columns:1fr 360px;gap:34px}
+  @media(max-width:880px){.wrap{grid-template-columns:1fr}}
+  /* ===== MAP (left / main) ===== */
+  .map-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+  .toprow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .toggle{display:inline-flex;border:1px solid rgba(255,255,255,.14);border-radius:999px;overflow:hidden;font-size:.78rem}
+  .toggle .on{padding:7px 18px;background:var(--pink);color:#fff;font-weight:600}
+  .toggle .off{padding:7px 18px;color:var(--muted)}
+  .scarcity{font:600 .66rem/1 Outfit;letter-spacing:.14em;color:var(--cyan);text-transform:uppercase}
+  .deals{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .deal-gold{font-size:.74rem;padding:7px 12px;border-radius:999px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.55);color:var(--gold)}
+  .deal-plain{font-size:.74rem;padding:7px 12px;border-radius:999px;background:var(--surface2);border:1px solid rgba(255,255,255,.15);color:rgba(236,230,240,.75)}
+  /* realistic floor plan (from seat-layouts mockup 1) */
+  .floor{position:relative;height:420px;margin-top:16px;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;
+         background:radial-gradient(circle at 50% 0%,rgba(255,20,147,.14),transparent 55%),#0b0020}
+  .stageband{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+             background:linear-gradient(180deg,rgba(255,20,147,.35),transparent);border:1px solid rgba(255,20,147,.3);
+             border-radius:7px;padding:5px 56px;font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.35em;
+             font-size:.74rem;color:#fff;z-index:3}
+  .ztag{position:absolute;font:600 .58rem/1 Outfit;letter-spacing:.14em;text-transform:uppercase;z-index:3}
+  .ztag.vip{color:var(--pink)}.ztag.gen{color:var(--cyan)}
+  /* a table: positioned box; .surf = wooden circle; seats = <i> at % around it */
+  .table{position:absolute}
+  .table .surf{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.12);
+               background:radial-gradient(circle at 50% 35%,#2a1430,#160a1e)}
+  .table.vip .surf{inset:20%;border:1px solid rgba(255,20,147,.4);background:radial-gradient(circle at 50% 35%,#3a1030,#1e0a1a)}
+  .table .cap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.55rem;color:rgba(236,230,240,.5)}
+  .table.vip .cap{color:#ff8fce}
+  .table .tname{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);white-space:nowrap;
+                font-size:.52rem;letter-spacing:.06em;color:rgba(236,230,240,.55)}
+  /* seat dots */
+  .table i{position:absolute;width:11px;height:11px;border-radius:50%;transform:translate(-50%,-50%)}
+  .s-avail{border:1.5px solid var(--cyan);background:rgba(0,229,255,.15)}
+  .table.vip .s-avail{border:1.5px solid var(--pink);background:rgba(255,20,147,.18)}
+  .s-sel{background:var(--pink);box-shadow:0 0 8px var(--pink)}
+  .s-taken{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)}
+  /* legend */
+  .legend{margin-top:22px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:.7rem;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:6px}
+  .legend i.s-avail{border:1.5px solid var(--cyan);background:rgba(0,229,255,.15)}
+  .legend i.s-sel{background:var(--pink);box-shadow:0 0 6px var(--pink)}
+  .legend i.s-taken{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)}
+  /* ===== SIDEBAR (right / sticky) ===== */
+  .buybox{position:sticky;top:118px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;align-self:start}
+  .buybox h3{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.3rem;font-weight:400}
+  .hold{font-size:.66rem;color:rgba(236,230,240,.5);margin-bottom:14px}
+  .hold b{color:var(--cyan);font-weight:600;letter-spacing:.04em}
+  .line{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.84rem;padding:9px 0;border-bottom:1px solid var(--border)}
+  .line .p{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.05rem;color:var(--pink)}
+  .x{color:rgba(236,230,240,.4);cursor:pointer}
+  .combo{margin-top:11px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.35);border-radius:10px;padding:10px 12px}
+  .combo .top{display:flex;justify-content:space-between;font-size:.76rem;color:var(--gold);font-weight:600}
+  .combo .sub{font-size:.66rem;color:rgba(236,230,240,.55);margin-top:2px}
+  .srow{display:flex;justify-content:space-between;font-size:.78rem;color:rgba(236,230,240,.6);margin-top:13px}
+  .srow.disc{color:var(--gold);margin-top:3px}
+  .srule{height:1px;background:rgba(255,255,255,.08);margin:11px 0}
+  .total{display:flex;justify-content:space-between;align-items:baseline}
+  .total .l{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.05em;font-size:1.2rem}
+  .total .v{font-family:'Bebas Neue',Impact,sans-serif;font-size:2rem;color:var(--gold)}
+  .cta{margin-top:15px;display:block;text-align:center;background:var(--pink);color:#fff;padding:15px;border-radius:999px;
+       font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.3rem;box-shadow:0 0 24px rgba(255,20,147,.45)}
+  .fine{margin-top:10px;font-size:.64rem;color:var(--faint);text-align:center}
+  /* footer (verbatim from F1) */
+  .foot{border-top:1px solid var(--border);padding:24px 28px;text-align:center;color:var(--faint);font-size:.78rem}
+</style>
+</head>
+<body>
+  <!-- ===== NAV (F1) ===== -->
+  <nav class="nav">
+    <span class="logo">RETROGROOVE</span>
+    <span class="links"><a>Eventos</a><a>La banda</a><a>Contacto</a></span>
+    <a class="mini-cta">Comprar</a>
+  </nav>
+
+  <!-- ===== EVENT-CONTEXT HEADER BAR ===== -->
+  <div class="ctxbar">
+    <a class="back">← Volver</a>
+    <span class="ctitle bebas">GRUPO 5 · NOCHE DE CUMBIA</span>
+    <span class="cmeta"><span class="k">SÁB 27 DIC</span> · 9:00 PM · <span class="k">Arena 1</span>, Lima</span>
+  </div>
+
+  <main class="wrap">
+    <!-- ===== MAIN: SEAT MAP ===== -->
+    <div>
+      <div class="map-card">
+        <div class="toprow">
+          <div class="toggle"><span class="on">Mapa</span><span class="off">Lista</span></div>
+          <div class="scarcity">Preventa · quedan 38</div>
+        </div>
+
+        <div class="deals">
+          <span class="deal-gold">💎 Combo pareja VIP · 2 × S/ 220 <span style="opacity:.8">(ahorras S/ 20)</span></span>
+          <span class="deal-plain">Mesa Gral · combo 2 × S/ 130</span>
+        </div>
+
+        <!-- realistic floor plan: round tables w/ seats around them at real % positions -->
+        <div class="floor">
+          <div class="stageband">ESCENARIO</div>
+          <span class="ztag gen" style="left:4%;top:14%">Mesas Generales · S/ 70</span>
+          <span class="ztag vip" style="left:4%;top:72%">VIP Frente al Escenario · S/ 120</span>
+
+          <!-- 8-top general, back-left (one occupied seat) -->
+          <div class="table" style="left:7%;top:18%;width:100px;height:100px">
+            <div class="surf" style="inset:18%"></div>
+            <span class="cap">8</span>
+            <i class="s-avail" style="left:92%;top:50%"></i>
+            <i class="s-avail" style="left:80%;top:80%"></i>
+            <i class="s-avail" style="left:50%;top:92%"></i>
+            <i class="s-avail" style="left:20%;top:80%"></i>
+            <i class="s-avail" style="left:8%;top:50%"></i>
+            <i class="s-taken" style="left:20%;top:20%"></i>
+            <i class="s-avail" style="left:50%;top:8%"></i>
+            <i class="s-avail" style="left:80%;top:20%"></i>
+            <span class="tname">Mesa 14</span>
+          </div>
+
+          <!-- 8-top general, back-right (full / occupied) -->
+          <div class="table" style="left:64%;top:18%;width:100px;height:100px">
+            <div class="surf" style="inset:18%"></div>
+            <span class="cap">8</span>
+            <i class="s-taken" style="left:92%;top:50%"></i>
+            <i class="s-taken" style="left:80%;top:80%"></i>
+            <i class="s-taken" style="left:50%;top:92%"></i>
+            <i class="s-taken" style="left:20%;top:80%"></i>
+            <i class="s-taken" style="left:8%;top:50%"></i>
+            <i class="s-taken" style="left:20%;top:20%"></i>
+            <i class="s-taken" style="left:50%;top:8%"></i>
+            <i class="s-taken" style="left:80%;top:20%"></i>
+            <span class="tname">Mesa 15 · llena</span>
+          </div>
+
+          <!-- 4-top general, center -->
+          <div class="table" style="left:42%;top:33%;width:66px;height:66px">
+            <div class="surf" style="inset:16%"></div>
+            <span class="cap">4</span>
+            <i class="s-avail" style="left:50%;top:8%"></i>
+            <i class="s-avail" style="left:92%;top:50%"></i>
+            <i class="s-avail" style="left:50%;top:92%"></i>
+            <i class="s-avail" style="left:8%;top:50%"></i>
+            <span class="tname">Mesa 9</span>
+          </div>
+
+          <!-- 6-top general, left -->
+          <div class="table" style="left:11%;top:44%;width:84px;height:84px">
+            <div class="surf" style="inset:17%"></div>
+            <span class="cap">6</span>
+            <i class="s-avail" style="left:86%;top:71%"></i>
+            <i class="s-avail" style="left:50%;top:92%"></i>
+            <i class="s-avail" style="left:14%;top:71%"></i>
+            <i class="s-avail" style="left:14%;top:29%"></i>
+            <i class="s-avail" style="left:50%;top:8%"></i>
+            <i class="s-avail" style="left:86%;top:29%"></i>
+            <span class="tname">Mesa 5</span>
+          </div>
+
+          <!-- 6-top general, right (two occupied) -->
+          <div class="table" style="left:62%;top:44%;width:84px;height:84px">
+            <div class="surf" style="inset:17%"></div>
+            <span class="cap">6</span>
+            <i class="s-avail" style="left:86%;top:71%"></i>
+            <i class="s-avail" style="left:50%;top:92%"></i>
+            <i class="s-taken" style="left:14%;top:71%"></i>
+            <i class="s-taken" style="left:14%;top:29%"></i>
+            <i class="s-avail" style="left:50%;top:8%"></i>
+            <i class="s-avail" style="left:86%;top:29%"></i>
+            <span class="tname">Mesa 6</span>
+          </div>
+
+          <!-- VIP 2-top couple, front-right — SELECTED (Mesa 1, asientos N & E) -->
+          <div class="table vip" style="left:55%;top:78%;width:56px;height:56px">
+            <div class="surf"></div>
+            <span class="cap">2</span>
+            <i class="s-sel" style="left:50%;top:8%" title="Asiento N"></i>
+            <i class="s-sel" style="left:92%;top:50%" title="Asiento E"></i>
+            <span class="tname" style="color:#ff8fce">Mesa 1</span>
+          </div>
+
+          <!-- VIP 2-top couple, front-left — available -->
+          <div class="table vip" style="left:30%;top:78%;width:56px;height:56px">
+            <div class="surf"></div>
+            <span class="cap">2</span>
+            <i class="s-avail" style="left:50%;top:8%"></i>
+            <i class="s-avail" style="left:92%;top:50%"></i>
+            <span class="tname" style="color:#ff8fce">Mesa 2</span>
+          </div>
+        </div>
+
+        <!-- legend -->
+        <div class="legend">
+          <span><i class="s-avail"></i>Disponible</span>
+          <span><i class="s-sel"></i>Seleccionado</span>
+          <span><i class="s-taken"></i>Ocupado</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SIDEBAR: TU SELECCIÓN (sticky) ===== -->
+    <aside>
+      <div class="buybox">
+        <h3>TU SELECCIÓN</h3>
+        <div class="hold">⏱ Reservado por <b>19:48</b></div>
+
+        <div class="line"><span>VIP · Mesa 1 — Asiento N <span class="x">✕</span></span><span class="p">S/ 120</span></div>
+        <div class="line"><span>VIP · Mesa 1 — Asiento E <span class="x">✕</span></span><span class="p">S/ 120</span></div>
+
+        <div class="combo">
+          <div class="top"><span>💎 Combo pareja VIP aplicado</span><span>−S/ 20</span></div>
+          <div class="sub">2 entradas VIP a precio de combo</div>
+        </div>
+
+        <div class="srow"><span>Subtotal</span><span>S/ 240</span></div>
+        <div class="srow disc"><span>Descuento combo</span><span>−S/ 20</span></div>
+        <div class="srule"></div>
+        <div class="total"><span class="l">TOTAL</span><span class="v">S/ 220.00</span></div>
+
+        <a class="cta">IR A PAGAR</a>
+        <div class="fine">Precio final, sin cargos sorpresa · Yape · PLIN · tarjeta</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ===== FOOTER (F1) ===== -->
+  <footer class="foot">RetroGroove · La cumbia más grande del Perú, en vivo · © 2026</footer>
+</body>
+</html>

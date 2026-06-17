@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Mis entradas (full)</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#050010; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;line-height:1.6}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  a{color:inherit;text-decoration:none}
+  /* nav */
+  .nav{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+       padding:14px 28px;background:rgba(8,2,14,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue';letter-spacing:.16em;font-size:1.4rem;
+        background:linear-gradient(90deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav .links{display:flex;gap:22px;font-size:.82rem;color:var(--muted)}
+  .nav .mini-cta{background:var(--pink);color:#fff;padding:8px 18px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:.95rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  /* page */
+  .wrap{max-width:1120px;margin:0 auto;padding:40px 28px 80px}
+  .pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:32px}
+  .eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:10px}
+  .pagehead h1{font-family:'Bebas Neue';font-size:clamp(2.6rem,7vw,4.4rem);line-height:.9;letter-spacing:.02em;
+               text-shadow:0 0 30px rgba(255,20,147,.3)}
+  .pagehead .sub{margin-top:8px;color:var(--muted);font-size:.95rem}
+  .downloadall{flex-shrink:0;text-align:center;padding:11px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.2);
+               color:rgba(236,230,240,.9);font-size:.82rem;font-weight:500}
+  /* grid of tickets */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .ticketcol{display:flex;flex-direction:column}
+  /* ticket card — reused verbatim from 04-ticket-qr.html */
+  .ticket{border:1px solid rgba(255,255,255,.1);border-radius:16px;overflow:hidden;background:
+      radial-gradient(120% 60% at 50% 0%,rgba(255,20,147,.18),transparent 60%),#0b0118;color:#ECE6F0}
+  .head{padding:16px 16px 12px}
+  .toprow{display:flex;justify-content:space-between;align-items:center}
+  .brand{font:600 .58rem/1 Outfit;letter-spacing:.14em;color:#00e5ff;text-transform:uppercase}
+  .status{font-size:.66rem;padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.5);color:#22c55e;font-weight:600}
+  .t1{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.6rem;line-height:1;margin-top:10px}
+  .t2{font-family:'Bebas Neue',Impact,sans-serif;font-size:1rem;color:#ffd700}
+  .when{font-size:.72rem;color:rgba(236,230,240,.6);margin-top:6px}
+  .seatinfo{display:flex;gap:14px;margin-top:8px;font-size:.68rem;color:rgba(236,230,240,.75)}
+  .seatinfo .k{color:rgba(236,230,240,.4)}
+  .perf{position:relative;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 6px,transparent 6px 12px);margin:4px 0}
+  .qrwrap{padding:16px;text-align:center}
+  .qrbox{display:inline-block;background:#fff;padding:12px;border-radius:12px}
+  .qr{width:130px;height:130px;background:#fff;background-image:repeating-conic-gradient(#000 0 25%,#fff 0 50%);background-size:13px 13px;border-radius:4px}
+  .codelab{font:600 .55rem/1 Outfit;letter-spacing:.14em;color:rgba(236,230,240,.45);text-transform:uppercase;margin-top:12px}
+  .code{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.32em;color:#ffd700;font-size:1.4rem;margin-top:3px}
+  .anti{margin-top:12px;font-size:.6rem;color:rgba(236,230,240,.4)}
+  .actions{margin-top:10px;display:flex;gap:8px}
+  .ghost{flex:1;text-align:center;padding:9px;border-radius:999px;border:1px solid rgba(255,255,255,.2);color:rgba(236,230,240,.9);font-size:.78rem}
+  .solid{flex:1;text-align:center;padding:9px;border-radius:999px;background:#ff1493;color:#fff;font-size:.78rem;font-weight:600}
+  /* footer */
+  .foot{border-top:1px solid var(--border);padding:24px 28px;text-align:center;color:var(--faint);font-size:.78rem}
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="logo">RETROGROOVE</span>
+    <span class="links"><a>Eventos</a><a>La banda</a><a>Contacto</a></span>
+    <a class="mini-cta">Comprar</a>
+  </nav>
+
+  <main class="wrap">
+    <div class="pagehead">
+      <div>
+        <div class="eyebrow">Mi cuenta · Ana López</div>
+        <h1>MIS ENTRADAS</h1>
+        <div class="sub">Grupo 5 — Noche de Cumbia · Sáb 27 Dic · Arena 1, Lima</div>
+      </div>
+      <a class="downloadall">Descargar todas (PDF)</a>
+    </div>
+
+    <div class="grid">
+      <!-- Ticket 1 -->
+      <div class="ticketcol">
+        <div class="ticket">
+          <div class="head">
+            <div class="toprow"><span class="brand">RetroGroove</span><span class="status">● Válida</span></div>
+            <div class="t1">GRUPO 5</div>
+            <div class="t2">NOCHE DE CUMBIA</div>
+            <div class="when">Sáb 27 Dic · 9:00 PM · Arena 1, Lima</div>
+            <div class="seatinfo">
+              <span><span class="k">Zona</span> VIP</span>
+              <span><span class="k">Mesa</span> 1</span>
+              <span><span class="k">Asiento</span> N</span>
+            </div>
+          </div>
+          <div class="perf"></div>
+          <div class="qrwrap">
+            <div class="qrbox"><div class="qr"></div></div>
+            <div class="codelab">Código de entrada</div>
+            <div class="code">RG-7K4P-29</div>
+            <div class="anti">Entrada al portador · primer escaneo válido · no compres a revendedores</div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="ghost">Agregar a Wallet</div>
+          <div class="solid">Compartir</div>
+        </div>
+      </div>
+
+      <!-- Ticket 2 -->
+      <div class="ticketcol">
+        <div class="ticket">
+          <div class="head">
+            <div class="toprow"><span class="brand">RetroGroove</span><span class="status">● Válida</span></div>
+            <div class="t1">GRUPO 5</div>
+            <div class="t2">NOCHE DE CUMBIA</div>
+            <div class="when">Sáb 27 Dic · 9:00 PM · Arena 1, Lima</div>
+            <div class="seatinfo">
+              <span><span class="k">Zona</span> VIP</span>
+              <span><span class="k">Mesa</span> 1</span>
+              <span><span class="k">Asiento</span> E</span>
+            </div>
+          </div>
+          <div class="perf"></div>
+          <div class="qrwrap">
+            <div class="qrbox"><div class="qr"></div></div>
+            <div class="codelab">Código de entrada</div>
+            <div class="code">RG-7K4P-30</div>
+            <div class="anti">Entrada al portador · primer escaneo válido · no compres a revendedores</div>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="ghost">Agregar a Wallet</div>
+          <div class="solid">Compartir</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="foot">RetroGroove · La cumbia más grande del Perú, en vivo · © 2026</footer>
+</body>
+</html>

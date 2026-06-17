@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — E-Ticket PDF (A4) — DESIGN CONTRACT</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#020006; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --green:#22c55e; --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  html,body{background:#3a3a3f}
+  body{
+    font-family:Outfit,system-ui,sans-serif;color:var(--text);line-height:1.55;
+    /* neutral gray "document viewer" backdrop so the sheet reads as a PDF */
+    background:repeating-linear-gradient(45deg,#3a3a3f 0 14px,#37373c 14px 28px);
+    display:flex;justify-content:center;padding:28px 16px;min-height:100vh;
+  }
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+
+  /* ---- the A4 sheet ---- */
+  .page{
+    width:210mm;min-height:297mm;background:var(--bg);color:var(--text);
+    position:relative;overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 24px 80px rgba(0,0,0,.6);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;
+    background:
+      radial-gradient(120% 50% at 50% 0%,rgba(255,20,147,.16),transparent 60%),
+      radial-gradient(70% 40% at 88% 6%,rgba(0,229,255,.12),transparent 55%),
+      var(--bg);
+  }
+
+  /* ---- gradient header band ---- */
+  .band{
+    background:linear-gradient(95deg,var(--pink) 0%,var(--purple) 100%);
+    padding:22mm 18mm 16mm;position:relative;overflow:hidden;
+  }
+  .band::after{content:"";position:absolute;inset:0;
+    background:repeating-conic-gradient(from 0deg at 18% -20%,rgba(255,255,255,.06) 0 5deg,transparent 5deg 11deg);
+    mix-blend-mode:screen;opacity:.6;pointer-events:none}
+  .band-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2}
+  .wordmark{font-family:'Bebas Neue';color:#fff;letter-spacing:.18em;font-size:2.5rem;line-height:.9;
+            text-shadow:0 0 24px rgba(0,0,0,.25)}
+  .official{margin-top:4px;font:600 .62rem/1 Outfit;letter-spacing:.26em;text-transform:uppercase;color:rgba(255,255,255,.85)}
+  .ofbadge{font:600 .62rem/1 Outfit;letter-spacing:.18em;text-transform:uppercase;color:#fff;
+           background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);
+           padding:7px 14px;border-radius:999px}
+
+  /* ---- main body ---- */
+  .body{padding:13mm 18mm 0;flex:1;position:relative;z-index:2}
+
+  .eyebrow{font:600 .6rem/1 Outfit;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:7px}
+
+  .event h1{font-family:'Bebas Neue';font-size:5.4rem;line-height:.86;letter-spacing:.02em;
+            text-shadow:0 0 34px rgba(255,20,147,.35)}
+  .event .sub{font-family:'Bebas Neue';font-size:2.2rem;letter-spacing:.05em;color:var(--gold);margin-top:2px}
+
+  /* info grid */
+  .info{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:9mm;
+        background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .info .cell{padding:14px 18px;border-bottom:1px solid var(--border)}
+  .info .cell:nth-child(odd){border-right:1px solid var(--border)}
+  .info .cell.full{grid-column:1 / -1}
+  .info .k{font:600 .58rem/1 Outfit;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  .info .v{font-size:1.02rem;color:var(--text);margin-top:5px;font-weight:500}
+  .info .v.cyan{color:var(--cyan)}
+
+  /* seat block — high contrast */
+  .seat{margin-top:7mm;display:flex;align-items:stretch;gap:14px}
+  .seat .zona{flex:1;background:rgba(255,20,147,.1);border:1px solid rgba(255,20,147,.55);border-radius:14px;
+              padding:16px 20px;display:flex;flex-direction:column;justify-content:center}
+  .seat .zona .l{font:600 .58rem/1 Outfit;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  .seat .zona .row{font-family:'Bebas Neue';font-size:2.1rem;letter-spacing:.05em;margin-top:6px;line-height:1}
+  .seat .zona .row b{color:var(--pink)}
+  .seat .zona .row .dot{color:var(--faint);font-weight:400;margin:0 6px}
+  .seat .tarifa{width:42mm;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.5);border-radius:14px;
+                padding:16px 20px;display:flex;flex-direction:column;justify-content:center;text-align:right}
+  .seat .tarifa .l{font:600 .58rem/1 Outfit;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  .seat .tarifa .v{font-family:'Bebas Neue';font-size:2.4rem;color:var(--gold);letter-spacing:.03em;line-height:1;margin-top:4px}
+
+  /* QR area */
+  .qrarea{margin-top:8mm;display:flex;align-items:center;gap:22px}
+  .qrpatch{background:#fff;border-radius:18px;padding:16px;box-shadow:0 0 0 1px rgba(255,255,255,.6),0 10px 30px rgba(0,0,0,.45)}
+  .qr{width:46mm;height:46mm;background:#fff;background-image:repeating-conic-gradient(#000 0 25%,#fff 0 50%);background-size:14px 14px;border-radius:6px}
+  .qrmeta{flex:1}
+  .qrmeta .codelab{font:600 .6rem/1 Outfit;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  .qrmeta .code{font-family:'Bebas Neue';letter-spacing:.34em;color:var(--gold);font-size:3rem;line-height:1;margin-top:6px;
+                text-shadow:0 0 26px rgba(255,215,0,.3)}
+  .qrmeta .orden{font-size:.82rem;color:var(--muted);margin-top:10px}
+  .qrmeta .orden b{color:var(--text);font-weight:600}
+  .qrmeta .buyer{font-size:.82rem;color:var(--muted);margin-top:3px}
+  .qrmeta .buyer b{color:var(--text);font-weight:600}
+  .qrmeta .scanhint{margin-top:12px;font-size:.7rem;color:var(--cyan)}
+
+  /* perforation / corte aquí */
+  .perf{margin:9mm 18mm 0;position:relative;height:0}
+  .perf .line{height:0;border-top:2px dashed rgba(236,230,240,.32)}
+  .perf .label{position:absolute;left:50%;top:-10px;transform:translateX(-50%);
+    background:var(--bg);padding:0 14px;font:600 .58rem/1 Outfit;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--faint)}
+  .perf .label::before,.perf .label::after{content:"✂";color:var(--faint);margin:0 8px;font-size:.7rem}
+
+  /* tear-off stub */
+  .stub{margin:0 18mm;padding:7mm 0 0;display:flex;align-items:center;justify-content:space-between;gap:18px}
+  .stub .stub-info .brand{font:600 .56rem/1 Outfit;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)}
+  .stub .stub-info h3{font-family:'Bebas Neue';font-size:1.7rem;letter-spacing:.03em;line-height:1;margin-top:4px}
+  .stub .stub-info .meta{font-size:.78rem;color:var(--muted);margin-top:5px}
+  .stub .stub-info .seatline{margin-top:6px;font-size:.82rem}
+  .stub .stub-info .seatline b{color:var(--pink);font-weight:600}
+  .stub .stub-info .scode{font-family:'Bebas Neue';letter-spacing:.28em;color:var(--gold);font-size:1.5rem;margin-top:6px}
+  .stub .stub-qr{background:#fff;border-radius:12px;padding:10px}
+  .stub .stub-qr .qr{width:26mm;height:26mm;background-size:11px 11px}
+  .stub .stub-qr .tag{font:600 .5rem/1 Outfit;letter-spacing:.12em;text-transform:uppercase;color:#111;text-align:center;margin-top:7px}
+
+  /* footer fine print */
+  .finep{margin-top:auto;padding:8mm 18mm 9mm;border-top:1px solid var(--border);
+          font-size:.72rem;color:var(--faint);text-align:center;letter-spacing:.02em}
+  .finep .dot{color:var(--pink);margin:0 4px}
+
+  @page{size:A4;margin:0}
+  @media print{
+    html,body{background:#fff}
+    body{padding:0;display:block}
+    .page{box-shadow:none;width:210mm;min-height:297mm}
+  }
+</style>
+</head>
+<body>
+<!--
+  PDF E-TICKET — print sibling of 04-ticket-qr.html. A4 portrait, brand-dark sheet (displays on phones AND prints).
+  QR sits on a WHITE patch so scanners read it on the dark sheet (design guardrail).
+  Bottom stub is the door tear-off: short title + date + seat + small QR + code.
+  print-color-adjust:exact keeps neon when printed. Tokens from DESIGN-TOKENS.md (Neon Editorial, locked 2026-06-17).
+-->
+  <div class="page">
+
+    <!-- gradient header band -->
+    <div class="band">
+      <div class="band-top">
+        <div>
+          <div class="wordmark">RETROGROOVE</div>
+          <div class="official">Entrada oficial · E-Ticket</div>
+        </div>
+        <span class="ofbadge">● Válida</span>
+      </div>
+    </div>
+
+    <!-- main body -->
+    <div class="body">
+      <div class="event">
+        <div class="eyebrow">Cumbia en vivo · Lima</div>
+        <h1>GRUPO 5</h1>
+        <div class="sub">NOCHE DE CUMBIA</div>
+      </div>
+
+      <!-- info grid -->
+      <div class="info">
+        <div class="cell"><div class="k">Fecha</div><div class="v cyan">Sábado 27 de diciembre 2026</div></div>
+        <div class="cell"><div class="k">Hora</div><div class="v">9:00 PM · Puertas 7:30 PM</div></div>
+        <div class="cell"><div class="k">Lugar</div><div class="v">Arena 1</div></div>
+        <div class="cell"><div class="k">Distrito</div><div class="v">San Borja, Lima</div></div>
+        <div class="cell full"><div class="k">Dirección</div><div class="v">Av. La Rosa Toro 1234, San Borja, Lima</div></div>
+      </div>
+
+      <!-- seat block -->
+      <div class="seat">
+        <div class="zona">
+          <div class="l">Tu ubicación</div>
+          <div class="row"><b>ZONA VIP</b><span class="dot">·</span>MESA 1<span class="dot">·</span>ASIENTO N</div>
+        </div>
+        <div class="tarifa">
+          <div class="l">Tarifa</div>
+          <div class="v">S/ 120</div>
+        </div>
+      </div>
+
+      <!-- QR -->
+      <div class="qrarea">
+        <div class="qrpatch"><div class="qr"></div></div>
+        <div class="qrmeta">
+          <div class="codelab">Código de entrada</div>
+          <div class="code">RG-7K4P-29</div>
+          <div class="buyer">A nombre de <b>Ana López</b></div>
+          <div class="orden">Orden <b>#RG-2026-00481</b></div>
+          <div class="scanhint">● Presenta este código en puerta — se valida en el primer escaneo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- perforation / corte aquí -->
+    <div class="perf">
+      <div class="line"></div>
+      <span class="label">Corte aquí</span>
+    </div>
+
+    <!-- tear-off stub for the door -->
+    <div class="stub">
+      <div class="stub-info">
+        <div class="brand">RetroGroove · Control de puerta</div>
+        <h3>GRUPO 5 — NOCHE DE CUMBIA</h3>
+        <div class="meta">Sáb 27 Dic 2026 · 9:00 PM · Arena 1, Lima</div>
+        <div class="seatline"><b>ZONA VIP · MESA 1 · ASIENTO N</b> · S/ 120</div>
+        <div class="scode">RG-7K4P-29</div>
+      </div>
+      <div class="stub-qr">
+        <div class="qr"></div>
+        <div class="tag">Talón puerta</div>
+      </div>
+    </div>
+
+    <!-- footer fine print -->
+    <div class="finep">
+      Entrada al portador<span class="dot">·</span>válida para un solo ingreso (primer escaneo)<span class="dot">·</span>no compres a revendedores<span class="dot">·</span>RetroGroove © 2026
+    </div>
+
+  </div>
+</body>
+</html>

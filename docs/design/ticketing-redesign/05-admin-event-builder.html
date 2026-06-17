@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Admin event builder (positioning) — APPROVED REFERENCE</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#08020e;--surface:rgba(255,255,255,.03);--surface2:rgba(255,255,255,.05);--border:rgba(255,255,255,.1);
+        --pink:#ff1493;--gold:#ffd700;--cyan:#00e5ff;--text:#ECE6F0;--muted:rgba(236,230,240,.62);--faint:rgba(236,230,240,.42)}
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-bottom:1px solid var(--border)}
+  .top .ttl{font-family:'Bebas Neue';letter-spacing:.04em;font-size:1.4rem;text-shadow:0 0 8px #fff,0 0 22px var(--pink)}
+  .publish{background:linear-gradient(135deg,var(--pink),#bf00ff);color:#fff;padding:10px 22px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:1rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  .stagewrap{display:flex;min-height:560px}
+  /* left config */
+  .panel{width:300px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);padding:16px;overflow:auto}
+  .eyebrow{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin:4px 0 8px}
+  input,select{width:100%;padding:8px 10px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);color:#fff;font-size:.78rem;outline:none}
+  input:focus,select:focus{border-color:var(--cyan)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .mt{margin-top:7px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+  .tab{font-size:.7rem;padding:5px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+  .tab.on{background:var(--pink);border-color:var(--pink);color:#fff;font-weight:600}
+  .tab.add{border-style:dashed}
+  .palette{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+  .tool{font-size:.72rem;padding:9px;border-radius:10px;border:1px dashed var(--border);text-align:center;color:var(--muted);background:var(--surface2)}
+  .tool b{display:block;font-size:1.1rem;color:var(--text)}
+  .tar{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:10px;margin-top:8px}
+  .tarrow{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .tarrow span{font-size:.72rem;width:74px}
+  .tarrow input{flex:1;padding:6px 8px;font-size:.74rem}
+  .addlink{font-size:.68rem;color:var(--cyan);text-decoration:underline}
+  /* canvas */
+  .canvasarea{flex:1;padding:16px 18px;position:relative}
+  .canvasbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .snap{font-size:.7rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .wysiwyg{font-size:.66rem;color:var(--gold)}
+  .canvas{position:relative;border:1px solid var(--border);border-radius:12px;height:480px;overflow:hidden;
+          background:
+            repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 28px),
+            repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 28px),
+            radial-gradient(circle at 50% 0%,rgba(255,20,147,.10),transparent 55%),#0b0020}
+  /* movable + resizable STAGE */
+  .stage{position:absolute;left:24%;top:7%;width:52%;height:15%;border-radius:8px;
+         background:linear-gradient(180deg,rgba(255,20,147,.35),rgba(255,20,147,.08));border:1.5px solid var(--pink);
+         display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';letter-spacing:.35em;font-size:.8rem;color:#fff;
+         box-shadow:0 0 22px rgba(255,20,147,.3)}
+  .handle{position:absolute;width:10px;height:10px;background:#fff;border:1.5px solid var(--pink);border-radius:2px}
+  .h-nw{left:-5px;top:-5px}.h-ne{right:-5px;top:-5px}.h-sw{left:-5px;bottom:-5px}.h-se{right:-5px;bottom:-5px;cursor:nwse-resize}
+  .readout{position:absolute;left:0;top:-22px;font-size:.58rem;color:var(--pink);background:rgba(8,2,14,.85);padding:2px 7px;border-radius:5px;white-space:nowrap}
+  /* tables placed at true positions */
+  .tbl{position:absolute;border-radius:50%;background:radial-gradient(circle at 50% 35%,#2a1430,#160a1e);border:1px solid rgba(0,229,255,.5);
+       display:flex;align-items:center;justify-content:center;font-size:.55rem;color:rgba(236,230,240,.7);cursor:move}
+  .tbl.vip{border-color:var(--pink)}
+  .tbl.sel{outline:2px solid var(--pink);outline-offset:3px;box-shadow:0 0 16px rgba(255,20,147,.5)}
+  /* selected-table properties popover */
+  .props{position:absolute;width:210px;background:rgba(12,4,20,.97);border:1px solid var(--pink);border-radius:12px;padding:12px;
+         box-shadow:0 14px 40px rgba(0,0,0,.6);z-index:10;font-size:.74rem}
+  .props h4{font-family:'Bebas Neue';letter-spacing:.04em;font-size:1rem;margin-bottom:8px;color:#fff}
+  .props .fld{margin-bottom:8px}
+  .props label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px}
+  .seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg span{flex:1;text-align:center;padding:5px;font-size:.7rem;color:var(--muted)}
+  .seg span.on{background:var(--pink);color:#fff}
+  .stepper{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:8px;padding:4px 8px}
+  .stepper b{font-size:.85rem}
+  .xy{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .xy input{padding:5px 7px;font-size:.72rem}
+  .props .acts{display:flex;gap:6px;margin-top:4px}
+  .props .acts span{flex:1;text-align:center;font-size:.66rem;padding:6px;border-radius:7px;border:1px solid var(--border);color:var(--muted)}
+  .props .acts .del{border-color:rgba(255,90,110,.5);color:#ff5a6e}
+  .legend{margin-top:10px;display:flex;gap:16px;font-size:.64rem;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="top">
+    <span class="ttl">NUEVO EVENTO</span>
+    <span class="publish">CREAR Y PUBLICAR</span>
+  </div>
+
+  <div class="stagewrap">
+    <!-- LEFT PANEL -->
+    <aside class="panel">
+      <div class="eyebrow">Detalles</div>
+      <input placeholder="Nombre del evento">
+      <div class="row2 mt"><input placeholder="Fecha"><input placeholder="Hora"></div>
+      <input class="mt" placeholder="Lugar">
+
+      <div class="eyebrow" style="margin-top:16px">Secciones</div>
+      <div class="tabs"><span class="tab on">VIP</span><span class="tab">General</span><span class="tab">Campo</span><span class="tab add">+ Agregar</span></div>
+
+      <div class="eyebrow">Agregar al plano</div>
+      <div class="palette">
+        <div class="tool"><b>⭘</b>Mesa redonda</div>
+        <div class="tool"><b>▭</b>Mesa rectangular</div>
+        <div class="tool"><b>☰</b>Fila de asientos</div>
+        <div class="tool"><b>▢</b>Zona general</div>
+      </div>
+
+      <div class="eyebrow" style="margin-top:14px">Tarifas (cantidad → precio)</div>
+      <div class="tar">
+        <div class="tarrow"><span>1 entrada</span><input value="S/ 120"></div>
+        <div class="tarrow"><span style="color:var(--gold)">2 (combo)</span><input value="S/ 220"><span style="color:var(--faint)">✕</span></div>
+        <span class="addlink">+ Agregar tarifa por cantidad</span>
+      </div>
+    </aside>
+
+    <!-- CANVAS -->
+    <section class="canvasarea">
+      <div class="canvasbar">
+        <span class="snap"><input type="checkbox" checked style="width:auto"> Ajustar a la cuadrícula</span>
+        <span class="wysiwyg">★ Lo que ves es lo que compran</span>
+      </div>
+      <div class="canvas">
+        <!-- positionable + resizable stage -->
+        <div class="stage">
+          <span class="readout">Escenario · x 312 · y 40 · 900×120 cm</span>
+          ESCENARIO
+          <i class="handle h-nw"></i><i class="handle h-ne"></i><i class="handle h-sw"></i><i class="handle h-se"></i>
+        </div>
+
+        <!-- tables at true positions -->
+        <div class="tbl vip" style="left:30%;top:34%;width:58px;height:58px">VIP·4</div>
+        <div class="tbl vip sel" style="left:52%;top:34%;width:58px;height:58px">VIP·4</div>
+        <div class="tbl" style="left:18%;top:60%;width:64px;height:64px">6</div>
+        <div class="tbl" style="left:44%;top:62%;width:78px;height:78px">8</div>
+        <div class="tbl" style="left:68%;top:60%;width:64px;height:64px">6</div>
+        <div class="tbl" style="left:34%;top:82%;width:44px;height:44px">2</div>
+        <div class="tbl" style="left:56%;top:82%;width:44px;height:44px">2</div>
+
+        <!-- properties popover for the selected table -->
+        <div class="props" style="left:60%;top:30%">
+          <h4>Mesa 6 · VIP</h4>
+          <div class="fld"><label>Forma</label><div class="seg"><span class="on">Redonda</span><span>Rectangular</span></div></div>
+          <div class="fld"><label>Asientos</label><div class="stepper"><span>−</span><b>4</b><span>+</span></div></div>
+          <div class="fld"><label>Tamaño (⌀ cm)</label><input value="80"></div>
+          <div class="fld"><label>Posición</label><div class="xy"><input value="x 612"><input value="y 248"></div></div>
+          <div class="acts"><span>Duplicar</span><span class="del">Eliminar</span></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid var(--pink);vertical-align:middle;margin-right:5px"></span>VIP · S/ 120</span>
+        <span><span style="display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid var(--cyan);vertical-align:middle;margin-right:5px"></span>General · S/ 70</span>
+        <span style="color:var(--faint)">Arrastra para mover · esquinas para redimensionar · snap a cuadrícula</span>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

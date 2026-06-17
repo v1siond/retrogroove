@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Compra confirmada</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#08020e; --bg-deep:#050010; --surface:rgba(255,255,255,.03); --surface2:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.08); --pink:#ff1493; --gold:#ffd700; --cyan:#00e5ff; --purple:#bf00ff;
+    --green:#22c55e;
+    --text:#ECE6F0; --muted:rgba(236,230,240,.62); --faint:rgba(236,230,240,.42);
+  }
+  body{background:var(--bg);color:var(--text);font-family:Outfit,system-ui,sans-serif;line-height:1.6}
+  .bebas{font-family:'Bebas Neue',Impact,sans-serif}
+  a{color:inherit;text-decoration:none}
+  /* nav */
+  .nav{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+       padding:14px 28px;background:rgba(8,2,14,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue';letter-spacing:.16em;font-size:1.4rem;
+        background:linear-gradient(90deg,var(--pink),var(--purple),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav .links{display:flex;gap:22px;font-size:.82rem;color:var(--muted)}
+  .nav .mini-cta{background:var(--pink);color:#fff;padding:8px 18px;border-radius:999px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:.95rem;box-shadow:0 0 18px rgba(255,20,147,.4)}
+  /* page glow */
+  .stage{position:relative;min-height:calc(100vh - 56px);padding:56px 24px 90px;
+         background:
+           radial-gradient(70% 50% at 50% -5%,rgba(34,197,94,.22),transparent 60%),
+           radial-gradient(80% 70% at 50% 0%,rgba(255,20,147,.12),transparent 55%),
+           linear-gradient(180deg,#0d0418,#08020e)}
+  .col{max-width:640px;margin:0 auto;position:relative;z-index:2}
+  .eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:10px}
+  /* success hero */
+  .hero{text-align:center;margin-bottom:34px}
+  .check{width:88px;height:88px;border-radius:50%;margin:0 auto 22px;display:flex;align-items:center;justify-content:center;
+         background:radial-gradient(circle at 50% 35%,rgba(34,197,94,.32),rgba(34,197,94,.08));
+         border:2px solid var(--green);box-shadow:0 0 0 8px rgba(34,197,94,.08),0 0 34px rgba(34,197,94,.5)}
+  .check svg{width:42px;height:42px;stroke:var(--green);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .hero h1{font-family:'Bebas Neue';font-size:clamp(2.6rem,8vw,4.4rem);line-height:.92;letter-spacing:.02em;
+           text-shadow:0 0 28px rgba(34,197,94,.35)}
+  .hero .subtext{color:var(--muted);font-size:1rem;margin-top:8px}
+  .hero .subtext b{color:var(--cyan);font-weight:500}
+  /* card base */
+  .card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+  .card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;gap:12px;flex-wrap:wrap}
+  /* recap */
+  .recap .ev{font-family:'Bebas Neue';font-size:1.55rem;letter-spacing:.03em;line-height:1.05}
+  .recap .when{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-top:6px}
+  .recap .li{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:.9rem}
+  .recap .li .seat{color:var(--muted)}
+  .recap .li .seat b{color:var(--text);font-weight:500}
+  .recap .li .tag{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--pink);font-weight:600;
+                  background:rgba(255,20,147,.1);border:1px solid rgba(255,20,147,.4);border-radius:999px;padding:4px 10px}
+  .recap .total{display:flex;justify-content:space-between;align-items:center;padding-top:14px;margin-top:2px}
+  .recap .total .l{font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .recap .total .v{font-family:'Bebas Neue';font-size:2rem;color:var(--gold);letter-spacing:.02em}
+  /* ticket links */
+  .tickets .eyebrow{margin-bottom:12px}
+  .tkt{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 14px;border-radius:10px;
+       border:1px solid rgba(0,229,255,.28);background:rgba(0,229,255,.05);margin-bottom:10px;transition:background .15s,border-color .15s}
+  .tkt:last-child{margin-bottom:0}
+  .tkt:hover{background:rgba(0,229,255,.1);border-color:rgba(0,229,255,.5)}
+  .tkt .what{font-size:.9rem}
+  .tkt .what small{display:block;color:var(--muted);font-size:.7rem;margin-top:2px;letter-spacing:.04em}
+  .tkt .open{display:flex;align-items:center;gap:7px;color:var(--cyan);font-weight:600;font-size:.82rem;white-space:nowrap}
+  .tkt .open svg{width:15px;height:15px;stroke:var(--cyan);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  /* actions */
+  .actions{margin-top:26px}
+  .cta{margin-top:12px;display:block;text-align:center;background:var(--pink);color:#fff;padding:15px;border-radius:999px;
+       font-family:'Bebas Neue';letter-spacing:.06em;font-size:1.3rem;box-shadow:0 0 24px rgba(255,20,147,.45)}
+  .ghost{margin-top:12px;display:block;text-align:center;background:transparent;color:var(--text);padding:13px;border-radius:999px;
+         border:1px solid var(--border);font-family:'Bebas Neue';letter-spacing:.06em;font-size:1.05rem;transition:border-color .15s,background .15s}
+  .ghost:hover{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.03)}
+  /* name capture (optional) */
+  .nameask{margin-top:26px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px}
+  .nameask .q{font-family:'Bebas Neue';font-size:1.25rem;letter-spacing:.02em;margin-bottom:4px}
+  .nameask .hint{font-size:.72rem;color:var(--faint);margin-bottom:14px}
+  .nameask form{display:flex;gap:10px;flex-wrap:wrap}
+  .nameask input{flex:1;min-width:200px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;
+                 padding:12px 14px;color:var(--text);font-family:Outfit,sans-serif;font-size:.92rem;outline:none}
+  .nameask input::placeholder{color:var(--faint)}
+  .nameask input:focus{border-color:rgba(0,229,255,.55)}
+  .nameask .save{background:transparent;border:1px solid var(--cyan);color:var(--cyan);border-radius:999px;
+                 padding:11px 22px;font-family:'Bebas Neue';letter-spacing:.05em;font-size:1.05rem;cursor:pointer;transition:background .15s}
+  .nameask .save:hover{background:rgba(0,229,255,.1)}
+  .reassure{margin-top:20px;font-size:.66rem;color:var(--faint);text-align:center}
+  /* footer */
+  .foot{border-top:1px solid var(--border);padding:24px 28px;text-align:center;color:var(--faint);font-size:.78rem}
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="logo">RETROGROOVE</span>
+    <span class="links"><a>Eventos</a><a>La banda</a><a>Contacto</a></span>
+    <a class="mini-cta">Mis entradas</a>
+  </nav>
+
+  <main class="stage">
+    <div class="col">
+
+      <!-- success hero -->
+      <div class="hero">
+        <div class="check">
+          <svg viewBox="0 0 52 52" aria-hidden="true"><path d="M14 27 L23 36 L39 18"/></svg>
+        </div>
+        <h1 class="bebas">¡COMPRA CONFIRMADA!</h1>
+        <p class="subtext">Te enviamos tus entradas a <b>ana@example.com</b></p>
+      </div>
+
+      <!-- order recap -->
+      <section class="card recap">
+        <div class="eyebrow">Resumen de tu compra</div>
+        <div class="card-head">
+          <div>
+            <div class="ev">Grupo 5 — Noche de Cumbia</div>
+            <div class="when">Sáb 27 Dic · Arena 1</div>
+          </div>
+        </div>
+        <div class="li">
+          <span class="seat">VIP · Mesa 1 · Asiento <b>N</b></span>
+          <span class="tag">VIP</span>
+        </div>
+        <div class="li">
+          <span class="seat">VIP · Mesa 1 · Asiento <b>E</b></span>
+          <span class="tag">VIP</span>
+        </div>
+        <div class="total">
+          <span class="l">Total pagado</span>
+          <span class="v">S/ 220.00</span>
+        </div>
+      </section>
+
+      <!-- ticket links -->
+      <section class="card tickets">
+        <div class="eyebrow">Tus entradas</div>
+        <a class="tkt">
+          <span class="what">VIP · Mesa 1 · Asiento N<small>Entrada individual con QR</small></span>
+          <span class="open">Ver entrada
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 L17 7 M9 7 H17 V15"/></svg>
+          </span>
+        </a>
+        <a class="tkt">
+          <span class="what">VIP · Mesa 1 · Asiento E<small>Entrada individual con QR</small></span>
+          <span class="open">Ver entrada
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 L17 7 M9 7 H17 V15"/></svg>
+          </span>
+        </a>
+      </section>
+
+      <!-- primary actions -->
+      <div class="actions">
+        <a class="cta">VER MIS ENTRADAS</a>
+        <a class="ghost">Descargar PDF</a>
+      </div>
+
+      <!-- optional name capture (only when Culqi returned no buyer name) -->
+      <section class="nameask">
+        <div class="q bebas">¿A nombre de quién emitimos las entradas?</div>
+        <div class="hint">Opcional — para personalizar tus entradas.</div>
+        <form onsubmit="return false">
+          <input type="text" placeholder="Nombre completo" aria-label="Nombre del titular">
+          <button class="save bebas" type="submit">Guardar</button>
+        </form>
+      </section>
+
+      <div class="reassure">Precio final, sin cargos sorpresa · Pago procesado con Culqi</div>
+
+    </div>
+  </main>
+
+  <footer class="foot">RetroGroove · La cumbia más grande del Perú, en vivo · © 2026</footer>
+</body>
+</html>

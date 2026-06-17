@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RetroGroove — Checkout (Culqi.js compatible) — APPROVED REFERENCE</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#020006;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;font-family:Outfit,system-ui,sans-serif}
+  .screen{width:760px;max-width:100%;border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);background:#08020e;color:#ECE6F0}
+  .cols{display:flex;min-height:380px}
+  .buyer{flex:1.4;padding:18px 20px;border-right:1px solid rgba(255,255,255,.07)}
+  .order{flex:1;padding:18px 20px;background:rgba(255,255,255,.02)}
+  .h{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.15rem}
+  .guest{font-size:.62rem;color:rgba(236,230,240,.45);margin-bottom:12px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  input{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:.8rem;outline:none;width:100%}
+  input:focus{border-color:#00e5ff}
+  .mt{margin-top:9px}
+  .promo{margin-top:10px;font-size:.7rem;color:#00e5ff;text-decoration:underline}
+  .pay{margin-top:18px;background:#ff1493;color:#fff;text-align:center;padding:13px;border-radius:999px;font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;font-size:1.1rem;box-shadow:0 0 22px rgba(255,20,147,.45)}
+  .paysub{margin-top:9px;font-size:.64rem;color:rgba(236,230,240,.55);text-align:center}
+  .glyphs{margin-top:8px;display:flex;gap:7px;justify-content:center;align-items:center;opacity:.7;font-size:.62rem;color:rgba(236,230,240,.6)}
+  .glyphs span{padding:2px 7px;border:1px solid rgba(255,255,255,.18);border-radius:5px}
+  .line{display:flex;justify-content:space-between;font-size:.8rem;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .combo{margin-top:10px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.35);border-radius:10px;padding:9px 11px}
+  .combo .t{display:flex;justify-content:space-between;font-size:.72rem;color:#ffd700;font-weight:600}
+  .srow{display:flex;justify-content:space-between;font-size:.74rem;color:rgba(236,230,240,.55);margin-top:12px}
+  .srow.d{color:#ffd700;margin-top:3px}
+  .rule{height:1px;background:rgba(255,255,255,.08);margin:9px 0}
+  .total{display:flex;justify-content:space-between;align-items:baseline}
+  .total .l{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.05rem}
+  .total .v{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.7rem;color:#ffd700}
+  .how{border-top:1px solid rgba(255,255,255,.07);padding:13px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.72rem;color:rgba(236,230,240,.7)}
+  .how .lab{font:600 .58rem/1 Outfit;letter-spacing:.14em;color:rgba(236,230,240,.45);text-transform:uppercase}
+  .step{padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15)}
+  .step.pink{background:rgba(255,20,147,.12);border-color:rgba(255,20,147,.4)}
+  .step.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.4);color:#22c55e}
+  .step.err{background:rgba(255,90,110,.1);border-color:rgba(255,90,110,.4);color:#ff5a6e}
+</style>
+</head>
+<body>
+<!--
+  CULQI.JS TOKENIZATION MODEL (matches lib/ticketing/culqi.ts + EventBuy.tsx + backend culqi.ex):
+  Our page collects buyer info + shows the order summary. "Pagar con Culqi" calls getCulqiToken()
+  which opens Culqi's OWN secure form (card/Yape) and returns a token; we POST it to
+  /orders/:id/pay -> Culqi v2 /charges (amount, currency_code PEN, email, source_id). We do NOT
+  render a payment-method picker, inline Yape QR, or Apple/Google Pay — Culqi owns that UI.
+-->
+  <div class="screen">
+    <div class="cols">
+      <div class="buyer">
+        <div class="h">TUS DATOS</div>
+        <div class="guest">Compra como invitado — sin crear cuenta</div>
+        <div class="two"><input placeholder="Nombre"><input placeholder="Apellido"></div>
+        <input class="mt" placeholder="Email (te enviamos la entrada)">
+        <input class="mt" placeholder="Teléfono">
+        <div class="promo">+ Ingresar código de descuento</div>
+        <div class="pay">PAGAR CON CULQI · S/ 220.00</div>
+        <div class="paysub">🔒 Se abre la ventana segura de <strong style="color:#fff">Culqi</strong> — paga con <strong style="color:#fff">tarjeta</strong> o <strong style="color:#fff">Yape</strong></div>
+        <div class="glyphs"><span>VISA</span><span>Mastercard</span><span style="color:#a050ff">Yape</span></div>
+      </div>
+      <div class="order">
+        <div class="h">TU ORDEN</div>
+        <div class="guest">⏱ Reservado por 18:30</div>
+        <div class="line"><span>VIP · Mesa 1 — Asiento N</span><span>S/ 120</span></div>
+        <div class="line"><span>VIP · Mesa 1 — Asiento E</span><span>S/ 120</span></div>
+        <div class="combo"><div class="t"><span>💎 Combo pareja VIP</span><span>−S/ 20</span></div></div>
+        <div class="srow"><span>Subtotal</span><span>S/ 240</span></div>
+        <div class="srow d"><span>Descuento combo</span><span>−S/ 20</span></div>
+        <div class="rule"></div>
+        <div class="total"><span class="l">TOTAL</span><span class="v">S/ 220.00</span></div>
+        <div style="margin-top:9px;font-size:.6rem;color:rgba(236,230,240,.4)">Precio final, sin cargos sorpresa</div>
+      </div>
+    </div>
+    <div class="how">
+      <span class="lab">Cómo funciona</span>
+      <span class="step pink">1 · Pagar con Culqi</span><span style="opacity:.5">→</span>
+      <span class="step">2 · Ventana Culqi (tarjeta / Yape)</span><span style="opacity:.5">→</span>
+      <span class="step ok">3a · ✓ Compra confirmada</span>
+      <span class="step err">3b · ✕ Reintentar</span>
+    </div>
+  </div>
+</body>
+</html>
