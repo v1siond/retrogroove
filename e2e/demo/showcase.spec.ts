@@ -1,16 +1,15 @@
 /**
- * RetroGroove lifecycle showcase — paced, silent, cursor+spotlight.
+ * RetroGroove lifecycle showcase v2 — 3-act tutorial.
  *
- * Hero flow (one run, one mp4):
- *   Home → Disco Night event (F1 detail) → seat selection + combo (F2) →
- *   checkout "Pagar con Culqi" (F3) → success (F4) → ticket QR (F5) →
- *   admin login + event builder canvas/tarifas (B5) →
- *   door check-in: VÁLIDA → YA USADA (B6).
+ * Act 1 — Admin builds the Basilica event from scratch via the builder UI
+ * Act 2 — Client buys 2 seats (sees combo price S/70)
+ * Act 3 — Admin validates QR (VÁLIDA → YA USADA)
+ *
+ * State shared within the test: slug captured after publish, token after purchase.
+ * DB is pre-reset and admin-only seeded by run-showcase.sh before this spec runs.
  */
 import { test, expect } from '@playwright/test';
 import { humanType, moveClick, moveHover, moveTo, CURSOR_OVERLAY_SCRIPT } from './support/showcase.js';
-import fs from 'node:fs';
-import path from 'node:path';
 import type { Page } from '@playwright/test';
 
 test.setTimeout(1_800_000);
@@ -29,45 +28,29 @@ const see   = (page: Page) => pause(page, 1300);
 const think = (page: Page) => pause(page, 600);
 const after = (page: Page) => pause(page, 800);
 
-const ADMIN = { email: 'admin@retrogroove.pe', password: 'DemoShow2026!' };
-const BASE  = process.env.BASE_URL || 'http://localhost:3340';
-
-// Timeline helper (marks for reference, no voice needed)
-const mkTimeline = () => {
-  const T0 = Date.now();
-  const marks: { name: string; t: number }[] = [];
-  const mark = (name: string) => {
-    console.log(`[MARK] ${name} at ${((Date.now() - T0) / 1000).toFixed(1)}s`);
-    marks.push({ name, t: (Date.now() - T0) / 1000 });
-  };
-  const flush = () => {
-    const dir = path.resolve(process.cwd(), 'recordings');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      path.join(dir, 'master-timeline.json'),
-      JSON.stringify([...marks, { name: 'end', t: (Date.now() - T0) / 1000 }], null, 2),
-    );
-  };
-  return { mark, flush };
+const ADMIN = {
+  email:    process.env.DEMO_ADMIN_EMAIL    || 'admin@retrogroove.pe',
+  password: process.env.DEMO_ADMIN_PASSWORD || 'demo1234',
 };
+const BASE = process.env.BASE_URL || 'http://localhost:3340';
 
-// Admin login helper
+// ── Admin login helper ────────────────────────────────────────────────────────
 async function ensureAdmin(page: Page) {
-  // Wait for the page to hydrate first — check for either the login form or the target page.
-  const btn = page.getByRole('button', { name: 'Entrar' });
+  const btn          = page.getByRole('button', { name: 'Entrar' });
   const builderTitle = page.getByTestId('builder-title');
   const checkinTitle = page.getByTestId('checkin-title');
 
   const firstVisible = await Promise.race([
-    btn.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'login' as const),
-    builderTitle.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'builder' as const),
-    checkinTitle.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'checkin' as const),
+    btn.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'login' as const),
+    builderTitle.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'builder' as const),
+    checkinTitle.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'checkin' as const),
   ]).catch(() => 'timeout' as const);
 
   if (firstVisible !== 'login') {
     console.log(`[ensureAdmin] already authenticated (${firstVisible})`);
     return;
   }
+
   console.log('[ensureAdmin] logging in');
   await moveClick(page, page.locator('#admin-email'));
   await humanType(page, page.locator('#admin-email'), ADMIN.email);
@@ -76,105 +59,333 @@ async function ensureAdmin(page: Page) {
   await humanType(page, page.locator('#admin-password'), ADMIN.password);
   await think(page);
   await moveClick(page, btn);
-  // Wait for button to disappear (successful login)
-  await btn.waitFor({ state: 'hidden', timeout: 10000 });
+  await btn.waitFor({ state: 'hidden', timeout: 15000 });
   await see(page);
   console.log('[ensureAdmin] login done');
 }
 
-// ── Main showcase ─────────────────────────────────────────────────────────────
-test('RetroGroove lifecycle showcase', async ({ page }: { page: Page }) => {
-  const { mark, flush } = mkTimeline();
+// ── Get the actual drawing canvas (the div with cursor:crosshair inside canvas-area) ──
+async function getCanvasDiv(page: Page) {
+  // The canvas div is inside canvas-area, after the canvasBar and stage-readout divs.
+  // When a tool is active it has cursor:crosshair in its inline style.
+  // Use stage-readout as anchor: the canvas is the next sibling.
+  const byStyle  = page.locator('[data-testid="canvas-area"] [style*="crosshair"]');
+  const hasIt = await byStyle.first().isVisible({ timeout: 3000 }).catch(() => false);
+  if (hasIt) return byStyle.first();
+  // Fallback: third child div of canvas-area (after canvasBar div and stage-readout div)
+  return page.locator('[data-testid="stage-readout"] + div');
+}
 
-  // ── HOME ─────────────────────────────────────────────────────────────────────
-  mark('home');
-  console.log('[F0] Home');
-  await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 30000 });
-  await expect(page.getByTestId('event-card').first()).toBeVisible({ timeout: 20000 });
-  await see(page);
-  await page.mouse.wheel(0, 400);
+// ── Canvas table placement helper ────────────────────────────────────────────
+async function placeTable(
+  page: Page,
+  _canvasArea: ReturnType<Page['getByTestId']>,
+  xPct: number,
+  yPct: number,
+  seatAdjust: number,   // +N = click + that many times, -N = click - that many times
+) {
+  const canvas = await getCanvasDiv(page);
+  const box = await canvas.boundingBox();
+  if (!box) {
+    console.log('[placeTable] canvas div not found');
+    return;
+  }
+
+  const cx = box.x + box.width  * xPct;
+  const cy = box.y + box.height * yPct;
+
+  // Move slowly so it's visible, then click to place
+  await page.mouse.move(cx, cy, { steps: 20 });
   await think(page);
-  await page.mouse.wheel(0, 400);
+  await page.mouse.click(cx, cy);
+  await after(page);
+
+  // Wait for the props popover to appear
+  const propsBox = page.getByTestId('table-props');
+  const appeared = await propsBox.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+
+  if (!appeared) {
+    console.log(`[placeTable] props popover did not appear at (${xPct},${yPct})`);
+    return;
+  }
+
+  // Adjust seat count (default = 4)
+  const seatCount = page.getByTestId('seat-count');
+  if (seatAdjust < 0) {
+    // Click the minus button (text is − not -)
+    const minusBtn = seatCount.locator('button').first();
+    for (let i = 0; i < Math.abs(seatAdjust); i++) {
+      await moveClick(page, minusBtn);
+      await page.waitForTimeout(140);
+    }
+  } else if (seatAdjust > 0) {
+    // Click the plus button
+    const plusBtn = seatCount.locator('button').last();
+    for (let i = 0; i < seatAdjust; i++) {
+      await moveClick(page, plusBtn);
+      await page.waitForTimeout(140);
+    }
+  }
+  await think(page);
+
+  // Click somewhere on the page header (safe deselect area that won't place another table)
+  const builderTitle = page.getByTestId('builder-title');
+  const titleBox = await builderTitle.boundingBox().catch(() => null);
+  if (titleBox) {
+    await page.mouse.move(titleBox.x + 10, titleBox.y + titleBox.height / 2, { steps: 8 });
+    await page.mouse.click(titleBox.x + 10, titleBox.y + titleBox.height / 2);
+  }
+  await think(page);
+}
+
+// ── Main showcase ─────────────────────────────────────────────────────────────
+test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ACT 1: Admin builds the Basilica event
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log('[ACT 1] Admin builds the Basilica event');
+
+  await page.goto(`${BASE}/band/tickets/nuevo`, { waitUntil: 'networkidle', timeout: 30000 });
+  await ensureAdmin(page);
+  await expect(page.getByTestId('builder-title')).toBeVisible({ timeout: 15000 });
   await see(page);
-  const discoCard = page.getByTestId('event-card').filter({ hasText: 'Basílica' });
-  const discoVisible = await discoCard.isVisible({ timeout: 5000 }).catch(() => false);
-  if (discoVisible) {
-    await moveHover(page, discoCard);
+
+  // ── Event details ──
+  console.log('[ACT1] Filling event details');
+  const nameInput = page.getByTestId('input-event-name');
+  await moveClick(page, nameInput);
+  await humanType(page, nameInput, 'Retrogroove · Disco Night');
+  await think(page);
+
+  const dateInput = page.getByTestId('input-date');
+  await moveClick(page, dateInput);
+  await dateInput.fill('2026-08-15T21:00');
+  await think(page);
+
+  const venueInput = page.getByTestId('input-venue-name');
+  await moveClick(page, venueInput);
+  await humanType(page, venueInput, 'La Basílica 640');
+  await think(page);
+
+  const addrInput = page.getByTestId('input-venue-address');
+  await moveClick(page, addrInput);
+  await humanType(page, addrInput, 'Jr. Basílica 640, Barranco');
+  await think(page);
+
+  const descInput = page.getByTestId('input-description');
+  await moveClick(page, descInput);
+  await humanType(page, descInput, 'Una noche de disco puro en el corazón de Barranco.');
+  await think(page);
+
+  // ── Stage geometry ──
+  console.log('[ACT1] Setting stage geometry');
+  const stageXInput = page.getByTestId('input-stage-x');
+  await moveClick(page, stageXInput);
+  await stageXInput.fill('360');
+  await after(page);
+
+  const stageYInput = page.getByTestId('input-stage-y');
+  await moveClick(page, stageYInput);
+  await stageYInput.fill('40');
+  await after(page);
+
+  const stageWInput = page.getByTestId('input-stage-w');
+  await moveClick(page, stageWInput);
+  await stageWInput.fill('280');
+  await after(page);
+
+  const stageHInput = page.getByTestId('input-stage-h');
+  await moveClick(page, stageHInput);
+  await stageHInput.fill('70');
+  await after(page);
+
+  // ── Rename section to "Mesas" ──
+  const sectionNameInput = page.getByTestId('input-section-name');
+  await moveClick(page, sectionNameInput);
+  await sectionNameInput.fill('');
+  await humanType(page, sectionNameInput, 'Mesas');
+  await think(page);
+
+  // ── Set tarifa prices: S/40 single, S/70 combo ──
+  console.log('[ACT1] Setting tarifa prices');
+  const tarifaInputs = page.getByTestId('tarifa-price');
+  await tarifaInputs.nth(0).scrollIntoViewIfNeeded();
+  await moveClick(page, tarifaInputs.nth(0));
+  await tarifaInputs.nth(0).fill('');
+  await humanType(page, tarifaInputs.nth(0), '40');
+  await think(page);
+
+  await moveClick(page, tarifaInputs.nth(1));
+  await tarifaInputs.nth(1).fill('');
+  await humanType(page, tarifaInputs.nth(1), '70');
+  await think(page);
+
+  // ── Activate round-table tool ──
+  console.log('[ACT1] Activating round-table tool');
+  const roundTableTool = page.getByTestId('tool-round-table');
+  await moveClick(page, roundTableTool);
+  await see(page);
+
+  // ── Canvas: place couple tables (2 seats = default 4 − 2) ──
+  // The round-table tool stays active until toggled off — no need to re-activate.
+  console.log('[ACT1] Placing couple tables (2 seats each)');
+  const canvasArea = page.getByTestId('canvas-area');
+
+  // Place table 1 — show it clearly (seat adjustment: -2 → 4-2=2)
+  await placeTable(page, canvasArea, 0.20, 0.58, -2);
+  await see(page);
+
+  // Place table 2
+  await placeTable(page, canvasArea, 0.35, 0.78, -2);
+  await think(page);
+
+  // Place table 3
+  await placeTable(page, canvasArea, 0.50, 0.60, -2);
+  await think(page);
+
+  // ── Switch to large tables (7 seats = 4+3) ──
+  console.log('[ACT1] Placing large tables (7 seats each)');
+
+  // Large table 1 — show clearly
+  await placeTable(page, canvasArea, 0.22, 0.38, 3);
+  await see(page);
+
+  await placeTable(page, canvasArea, 0.42, 0.40, 3);
+  await think(page);
+
+  await placeTable(page, canvasArea, 0.62, 0.58, 3);
+  await think(page);
+
+  // Show the canvas with all tables placed
+  const canvasStage = page.getByTestId('canvas-stage');
+  if (await canvasStage.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await moveHover(page, canvasStage);
     await see(page);
   }
 
-  // ── F1: EVENT DETAIL ─────────────────────────────────────────────────────────
-  mark('event-detail');
-  console.log('[F1] Event detail');
-  // Navigate directly to the event page
-  await page.goto(`${BASE}/evento?slug=retrogroove-disco-night`, { waitUntil: 'networkidle', timeout: 30000 });
-  await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 20000 });
+  // Verify we have tables before publishing
+  const tableCount = await page.getByTestId('canvas-table').count();
+  console.log(`[ACT1] Tables placed: ${tableCount}`);
+
+  // ── CREAR Y PUBLICAR ──
+  console.log('[ACT1] Publishing event');
+  const publishBtn = page.getByTestId('btn-publish');
+  await publishBtn.scrollIntoViewIfNeeded();
+  await moveHover(page, publishBtn);
   await see(page);
-  await page.mouse.wheel(0, 350);
-  await think(page);
-  await page.mouse.wheel(0, 350);
-  await see(page);
-  const ctaBtn = page.getByRole('button', { name: /comprar entradas/i });
-  await moveHover(page, ctaBtn);
+  await moveClick(page, publishBtn);
+
+  // Wait for success page with public-link
+  const publicLink = page.getByTestId('public-link');
+  await expect(publicLink).toBeVisible({ timeout: 30000 });
   await see(page);
 
-  // ── F2: SEAT SELECTION ───────────────────────────────────────────────────────
-  mark('seat-selection');
-  console.log('[F2] Seat selection');
-  await moveClick(page, ctaBtn);
+  // Capture the slug
+  const href = await publicLink.getAttribute('href');
+  const slug = href?.split('slug=')[1]?.trim() ?? 'retrogroove-disco-night';
+  console.log(`[ACT1] Event published! slug=${slug}`);
+  await moveHover(page, publicLink);
+  await see(page);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ACT 2: Client buys 2 seats
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log('[ACT 2] Client buys 2 seats');
+
+  // ── Home page — find the Basilica card ──
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 30000 });
+  await expect(page.getByTestId('event-card').first()).toBeVisible({ timeout: 20000 });
+  await see(page);
+  await page.mouse.wheel(0, 300);
+  await think(page);
+
+  // Find the newly created event card
+  const discoCard = page.getByTestId('event-card').filter({ hasText: /Disco Night/i });
+  const cardVisible = await discoCard.first().isVisible({ timeout: 5000 }).catch(() => false);
+  if (cardVisible) {
+    await moveHover(page, discoCard.first());
+    await see(page);
+  }
+
+  // ── Navigate to event detail ──
+  console.log('[ACT2] Navigating to event detail');
+  await page.goto(`${BASE}/evento?slug=${slug}`, { waitUntil: 'networkidle', timeout: 30000 });
+  await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 20000 });
+  await see(page);
+
+  // Scroll to show content
+  await page.mouse.wheel(0, 300);
+  await think(page);
+  await page.mouse.wheel(0, 300);
+  await see(page);
+
+  // Show the "Comprar entradas" CTA
+  const ctaBtn = page.getByRole('button', { name: /comprar entradas/i });
+  const ctaLink = page.getByRole('link', { name: /comprar entradas/i });
+  const cta = (await ctaBtn.isVisible({ timeout: 3000 }).catch(() => false)) ? ctaBtn : ctaLink;
+  await moveHover(page, cta);
+  await see(page);
+
+  // ── Seat map ──
+  console.log('[ACT2] Opening seat map');
+  await moveClick(page, cta);
   await expect(page.getByTestId('seat-map')).toBeVisible({ timeout: 20000 });
   await see(page);
-  if (await page.getByTestId('buyer-stage').isVisible({ timeout: 2000 }).catch(() => false)) {
-    await moveHover(page, page.getByTestId('buyer-stage'));
+
+  // Show the stage if visible
+  const buyerStage = page.getByTestId('buyer-stage');
+  if (await buyerStage.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await moveHover(page, buyerStage);
     await think(page);
   }
 
-  // Pick two available seats (different indices to avoid deselecting)
+  // Pick 2 available seats (select from same table for combo)
   const available = page.locator('[data-status="available"]');
-  await expect(available.first()).toBeVisible({ timeout: 10000 });
+  await expect(available.first()).toBeVisible({ timeout: 15000 });
   const seatCount = await available.count();
-  console.log(`[F2] available seats: ${seatCount}`);
+  console.log(`[ACT2] Available seats: ${seatCount}`);
+
   await moveHover(page, available.nth(0));
   await think(page);
   await moveClick(page, available.nth(0));
   await after(page);
+
   await moveHover(page, available.nth(1));
   await think(page);
   await moveClick(page, available.nth(1));
   await see(page);
 
-  // Show selection panel and combo discount
+  // Show order panel and combo price
   await page.mouse.wheel(0, 300);
   await see(page);
+
   const totalValue = page.getByTestId('order-total-value');
-  const tvVisible = await totalValue.isVisible({ timeout: 3000 }).catch(() => false);
-  if (tvVisible) {
+  if (await totalValue.isVisible({ timeout: 3000 }).catch(() => false)) {
     await moveHover(page, totalValue);
+    const totalText = await totalValue.textContent();
+    console.log(`[ACT2] Order total: ${totalText}`);
     await see(page);
   }
 
-  // Click IR A PAGAR
+  // ── Ir a pagar ──
   const irAPagarBtn = page.getByRole('button', { name: /ir a pagar/i });
-  const isDisabled = await irAPagarBtn.isDisabled().catch(() => true);
-  console.log(`[F2] IR A PAGAR disabled: ${isDisabled}`);
   await moveHover(page, irAPagarBtn);
   await think(page);
   await moveClick(page, irAPagarBtn);
 
-  // ── F3: CHECKOUT ─────────────────────────────────────────────────────────────
-  mark('checkout');
-  console.log('[F3] Checkout');
+  // ── Checkout page ──
+  console.log('[ACT2] Checkout');
   await expect(page.getByTestId('order-total')).toBeVisible({ timeout: 20000 });
   await see(page);
+
   const pagarBtn = page.getByRole('button', { name: /pagar con culqi/i });
   await moveHover(page, pagarBtn);
   await see(page);
   await moveClick(page, pagarBtn);
 
-  // ── F4: SUCCESS ──────────────────────────────────────────────────────────────
-  mark('success');
-  console.log('[F4] Success');
-  // Wait for ticket links (they appear only after confirmed purchase)
+  // ── Purchase success ──
+  console.log('[ACT2] Success page');
   const firstTicketLink = page.getByTestId('ticket-link').first();
   await expect(firstTicketLink).toBeVisible({ timeout: 30000 });
   await see(page);
@@ -182,123 +393,73 @@ test('RetroGroove lifecycle showcase', async ({ page }: { page: Page }) => {
   await see(page);
   await moveHover(page, firstTicketLink);
   await see(page);
+
   const ticketHref = await firstTicketLink.getAttribute('href', { timeout: 10000 });
   const token = ticketHref?.split('token=')[1]?.trim() ?? '';
-  console.log(`[F4] token: ${token.slice(0, 8)}... (href=${ticketHref})`);
+  console.log(`[ACT2] Token: ${token.slice(0, 8)}...`);
 
-  // ── F5: TICKET VIEW ──────────────────────────────────────────────────────────
-  mark('ticket-view');
-  console.log('[F5] Ticket view');
+  // ── Ticket view / QR ──
+  console.log('[ACT2] Ticket QR view');
   if (token) {
     await page.goto(`${BASE}/t?token=${token}`, { waitUntil: 'networkidle', timeout: 30000 });
     await expect(page.getByTestId('ticket-status')).toBeVisible({ timeout: 20000 });
     await see(page);
-    if (await page.getByTestId('ticket-qr').isVisible({ timeout: 2000 }).catch(() => false)) {
-      await moveHover(page, page.getByTestId('ticket-qr'));
+
+    const ticketQr = page.getByTestId('ticket-qr');
+    if (await ticketQr.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await moveHover(page, ticketQr);
       await see(page);
     }
-    if (await page.getByTestId('ticket-token').isVisible({ timeout: 2000 }).catch(() => false)) {
-      await moveHover(page, page.getByTestId('ticket-token'));
+
+    const ticketToken = page.getByTestId('ticket-token');
+    if (await ticketToken.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await moveHover(page, ticketToken);
       await see(page);
     }
-    const pdfLink = page.getByTestId('pdf-link');
-    if (await pdfLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await moveHover(page, pdfLink);
-      await see(page);
-    }
+
     await page.mouse.wheel(0, 200);
     await see(page);
   } else {
-    console.log('[F5] SKIP — no token');
+    console.log('[ACT2] SKIP ticket view — no token');
   }
 
-  // ── B5: ADMIN — EVENT BUILDER ────────────────────────────────────────────────
-  mark('admin-builder');
-  console.log('[B5] Admin builder');
-  await page.goto(`${BASE}/band/tickets/nuevo`, { waitUntil: 'networkidle', timeout: 20000 });
-  await ensureAdmin(page);
-  await expect(page.getByTestId('builder-title')).toBeVisible({ timeout: 20000 });
-  await see(page);
+  // ────────────────────────────────────────────────────────────────────────────
+  // ACT 3: Admin validates at the door
+  // ────────────────────────────────────────────────────────────────────────────
+  console.log('[ACT 3] Admin validates at the door');
 
-  // Type event name to show the full builder
-  const nameInput = page.getByTestId('input-event-name');
-  await moveClick(page, nameInput);
-  await humanType(page, nameInput, 'Demo Night');
-  await think(page);
-
-  // Show the canvas with stage
-  const canvasStage = page.getByTestId('canvas-stage');
-  if (await canvasStage.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await moveHover(page, canvasStage);
-    await see(page);
-  }
-
-  // Click on canvas to place a table
-  const canvas = page.getByTestId('canvas-area');
-  const cBox = await canvas.boundingBox().catch(() => null);
-  if (cBox) {
-    const cx = cBox.x + cBox.width * 0.45;
-    const cy = cBox.y + cBox.height * 0.55;
-    await page.mouse.move(cx, cy, { steps: 18 });
-    await think(page);
-    await page.mouse.down();
-    await page.mouse.up();
-    await after(page);
-  }
-
-  // Show tarifa editor
-  const tarifaRow = page.getByTestId('tarifa-row').first();
-  if (await tarifaRow.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await moveHover(page, tarifaRow);
-    await see(page);
-    const priceInput = page.getByTestId('tarifa-price').first();
-    if (await priceInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await moveClick(page, priceInput);
-      await humanType(page, priceInput, '40');
-      await think(page);
-    }
-  }
-
-  // Hover section tab
-  const sectionTab = page.getByTestId('section-tab').first();
-  if (await sectionTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await moveHover(page, sectionTab);
-    await see(page);
-  }
-
-  // ── B6: DOOR CHECK-IN ───────────────────────────────────────────────────────
-  mark('check-in');
-  console.log('[B6] Check-in');
   await page.goto(`${BASE}/band/tickets/check-in`, { waitUntil: 'networkidle', timeout: 20000 });
   await ensureAdmin(page);
   await expect(page.getByTestId('checkin-title')).toBeVisible({ timeout: 15000 });
   await see(page);
 
-  // Type token and verify
+  // Type token
   const tokenInput = page.getByTestId('token-input');
   await moveClick(page, tokenInput);
   await humanType(page, tokenInput, token);
   await think(page);
-  await moveClick(page, page.getByTestId('btn-validar'));
 
-  await expect(page.getByTestId('result-panel')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId('result-panel')).toContainText('VÁLIDA');
+  // Validate
+  await moveClick(page, page.getByTestId('btn-validar'));
+  const resultPanel = page.getByTestId('result-panel');
+  await expect(resultPanel).toBeVisible({ timeout: 15000 });
+  await expect(resultPanel).toContainText('VÁLIDA');
   await see(page);
 
   // Register entry
   await moveClick(page, page.getByTestId('btn-registrar'));
-  await expect(page.getByTestId('result-panel')).toContainText('ENTRADA REGISTRADA', { timeout: 10000 });
+  await expect(resultPanel).toContainText('ENTRADA REGISTRADA', { timeout: 10000 });
   await see(page);
 
-  // ── B6: DOUBLE SCAN → YA USADA ───────────────────────────────────────────────
-  mark('check-in-double');
-  console.log('[B6] Double scan');
+  // ── Double scan → YA USADA ──
+  console.log('[ACT3] Double scan → YA USADA');
+
+  // Clear or click siguiente
   const siguienteBtn = page.getByTestId('btn-siguiente');
   if (await siguienteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await moveClick(page, siguienteBtn);
     await think(page);
   } else {
-    // Clear input manually if siguiente button not found
     await tokenInput.clear();
     await think(page);
   }
@@ -307,15 +468,14 @@ test('RetroGroove lifecycle showcase', async ({ page }: { page: Page }) => {
   await humanType(page, tokenInput, token);
   await think(page);
   await moveClick(page, page.getByTestId('btn-validar'));
-  await expect(page.getByTestId('result-panel')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId('result-panel')).toContainText(/ya usada/i);
+
+  await expect(resultPanel).toBeVisible({ timeout: 15000 });
+  await expect(resultPanel).toContainText(/ya usada/i);
   await see(page);
 
   // Final linger
-  mark('end');
   await moveTo(page, 960, 540, 8);
-  await pause(page, 1600);
+  await pause(page, 1800);
 
-  flush();
-  console.log('[DONE] Showcase complete');
+  console.log('[DONE] Showcase v2 complete');
 });

@@ -665,13 +665,15 @@ function NewEvent() {
         }
 
         // Place tables (seated sections only)
+        // pos_x/pos_y are stored as float % in local state but the API schema
+        // expects integers (0–100) — round before sending.
         if (sec.layout_type === 'tables') {
           for (const t of sec.tables) {
             await adminApi.createTable(section.id, {
               label: t.label,
               seat_count: t.seat_count,
-              pos_x: t.pos_x,
-              pos_y: t.pos_y,
+              pos_x: Math.round(t.pos_x),
+              pos_y: Math.round(t.pos_y),
               size: t.size,
               shape: t.shape,
               seating: t.seating,
