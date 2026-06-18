@@ -6,13 +6,15 @@
 # NOTE: this resets the retrogroove_api *dev* database (fresh app, no real data).
 set -uo pipefail
 
-ASDF=/home/visiond/.asdf/shims
 NODE=/home/visiond/.nvm/versions/node/v22.21.1/bin
-export PATH="$NODE:$ASDF:$PATH"
+export PATH="$NODE:$PATH"
+# asdf shims alone don't pick up the right Erlang/Elixir — source the full script
+# shellcheck disable=SC1091
+source /home/visiond/.asdf/asdf.sh 2>/dev/null || true
 
 API=/home/visiond/projects/retrogroove_api
 SITE=/home/visiond/projects/retrogroove-site
-API_PORT=4000
+API_PORT="${RG_API_PORT:-4099}"   # use 4099 to avoid collision with Firebase on 4000
 WEB_PORT=3340
 
 cleanup() {
@@ -21,12 +23,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> 1/4 reset demo DB + seed admin"
+echo "==> 1/4 reset demo DB + seed admin + Disco Night event"
 cd "$API"
 MIX_ENV=dev mix ecto.drop --quiet 2>/dev/null
 MIX_ENV=dev mix ecto.create --quiet
 MIX_ENV=dev mix ecto.migrate
-MIX_ENV=dev mix run priv/repo/demo_seeds.exs
+DEMO_ADMIN_EMAIL="${DEMO_ADMIN_EMAIL:-admin@retrogroove.pe}" \
+  DEMO_ADMIN_PASSWORD="${DEMO_ADMIN_PASSWORD:-DemoShow2026!}" \
+  MIX_ENV=dev mix run priv/repo/demo_seeds.exs
+# Seed the real Disco Night event so the demo's home shows it.
+ASSET_BASE_URL="http://localhost:$API_PORT" MIX_ENV=dev \
+  mix run priv/repo/seeds/disco_night_basilica.exs
+
+export DEMO_ADMIN_EMAIL="${DEMO_ADMIN_EMAIL:-admin@retrogroove.pe}"
+export DEMO_ADMIN_PASSWORD="${DEMO_ADMIN_PASSWORD:-DemoShow2026!}"
 
 echo "==> 2/4 start Phoenix API (:$API_PORT, Culqi stubbed)"
 CULQI_STUB=true CORS_ORIGINS="http://localhost:$WEB_PORT" PORT=$API_PORT MIX_ENV=dev \
@@ -40,7 +50,9 @@ echo "    API up"
 
 echo "==> 3/4 build frontend (API=$API_PORT) + serve static (:$WEB_PORT)"
 cd "$SITE"
-NEXT_PUBLIC_API_URL="http://localhost:$API_PORT/api" npm run build >/tmp/rg-demo-build.log 2>&1
+NEXT_PUBLIC_API_URL="http://localhost:$API_PORT/api" \
+  NEXT_PUBLIC_CULQI_PUBLIC_KEY="pk_test_demo" \
+  npm run build >/tmp/rg-demo-build.log 2>&1
 fuser -k $WEB_PORT/tcp 2>/dev/null
 PORT=$WEB_PORT node e2e/visual/static-server.mjs >/tmp/rg-demo-web.log 2>&1 &
 WEB_PID=$!
