@@ -72,7 +72,7 @@ export default function TicketView({ token }: { token: string }) {
         </div>
 
         {/* Ticket card — max 480px centered */}
-        <div style={{ maxWidth: '480px' }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto' }}>
           <div style={{
             background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
@@ -130,11 +130,13 @@ export default function TicketView({ token }: { token: string }) {
                     padding: '12px',
                     borderRadius: '12px',
                     lineHeight: 0,
-                    maxWidth: '200px',
+                    width: '200px',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
                   }}
                 >
                   <div
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', lineHeight: 0 }}
                     dangerouslySetInnerHTML={{ __html: ticket.qr_svg }}
                   />
                 </div>
@@ -144,7 +146,7 @@ export default function TicketView({ token }: { token: string }) {
               </p>
               <p
                 data-testid="ticket-token"
-                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-gold)', letterSpacing: '0.32em', fontSize: '1.1rem', margin: 0 }}
+                style={{ fontFamily: 'var(--font-display)', color: 'var(--color-gold)', letterSpacing: '0.32em', fontSize: '1.1rem', margin: 0, wordBreak: 'break-all' }}
               >
                 {ticket.public_token}
               </p>

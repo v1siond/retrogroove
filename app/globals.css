@@ -45,3 +45,10 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
+
+/* QR SVG rendered via dangerouslySetInnerHTML — force it to fill its container */
+[data-testid="ticket-qr"] svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
