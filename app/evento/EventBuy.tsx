@@ -766,7 +766,9 @@ export default function EventBuy({ slug }: { slug: string }) {
                                         left: `${tbl.pos_x - twPct / 2}%`,
                                         top: `${tbl.pos_y - thPct / 2}%`,
                                         width: `${twPct}%`,
-                                        paddingBottom: `${thPct}%`,
+                                        // height (not paddingBottom): paddingBottom % is relative to
+                                        // container WIDTH, which stretched tables into tall ovals.
+                                        height: `${thPct}%`,
                                         pointerEvents: 'none',
                                       }}
                                     >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, MouseEvent, useRef } from 'react';
+import { useState, FormEvent, MouseEvent, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi } from '@/lib/ticketing/admin';
@@ -475,6 +475,18 @@ function NewEvent() {
   const [error, setError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  // Always-current ref so event handlers never read stale sections state
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+
+  // Escape key: deselect table
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedTableKey(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const sec = sections[activeSection];
 
@@ -531,6 +543,8 @@ function NewEvent() {
   function handleCanvasClick(e: MouseEvent<HTMLDivElement>) {
     if (!activeTool) return;
     if (activeTool === 'general') return; // general admission has no tables
+    // Clear any selected table first (hides propsBox) before placing the new one
+    setSelectedTableKey(null);
 
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     let rawX = ((e.clientX - rect.left) / rect.width) * 100;
@@ -547,19 +561,28 @@ function NewEvent() {
     const pos_x = Math.min(95, Math.max(5, rawX));
     const pos_y = Math.min(95, Math.max(5, rawY));
 
+    // Read the LATEST table count from the ref (never stale, updated every render).
+    // This prevents duplicate-table or skip-table bugs when React defers renders.
+    const latestSec = sectionsRef.current[activeSection];
+    const newIdx = latestSec.tables.length;
+    const shape = activeTool === 'rect-table' ? 'rect' : 'round';
+    const seating = activeTool === 'rows' ? 'rows' : 'around';
     const newTable: TableDef = {
       id: `tbl-${Date.now()}`,
-      label: `Mesa ${sec.tables.length + 1}`,
+      label: `Mesa ${newIdx + 1}`,
       pos_x,
       pos_y,
       size: 64,
-      shape: activeTool === 'rect-table' ? 'rect' : 'round',
+      shape,
       seat_count: 4,
-      seating: activeTool === 'rows' ? 'rows' : 'around',
+      seating,
     };
-
-    patchSection(activeSection, { tables: [...sec.tables, newTable] });
-    setSelectedTableKey(`${activeSection}-${sec.tables.length}`);
+    setSections((s) =>
+      s.map((section, idx) =>
+        idx !== activeSection ? section : { ...section, tables: [...section.tables, newTable] }
+      )
+    );
+    setSelectedTableKey(`${activeSection}-${newIdx}`);
   }
 
   // ── Table properties ──────────────────────────────────────────────────────
@@ -1066,10 +1089,11 @@ function NewEvent() {
             </span>
           </div>
 
-          {/* Stage readout */}
+          {/* Stage readout — clicking here deselects any selected table */}
           <div
             data-testid="stage-readout"
-            style={{ fontSize: '.62rem', color: 'var(--color-pink)', marginBottom: '6px' }}
+            style={{ fontSize: '.62rem', color: 'var(--color-pink)', marginBottom: '6px', cursor: 'default' }}
+            onClick={() => setSelectedTableKey(null)}
           >
             Escenario · x {stageX} · y {stageY} · {stageW}×{stageH}
           </div>
@@ -1100,6 +1124,7 @@ function NewEvent() {
                 const sizePct = (tbl.size / canvasW) * 100;
                 const isVip = sec.name.toLowerCase().includes('vip');
 
+                const sizeHPct = (tbl.size / canvasH) * 100; // % of canvas height
                 return (
                   <div
                     key={key}
@@ -1111,9 +1136,11 @@ function NewEvent() {
                     style={{
                       position: 'absolute',
                       left: `${tbl.pos_x - sizePct / 2}%`,
-                      top: `${tbl.pos_y - ((tbl.size / canvasH) * 100) / 2}%`,
+                      top: `${tbl.pos_y - sizeHPct / 2}%`,
                       width: `${sizePct}%`,
-                      paddingBottom: `${(tbl.size / canvasH) * 100}%`,
+                      // Use height (not paddingBottom) so the hit-box is square,
+                      // not 3× taller than it is wide (paddingBottom % uses container width).
+                      height: `${sizeHPct}%`,
                       cursor: 'pointer',
                       zIndex: 10,
                     }}
@@ -1156,7 +1183,7 @@ function NewEvent() {
 
             {/* Properties popover for selected table */}
             {selectedTable && (
-              <div data-testid="table-props" style={S.propsBox(true)}>
+              <div data-testid="table-props" style={S.propsBox(true)} onClick={(e) => e.stopPropagation()}>
                 <p style={S.propsTitle}>{selectedTable.label}</p>
 
                 <label style={S.propsLabel}>Forma</label>
