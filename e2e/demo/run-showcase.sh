@@ -24,7 +24,9 @@ API=/home/visiond/projects/retrogroove_api
 SITE=/home/visiond/projects/retrogroove-site
 API_PORT="${RG_API_PORT:-4099}"
 WEB_PORT=3340
-MUSIC_VOL="${MUSIC_VOL:--20dB}"
+# Music bed is synthesized at ~-24 dB peak; a tiny +2 dB boost lands it near the
+# ~-22 dB ambient target. (Was -20 dB, which buried the bed at ~-44 dB — inaudible.)
+MUSIC_VOL="${MUSIC_VOL:-+2dB}"
 FAST="${SHOWCASE_FAST:-}"
 
 export DEMO_ADMIN_EMAIL="admin@retrogroove.pe"

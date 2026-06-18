@@ -1,0 +1,40 @@
+1
+00:00:00,001 --> 00:00:05,330
+Bienvenido a RetroGroove — la plataforma de eventos con mapas de asientos en tiempo real.
+
+2
+00:00:06,947 --> 00:00:12,040
+Aquí ves los detalles del evento: fecha, recinto y las zonas disponibles.
+
+3
+00:00:12,391 --> 00:00:18,540
+Elige tus asientos directamente en el mapa. El combo y el precio se aplican al instante.
+
+4
+00:00:26,055 --> 00:00:29,510
+Confirma tu pedido y paga con Culqi en segundos.
+
+5
+00:00:29,936 --> 00:00:36,390
+¡Listo! La compra fue exitosa. Tu entrada queda registrada de inmediato.
+
+6
+00:00:49,599 --> 00:00:54,660
+Desde tu perfil accedes a la entrada con su código QR único y listo para usar.
+
+7
+00:00:58,404 --> 00:01:05,150
+En el panel de administración configuras el aforo, defines zonas y ajustas precios por fase — todo sin código.
+
+8
+00:01:30,099 --> 00:01:35,260
+En la puerta, el validador escanea el QR y confirma la entrada en tiempo real.
+
+9
+00:01:40,993 --> 00:01:46,250
+Si alguien intenta entrar dos veces, el sistema bloquea el acceso automáticamente.
+
+10
+00:01:47,786 --> 00:01:52,270
+RetroGroove — eventos memorables, gestión sin fricciones.
+

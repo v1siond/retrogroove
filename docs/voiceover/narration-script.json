@@ -1,0 +1,62 @@
+[
+  {
+    "beat": "home",
+    "t_start": 0.001,
+    "t_end": 6.5,
+    "line": "Bienvenido a RetroGroove — la plataforma de eventos con mapas de asientos en tiempo real."
+  },
+  {
+    "beat": "event-detail",
+    "t_start": 6.947,
+    "t_end": 12.0,
+    "line": "Aquí ves los detalles del evento: fecha, recinto y las zonas disponibles."
+  },
+  {
+    "beat": "seat-selection",
+    "t_start": 12.391,
+    "t_end": 25.5,
+    "line": "Elige tus asientos directamente en el mapa. El combo y el precio se aplican al instante."
+  },
+  {
+    "beat": "checkout",
+    "t_start": 26.055,
+    "t_end": 29.5,
+    "line": "Confirma tu pedido y paga con Culqi en segundos."
+  },
+  {
+    "beat": "success",
+    "t_start": 29.936,
+    "t_end": 48.5,
+    "line": "¡Listo! La compra fue exitosa. Tu entrada queda registrada de inmediato."
+  },
+  {
+    "beat": "ticket-view",
+    "t_start": 49.599,
+    "t_end": 57.8,
+    "line": "Desde tu perfil accedes a la entrada con su código QR único y listo para usar."
+  },
+  {
+    "beat": "admin-builder",
+    "t_start": 58.404,
+    "t_end": 89.5,
+    "line": "En el panel de administración configuras el aforo, defines zonas y ajustas precios por fase — todo sin código."
+  },
+  {
+    "beat": "check-in",
+    "t_start": 90.099,
+    "t_end": 100.5,
+    "line": "En la puerta, el validador escanea el QR y confirma la entrada en tiempo real."
+  },
+  {
+    "beat": "check-in-double",
+    "t_start": 100.993,
+    "t_end": 107.3,
+    "line": "Si alguien intenta entrar dos veces, el sistema bloquea el acceso automáticamente."
+  },
+  {
+    "beat": "end",
+    "t_start": 107.786,
+    "t_end": 120.0,
+    "line": "RetroGroove — eventos memorables, gestión sin fricciones."
+  }
+]
