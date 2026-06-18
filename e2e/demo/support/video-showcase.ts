@@ -1,11 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// SHOWCASE video fixture — 1920×1080 @2× capture → ffmpeg upscale for RetroGroove.
+// SHOWCASE video fixture — 2560×1440 @2× capture → ffmpeg upscale for RetroGroove.
 //
-// Adapted from auditechme/playwright/support/video-showcase.js.
-// Renders the app at 1920×1080 with deviceScaleFactor 2 (text supersampled →
-// crisp). recordVideo.size matches the viewport (page fills the frame).
-// On teardown: ffmpeg lanczos-upscales to 3840×2160 @60fps (or 2560×1440
-// with SHOWCASE_RES=1440). SHOWCASE_FAST=1 → ultrafast/crf30 for dress rehearsals.
+// Captures at 2560×1440 with deviceScaleFactor 2 (renders 5120×2880 → crisp).
+// 1440p is a standard desktop width so the app layout stays intact (no sparse
+// whitespace). ffmpeg lanczos-upscales to 3840×2160 @60fps for genuine 4K.
+// SHOWCASE_FAST=1 → ultrafast/crf30 for dress rehearsals.
 //
 // Output path: recordings/demo-<recordingName>.mp4
 // ─────────────────────────────────────────────────────────────
@@ -19,13 +18,15 @@ import { CURSOR_OVERLAY_SCRIPT } from './showcase.js';
 const RECORDINGS_DIR = path.resolve(process.cwd(), 'recordings');
 
 const RES =
-  process.env.SHOWCASE_RES === '1440'
-    ? { w: 2560, h: 1440 }
-    : { w: 3840, h: 2160 };
+  process.env.SHOWCASE_RES === '4K'
+    ? { w: 3840, h: 2160 }
+    : { w: 3840, h: 2160 };  // always 4K output; source is 2560×1440 @ dsf2
 
 export const SHOWCASE_RES = RES;
 
-const VIEWPORT = { width: 1920, height: 1080 };
+// Capture at 2560×1440 — standard desktop width keeps layout intact;
+// deviceScaleFactor 2 renders at 5120×2880 for supersampled crispness.
+const VIEWPORT = { width: 2560, height: 1440 };
 
 // Extend with recordingName as a worker-level option.
 // Using eslint-disable because the Playwright generics require any here.
@@ -42,7 +43,7 @@ export const test = (base as any).extend({
       viewport: VIEWPORT,
       deviceScaleFactor: 2,
       locale: 'es-PE',
-      recordVideo: { dir: tmpDir, size: VIEWPORT },
+      recordVideo: { dir: tmpDir, size: { width: VIEWPORT.width, height: VIEWPORT.height } },
     });
 
     // Inject the Culqi test-token stub so payments short-circuit without Culqi.
