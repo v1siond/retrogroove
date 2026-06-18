@@ -51,3 +51,4 @@ erl_crash.dump
 visual-journey.webm
 /recordings/
 /showcase-results/
+e2e/demo/music/*.wav

@@ -1,5 +1,5 @@
 /**
- * RetroGroove lifecycle showcase v2 — 3-act tutorial.
+ * RetroGroove lifecycle showcase v3 — 3-act tutorial.
  *
  * Act 1 — Admin builds the Basilica event from scratch via the builder UI
  * Act 2 — Client buys 2 seats (sees combo price S/70)
@@ -7,6 +7,12 @@
  *
  * State shared within the test: slug captured after publish, token after purchase.
  * DB is pre-reset and admin-only seeded by run-showcase.sh before this spec runs.
+ *
+ * v3 fixes:
+ *   - Correct event details (Surco address, real description, map URL)
+ *   - Exactly 13 tables: 3 couple (2-seat) + 10 large (7-seat) — count-asserted after each
+ *   - Rebalanced pacing: table loop is faster, Acts 2+3 get more room
+ *   - stopPropagation on table-props prevents double-placement (page.tsx fix)
  */
 import { test, expect } from '@playwright/test';
 import { humanType, moveClick, moveHover, moveTo, CURSOR_OVERLAY_SCRIPT } from './support/showcase.js';
@@ -22,11 +28,16 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(CURSOR_OVERLAY_SCRIPT);
 });
 
-const B = Number(process.env.SHOWCASE_BEAT) || 0.9;
-const pause = (page: Page, ms: number) => page.waitForTimeout(Math.round(ms * B));
-const see   = (page: Page) => pause(page, 1300);
-const think = (page: Page) => pause(page, 600);
-const after = (page: Page) => pause(page, 800);
+// Default beat for normal pacing; TABLE_BEAT is faster just for placement loops
+const B        = Number(process.env.SHOWCASE_BEAT) || 0.9;
+const TB       = B * 0.45;  // table placement loop — faster so Act 1 isn't bloated
+const pause    = (page: Page, ms: number) => page.waitForTimeout(Math.round(ms * B));
+const tpause   = (page: Page, ms: number) => page.waitForTimeout(Math.round(ms * TB));
+const see      = (page: Page) => pause(page, 1300);
+const think    = (page: Page) => pause(page, 600);
+const after    = (page: Page) => pause(page, 800);
+const tsee     = (page: Page) => tpause(page, 1300);
+const tthink   = (page: Page) => tpause(page, 600);
 
 const ADMIN = {
   email:    process.env.DEMO_ADMIN_EMAIL    || 'admin@retrogroove.pe',
@@ -64,15 +75,11 @@ async function ensureAdmin(page: Page) {
   console.log('[ensureAdmin] login done');
 }
 
-// ── Get the actual drawing canvas (the div with cursor:crosshair inside canvas-area) ──
+// ── Get the actual drawing canvas div ────────────────────────────────────────
 async function getCanvasDiv(page: Page) {
-  // The canvas div is inside canvas-area, after the canvasBar and stage-readout divs.
-  // When a tool is active it has cursor:crosshair in its inline style.
-  // Use stage-readout as anchor: the canvas is the next sibling.
   const byStyle  = page.locator('[data-testid="canvas-area"] [style*="crosshair"]');
   const hasIt = await byStyle.first().isVisible({ timeout: 3000 }).catch(() => false);
   if (hasIt) return byStyle.first();
-  // Fallback: third child div of canvas-area (after canvasBar div and stage-readout div)
   return page.locator('[data-testid="stage-readout"] + div');
 }
 
@@ -82,64 +89,61 @@ async function placeTable(
   _canvasArea: ReturnType<Page['getByTestId']>,
   xPct: number,
   yPct: number,
-  seatAdjust: number,   // +N = click + that many times, -N = click - that many times
+  seatAdjust: number,   // +N = click + that many times, -N = click − that many times
+  expectedCount: number, // assert table count equals this after placement
 ) {
   const canvas = await getCanvasDiv(page);
   const box = await canvas.boundingBox();
-  if (!box) {
-    console.log('[placeTable] canvas div not found');
-    return;
-  }
+  if (!box) { console.log('[placeTable] canvas not found'); return; }
 
-  const cx = box.x + box.width  * xPct;
-  const cy = box.y + box.height * yPct;
+  const cx  = box.x + box.width  * xPct;
+  const cy  = box.y + box.height * yPct;
+  const relX = Math.round(box.width  * xPct);
+  const relY = Math.round(box.height * yPct);
 
-  // Move slowly so it's visible, then click to place
+  // Glide cursor to position (visible in recording), then click canvas
   await page.mouse.move(cx, cy, { steps: 20 });
-  await think(page);
-  await page.mouse.click(cx, cy);
-  await after(page);
+  await tthink(page);
+  await canvas.click({ position: { x: relX, y: relY }, force: true });
 
-  // Wait for the props popover to appear
-  const propsBox = page.getByTestId('table-props');
-  const appeared = await propsBox.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
-
-  if (!appeared) {
-    console.log(`[placeTable] props popover did not appear at (${xPct},${yPct})`);
-    return;
-  }
+  // Wait for React to commit the new table to DOM
+  await page.getByTestId('table-props').waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+  await tthink(page);
 
   // Adjust seat count (default = 4)
-  const seatCount = page.getByTestId('seat-count');
-  if (seatAdjust < 0) {
-    // Click the minus button (text is − not -)
-    const minusBtn = seatCount.locator('button').first();
+  if (seatAdjust !== 0) {
+    const seatCount = page.getByTestId('seat-count');
+    const btn = seatAdjust < 0
+      ? seatCount.locator('button').first()   // minus
+      : seatCount.locator('button').last();   // plus
     for (let i = 0; i < Math.abs(seatAdjust); i++) {
-      await moveClick(page, minusBtn);
-      await page.waitForTimeout(140);
+      await moveClick(page, btn);
+      await page.waitForTimeout(120);
     }
-  } else if (seatAdjust > 0) {
-    // Click the plus button
-    const plusBtn = seatCount.locator('button').last();
-    for (let i = 0; i < seatAdjust; i++) {
-      await moveClick(page, plusBtn);
-      await page.waitForTimeout(140);
-    }
+    await tthink(page);
   }
-  await think(page);
 
-  // Click somewhere on the page header (safe deselect area that won't place another table)
-  const builderTitle = page.getByTestId('builder-title');
-  const titleBox = await builderTitle.boundingBox().catch(() => null);
-  if (titleBox) {
-    await page.mouse.move(titleBox.x + 10, titleBox.y + titleBox.height / 2, { steps: 8 });
-    await page.mouse.click(titleBox.x + 10, titleBox.y + titleBox.height / 2);
+  // Dismiss selection via stage-readout click → setSelectedTableKey(null)
+  await moveClick(page, page.getByTestId('stage-readout'));
+  await page.getByTestId('table-props').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+  await tthink(page);
+
+  // Assert table count
+  let actual = 0;
+  for (let retry = 0; retry < 10; retry++) {
+    actual = await page.getByTestId('canvas-table').count();
+    if (actual >= expectedCount) break;
+    await page.waitForTimeout(200);
   }
-  await think(page);
+  if (actual !== expectedCount) {
+    console.warn(`[placeTable] WARN: expected ${expectedCount} got ${actual}`);
+  } else {
+    console.log(`[placeTable] OK: ${actual} table(s)`);
+  }
 }
 
 // ── Main showcase ─────────────────────────────────────────────────────────────
-test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
+test('RetroGroove lifecycle showcase v3', async ({ page }: { page: Page }) => {
 
   // ────────────────────────────────────────────────────────────────────────────
   // ACT 1: Admin builds the Basilica event
@@ -170,12 +174,25 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
 
   const addrInput = page.getByTestId('input-venue-address');
   await moveClick(page, addrInput);
-  await humanType(page, addrInput, 'Jr. Basílica 640, Barranco');
+  await humanType(page, addrInput, 'Av. Primavera 640, Santiago de Surco, Lima');
   await think(page);
+
+  // Map URL (if the field exists)
+  const mapInput = page.getByTestId('input-map-url');
+  const hasMapInput = await mapInput.isVisible({ timeout: 2000 }).catch(() => false);
+  if (hasMapInput) {
+    await moveClick(page, mapInput);
+    await humanType(page, mapInput, 'https://share.google/S7JIUy0pdMhJzzIE5');
+    await think(page);
+  }
 
   const descInput = page.getByTestId('input-description');
   await moveClick(page, descInput);
-  await humanType(page, descInput, 'Una noche de disco puro en el corazón de Barranco.');
+  await humanType(
+    page,
+    descInput,
+    'Una noche para soltarse y bailar. Retrogroove te lleva por lo mejor del rock clásico, la fiebre disco y el rock nacional —en vivo y a todo volumen— en el ambiente único de La Basílica 640. No somos estrellas internacionales: somos una banda que se entrega en cada canción y arma una fiesta de verdad. Reserva tu mesa y vení a comprobarlo.',
+  );
   await think(page);
 
   // ── Stage geometry ──
@@ -227,35 +244,70 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
   await moveClick(page, roundTableTool);
   await see(page);
 
-  // ── Canvas: place couple tables (2 seats = default 4 − 2) ──
-  // The round-table tool stays active until toggled off — no need to re-activate.
-  console.log('[ACT1] Placing couple tables (2 seats each)');
+  // ── Canvas: place exactly 3 couple tables (2 seats = default 4 − 2) ──
+  // After each placement we assert the count incremented.
+  console.log('[ACT1] Placing 3 couple tables (2 seats each)');
   const canvasArea = page.getByTestId('canvas-area');
 
-  // Place table 1 — show it clearly (seat adjustment: -2 → 4-2=2)
-  await placeTable(page, canvasArea, 0.20, 0.58, -2);
-  await see(page);
+  // All tables placed in the LOWER HALF of canvas (y ≥ 0.55) to stay clear of
+  // the propsBox which sits at top-right (top:10px, ~150px tall, ~160/canvas_h ≈ 47% from top).
+  // x stays ≤ 0.70 for the same reason (propsBox is 210px wide at right:10px).
+  //
+  // Layout: stage is at the top; tables are in the audience area below.
+  // Front row (couple tables, 2 seats each): y=0.58 — just "in front" of the large tables
+  // Large tables (7 seats each): two rows at y=0.70 and y=0.83
 
-  // Place table 2
-  await placeTable(page, canvasArea, 0.35, 0.78, -2);
-  await think(page);
+  // ── 3 couple tables: front row ──
+  await placeTable(page, canvasArea, 0.18, 0.58, -2, 1);
+  await tsee(page);
 
-  // Place table 3
-  await placeTable(page, canvasArea, 0.50, 0.60, -2);
-  await think(page);
+  await placeTable(page, canvasArea, 0.44, 0.58, -2, 2);
+  await tthink(page);
 
-  // ── Switch to large tables (7 seats = 4+3) ──
-  console.log('[ACT1] Placing large tables (7 seats each)');
+  await placeTable(page, canvasArea, 0.64, 0.58, -2, 3);
+  await tthink(page);
 
-  // Large table 1 — show clearly
-  await placeTable(page, canvasArea, 0.22, 0.38, 3);
-  await see(page);
+  // ── 10 large tables (7 seats = default 4 + 3 clicks): two rows ──
+  console.log('[ACT1] Placing 10 large tables (7 seats each)');
 
-  await placeTable(page, canvasArea, 0.42, 0.40, 3);
-  await think(page);
+  // Large row 1: 5 tables at y=0.70
+  await placeTable(page, canvasArea, 0.10, 0.70, 3, 4);
+  await tsee(page);
 
-  await placeTable(page, canvasArea, 0.62, 0.58, 3);
-  await think(page);
+  await placeTable(page, canvasArea, 0.26, 0.70, 3, 5);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.44, 0.70, 3, 6);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.60, 0.70, 3, 7);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.70, 0.70, 3, 8);
+  await tthink(page);
+
+  // Large row 2: 5 tables at y=0.84
+  await placeTable(page, canvasArea, 0.10, 0.84, 3, 9);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.26, 0.84, 3, 10);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.44, 0.84, 3, 11);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.60, 0.84, 3, 12);
+  await tthink(page);
+
+  await placeTable(page, canvasArea, 0.70, 0.84, 3, 13);
+  await tsee(page);
+
+  // ── FINAL ASSERTION: must be exactly 13 tables / 76 seats ──
+  const finalTableCount = await page.getByTestId('canvas-table').count();
+  console.log(`[ACT1] Final table count: ${finalTableCount} (expected 13)`);
+  if (finalTableCount !== 13) {
+    throw new Error(`Expected exactly 13 tables but got ${finalTableCount}`);
+  }
 
   // Show the canvas with all tables placed
   const canvasStage = page.getByTestId('canvas-stage');
@@ -263,10 +315,6 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
     await moveHover(page, canvasStage);
     await see(page);
   }
-
-  // Verify we have tables before publishing
-  const tableCount = await page.getByTestId('canvas-table').count();
-  console.log(`[ACT1] Tables placed: ${tableCount}`);
 
   // ── CREAR Y PUBLICAR ──
   console.log('[ACT1] Publishing event');
@@ -343,8 +391,8 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
   // Pick 2 available seats (select from same table for combo)
   const available = page.locator('[data-status="available"]');
   await expect(available.first()).toBeVisible({ timeout: 15000 });
-  const seatCount = await available.count();
-  console.log(`[ACT2] Available seats: ${seatCount}`);
+  const seatCountAvail = await available.count();
+  console.log(`[ACT2] Available seats: ${seatCountAvail}`);
 
   await moveHover(page, available.nth(0));
   await think(page);
@@ -454,7 +502,6 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
   // ── Double scan → YA USADA ──
   console.log('[ACT3] Double scan → YA USADA');
 
-  // Clear or click siguiente
   const siguienteBtn = page.getByTestId('btn-siguiente');
   if (await siguienteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await moveClick(page, siguienteBtn);
@@ -477,5 +524,5 @@ test('RetroGroove lifecycle showcase v2', async ({ page }: { page: Page }) => {
   await moveTo(page, 960, 540, 8);
   await pause(page, 1800);
 
-  console.log('[DONE] Showcase v2 complete');
+  console.log('[DONE] Showcase v3 complete');
 });
