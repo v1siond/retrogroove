@@ -158,7 +158,7 @@ async function buyFromHome(page: Page, eventName: string, picks: SeatPick[], exp
   await beat(page);
   await page.getByRole('button', { name: 'Comprar' }).click();
 
-  await narrate(page, 'Paga con Culqi');
+  await narrate(page, 'Paga con Izipay');
   await expect(page.getByTestId('order-total')).toBeVisible();
   await page.getByRole('button', { name: /pagar/i }).click();
   await expect(page.getByText(/compra confirmada/i)).toBeVisible();
@@ -184,7 +184,7 @@ async function checkIn(page: Page, token: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    (window as unknown as { __CULQI_TEST_TOKEN__?: string }).__CULQI_TEST_TOKEN__ = 'tkn_demo';
+    (window as unknown as { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__ = true;
   });
 });
 

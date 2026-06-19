@@ -20,10 +20,10 @@ import type { Page } from '@playwright/test';
 
 test.setTimeout(1_800_000);
 
-// Inject Culqi stub + cursor overlay on every page load
+// Inject Izipay test hook + cursor overlay on every page load
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    (window as unknown as { __CULQI_TEST_TOKEN__?: string }).__CULQI_TEST_TOKEN__ = 'tkn_demo';
+    (window as unknown as { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__ = true;
   });
   await page.addInitScript(CURSOR_OVERLAY_SCRIPT);
 });
@@ -427,7 +427,7 @@ test('RetroGroove lifecycle showcase v3', async ({ page }: { page: Page }) => {
   await expect(page.getByTestId('order-total')).toBeVisible({ timeout: 20000 });
   await see(page);
 
-  const pagarBtn = page.getByRole('button', { name: /pagar con culqi/i });
+  const pagarBtn = page.getByRole('button', { name: /pagar con izipay/i });
   await moveHover(page, pagarBtn);
   await see(page);
   await moveClick(page, pagarBtn);

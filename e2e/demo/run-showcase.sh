@@ -31,8 +31,7 @@ FAST="${SHOWCASE_FAST:-}"
 
 export DEMO_ADMIN_EMAIL="admin@retrogroove.pe"
 export DEMO_ADMIN_PASSWORD="demo1234"
-export CULQI_STUB=true
-export NEXT_PUBLIC_CULQI_PUBLIC_KEY="pk_test_demo"
+export IZIPAY_STUB=true
 
 PHX_PID=""
 WEB_PID=""
@@ -53,8 +52,8 @@ DEMO_ADMIN_EMAIL="$DEMO_ADMIN_EMAIL" DEMO_ADMIN_PASSWORD="$DEMO_ADMIN_PASSWORD" 
   MIX_ENV=dev mix run priv/repo/demo_seeds.exs
 
 # ── 2/6 Start Phoenix API ────────────────────────────────────────────────────
-echo "==> 2/6 start Phoenix API (:$API_PORT, Culqi stubbed)"
-CULQI_STUB=true CORS_ORIGINS="http://localhost:$WEB_PORT" PORT=$API_PORT MIX_ENV=dev \
+echo "==> 2/6 start Phoenix API (:$API_PORT, Izipay stubbed)"
+IZIPAY_STUB=true CORS_ORIGINS="http://localhost:$WEB_PORT" PORT=$API_PORT MIX_ENV=dev \
   mix phx.server > /tmp/rg-showcase-api.log 2>&1 &
 PHX_PID=$!
 echo "    waiting for API..."
@@ -68,7 +67,6 @@ echo "    API up (pid $PHX_PID)"
 echo "==> 3/6 build frontend + serve (:$WEB_PORT)"
 cd "$SITE"
 NEXT_PUBLIC_API_URL="http://localhost:$API_PORT/api" \
-  NEXT_PUBLIC_CULQI_PUBLIC_KEY="$NEXT_PUBLIC_CULQI_PUBLIC_KEY" \
   npm run build > /tmp/rg-showcase-build.log 2>&1
 fuser -k ${WEB_PORT}/tcp 2>/dev/null || true
 PORT=$WEB_PORT BASE_PATH="" node e2e/visual/static-server.mjs > /tmp/rg-showcase-web.log 2>&1 &

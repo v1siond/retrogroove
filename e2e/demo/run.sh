@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Orchestrates the real-backend demo: resets the API's dev DB, seeds an admin,
-# starts the Phoenix API (Culqi stubbed) + the static frontend, then runs the
+# starts the Phoenix API (Izipay stubbed) + the static frontend, then runs the
 # narrated Playwright demo suite and records video.
 #
 # NOTE: this resets the retrogroove_api *dev* database (fresh app, no real data).
@@ -38,8 +38,8 @@ ASSET_BASE_URL="http://localhost:$API_PORT" MIX_ENV=dev \
 export DEMO_ADMIN_EMAIL="${DEMO_ADMIN_EMAIL:-admin@retrogroove.pe}"
 export DEMO_ADMIN_PASSWORD="${DEMO_ADMIN_PASSWORD:-DemoShow2026!}"
 
-echo "==> 2/4 start Phoenix API (:$API_PORT, Culqi stubbed)"
-CULQI_STUB=true CORS_ORIGINS="http://localhost:$WEB_PORT" PORT=$API_PORT MIX_ENV=dev \
+echo "==> 2/4 start Phoenix API (:$API_PORT, Izipay stubbed)"
+IZIPAY_STUB=true CORS_ORIGINS="http://localhost:$WEB_PORT" PORT=$API_PORT MIX_ENV=dev \
   mix phx.server > /tmp/rg-demo-api.log 2>&1 &
 PHX_PID=$!
 for i in $(seq 1 40); do
@@ -51,7 +51,7 @@ echo "    API up"
 echo "==> 3/4 build frontend (API=$API_PORT) + serve static (:$WEB_PORT)"
 cd "$SITE"
 NEXT_PUBLIC_API_URL="http://localhost:$API_PORT/api" \
-  NEXT_PUBLIC_CULQI_PUBLIC_KEY="pk_test_demo" \
+  IZIPAY_STUB=true \
   npm run build >/tmp/rg-demo-build.log 2>&1
 fuser -k $WEB_PORT/tcp 2>/dev/null
 PORT=$WEB_PORT node e2e/visual/static-server.mjs >/tmp/rg-demo-web.log 2>&1 &

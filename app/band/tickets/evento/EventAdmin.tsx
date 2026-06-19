@@ -70,7 +70,7 @@ export default function EventAdmin({ slug }: { slug: string }) {
       {error && <p className={ui.error}>{error}</p>}
 
       <h2 className={ui.h2}>Generar entradas (cortesía)</h2>
-      <p className={ui.muted}>Selecciona asientos y emítelos sin cobro por Culqi.</p>
+      <p className={ui.muted}>Selecciona asientos y emítelos sin cobro (cortesía directa).</p>
 
       {event.sections.map((section) => (
         <section key={section.id} className={ui.card} data-section-id={section.id}>

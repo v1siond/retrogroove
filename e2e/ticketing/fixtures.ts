@@ -97,26 +97,34 @@ export async function setupTicketingMocks(page: Page, opts: Opts = {}) {
     });
   });
 
-  await page.route('**/api/orders/ord1/pay', async (route) => {
+  // Izipay payment-link: return a fake URL (redirect intercepted by test hook)
+  await page.route('**/api/orders/ord1/payment-link', async (route) => {
     await route.fulfill({
       status: 200,
-      json: {
-        order: {
-          id: 'ord1',
-          status: 'paid',
-          total: '70',
-          buyer_email: 'fan@example.com',
-          buyer_first_name: opts.noName ? null : 'Juan',
-          buyer_last_name: opts.noName ? null : 'Pérez',
-          expires_at: null,
-          tickets: [ticket('t1', 'tok1', 's1'), ticket('t2', 'tok2', 's2')],
-        },
-      },
+      json: { payment_url: 'https://secure.micuentaweb.pe/t/test-stub' },
     });
   });
 
+  // getOrder (GET) returns paid so the redirect-return / poll flow resolves immediately
   await page.route('**/api/orders/ord1', async (route) => {
-    if (route.request().method() === 'PATCH') {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        json: {
+          order: {
+            id: 'ord1',
+            status: 'paid',
+            total: '70',
+            buyer_email: 'fan@example.com',
+            buyer_first_name: opts.noName ? null : 'Juan',
+            buyer_last_name: opts.noName ? null : 'Pérez',
+            expires_at: null,
+            tickets: [ticket('t1', 'tok1', 's1'), ticket('t2', 'tok2', 's2')],
+          },
+        },
+      });
+    } else if (method === 'PATCH') {
       await route.fulfill({
         status: 200,
         json: {

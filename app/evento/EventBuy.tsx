@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ticketingApi, ApiError } from '@/lib/ticketing/api';
 import { bundleTotal } from '@/lib/ticketing/pricing';
-import { getCulqiToken } from '@/lib/ticketing/culqi';
 import { Nav, Footer, SeatLegend, Money } from '@/components/ui';
 import type { TicketEvent, Order, Section, Seat, VenueTable } from '@/lib/ticketing/types';
 
@@ -87,6 +86,7 @@ export default function EventBuy({ slug }: { slug: string }) {
   const [askFirstName, setAskFirstName] = useState('');
   const [askLastName, setAskLastName] = useState('');
   const [nameSaved, setNameSaved] = useState(false);
+  const [polling, setPolling] = useState(false);
 
   useEffect(() => {
     ticketingApi
@@ -95,6 +95,15 @@ export default function EventBuy({ slug }: { slug: string }) {
       .catch(() => setError('No se pudo cargar el evento'))
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // When arriving at the success page after Izipay redirect, confirmation is
+  // async (IPN). Poll until order transitions to paid.
+  useEffect(() => {
+    if (step === 'done' && order && order.status !== 'paid') {
+      pollUntilPaid(order.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // Countdown for hold — clamp to 0, guard against absurd/far-future dates
   useEffect(() => {
@@ -226,16 +235,42 @@ export default function EventBuy({ slug }: { slug: string }) {
     setWorking(true);
     setError(null);
     try {
-      const amountCents = Math.round(parseFloat(order.total) * 100);
-      const token = await getCulqiToken(amountCents);
-      const { order: paid } = await ticketingApi.payOrder(order.id, token);
-      setOrder(paid);
-      setStep('done');
+      const { payment_url } = await ticketingApi.createPaymentLink(order.id);
+      // In tests, window.__IZIPAY_TEST_SKIP__ suppresses the redirect so the
+      // mock can simulate a paid order without leaving the page.
+      if (typeof window !== 'undefined' && (window as Window & { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__) {
+        // Test hook: poll once then advance to done.
+        const { order: refreshed } = await ticketingApi.getOrder(order.id);
+        setOrder(refreshed);
+        setStep('done');
+        return;
+      }
+      window.location.href = payment_url;
     } catch {
-      setError('El pago no se pudo procesar.');
+      setError('No se pudo generar el enlace de pago.');
     } finally {
       setWorking(false);
     }
+  }
+
+  // Poll order status after returning from Izipay (IPN is async).
+  // Called on F4 mount when order.status is still 'pending'.
+  async function pollUntilPaid(orderId: string, maxAttempts = 20) {
+    setPolling(true);
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const { order: refreshed } = await ticketingApi.getOrder(orderId);
+        if (refreshed.status === 'paid') {
+          setOrder(refreshed);
+          setPolling(false);
+          return;
+        }
+      } catch {
+        // keep retrying
+      }
+    }
+    setPolling(false);
   }
 
   async function handleSaveName() {
@@ -1329,38 +1364,38 @@ export default function EventBuy({ slug }: { slug: string }) {
                   opacity: working ? 0.6 : 1,
                 }}
               >
-                {working ? 'PROCESANDO...' : `PAGAR CON CULQI · S/ ${order.total}`}
+                {working ? 'PROCESANDO...' : `PAGAR CON IZIPAY · S/ ${order.total}`}
               </button>
 
               <div style={{ marginTop: '10px', fontSize: '0.66rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-                🔒 Se abre la ventana segura de <strong style={{ color: 'var(--color-text)' }}>Culqi</strong> — paga con <strong style={{ color: 'var(--color-text)' }}>tarjeta</strong> o <strong style={{ color: 'var(--color-text)' }}>Yape</strong>
+                🔒 Serás redirigido a la pasarela segura de <strong style={{ color: 'var(--color-text)' }}>Izipay</strong> — paga con <strong style={{ color: 'var(--color-text)' }}>tarjeta</strong>, <strong style={{ color: 'var(--color-text)' }}>Yape</strong> o <strong style={{ color: 'var(--color-text)' }}>Plin</strong>
               </div>
 
               {/* Payment methods */}
               <div style={{ marginTop: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', opacity: 0.7, userSelect: 'none', pointerEvents: 'none' }}>
-                <span style={{ fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-faint)' }}>Pagos vía Culqi</span>
+                <span style={{ fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-faint)' }}>Pagos vía Izipay</span>
                 {['VISA', 'Mastercard'].map((m) => (
                   <span key={m} style={{ padding: '3px 9px', border: '1px solid rgba(255,255,255,.18)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem' }}>{m}</span>
                 ))}
                 <span style={{ padding: '3px 9px', border: '1px solid rgba(160,80,255,.4)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem', color: '#a050ff' }}>Yape</span>
+                <span style={{ padding: '3px 9px', border: '1px solid rgba(0,229,255,.4)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem', color: 'var(--color-cyan)' }}>Plin</span>
               </div>
 
               {/* Note */}
               <div style={{ marginTop: '20px', background: 'rgba(255,255,255,.05)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '13px 15px', fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
                 <span style={{ color: 'var(--color-cyan)', fontSize: '1rem', lineHeight: 1.4 }}>✉</span>
-                <span>Tomamos tu nombre y correo de Culqi para enviarte las entradas. Si falta algo, te lo pedimos después de pagar.</span>
+                <span>Al volver de Izipay confirmamos tu pago y te enviamos las entradas. Si falta tu nombre, te lo pedimos aquí.</span>
               </div>
             </div>
 
             {/* How it works */}
             <div style={{ marginTop: '18px', border: '1px solid var(--color-border)', borderRadius: '12px', background: 'var(--color-surface)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
               <span style={{ fontWeight: 600, fontSize: '0.58rem', letterSpacing: '0.14em', color: 'var(--color-text-faint)', textTransform: 'uppercase', width: '100%' }}>Cómo funciona</span>
-              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(255,20,147,.12)', border: '1px solid rgba(255,20,147,.4)', color: 'var(--color-text)' }}>1 · Pagar con Culqi</span>
+              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(255,20,147,.12)', border: '1px solid rgba(255,20,147,.4)', color: 'var(--color-text)' }}>1 · Pagar con Izipay</span>
               <span style={{ opacity: 0.5 }}>→</span>
-              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>2 · Ventana Culqi (tarjeta / Yape)</span>
+              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>2 · Pasarela Izipay (tarjeta / Yape / Plin)</span>
               <span style={{ opacity: 0.5 }}>→</span>
-              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.4)', color: '#22c55e' }}>3a · ✓ Compra confirmada</span>
-              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(255,90,110,.1)', border: '1px solid rgba(255,90,110,.4)', color: '#ff5a6e' }}>3b · ✕ Reintentar</span>
+              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.4)', color: '#22c55e' }}>3 · ✓ Vuelves aquí, compra confirmada</span>
             </div>
           </div>
         </main>
@@ -1372,6 +1407,19 @@ export default function EventBuy({ slug }: { slug: string }) {
 
   // ─── F4: Success ───
   if (step === 'done' && order) {
+    // Still waiting for IPN confirmation (async from Izipay)
+    if (polling || order.status !== 'paid') {
+      return (
+        <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', maxWidth: '400px', padding: '32px' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '18px' }}>⏳</div>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', letterSpacing: '0.06em', marginBottom: '8px' }}>CONFIRMANDO PAGO</p>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>Estamos confirmando tu pago con Izipay. Esto solo toma unos segundos...</p>
+          </div>
+        </div>
+      );
+    }
+
     const showAskName = !order.buyer_first_name && !nameSaved;
     const firstToken = order.tickets[0]?.public_token;
 
@@ -1575,7 +1623,7 @@ export default function EventBuy({ slug }: { slug: string }) {
             )}
 
             <div style={{ marginTop: '20px', fontSize: '0.66rem', color: 'var(--color-text-faint)', textAlign: 'center' }}>
-              Precio final, sin cargos sorpresa · Pago procesado con Culqi
+              Precio final, sin cargos sorpresa · Pago procesado con Izipay
             </div>
           </div>
         </main>

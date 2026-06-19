@@ -46,10 +46,10 @@ export const test = (base as any).extend({
       recordVideo: { dir: tmpDir, size: { width: VIEWPORT.width, height: VIEWPORT.height } },
     });
 
-    // Inject the Culqi test-token stub so payments short-circuit without Culqi.
+    // Inject Izipay test hook so payments short-circuit without a real redirect.
     await context.addInitScript(() => {
       try {
-        (window as unknown as { __CULQI_TEST_TOKEN__?: string }).__CULQI_TEST_TOKEN__ = 'tkn_demo';
+        (window as unknown as { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__ = true;
       } catch { /* ignore */ }
     });
 

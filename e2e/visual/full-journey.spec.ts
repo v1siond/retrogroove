@@ -60,18 +60,27 @@ async function setupMocks(page: Page) {
     })
   );
 
-  await page.route('**/api/orders/ord1/pay', (r) =>
-    r.fulfill({
-      status: 200,
-      json: {
-        order: {
-          id: 'ord1', status: 'paid', total: '70', buyer_email: 'ana@example.com',
-          buyer_first_name: 'Ana', buyer_last_name: 'López', expires_at: null,
-          tickets: [ticket('tok1', 's1'), ticket('tok2', 's2')],
-        },
-      },
-    })
+  // Izipay payment-link: return fake URL (redirect suppressed by test hook)
+  await page.route('**/api/orders/ord1/payment-link', (r) =>
+    r.fulfill({ status: 200, json: { payment_url: 'https://secure.micuentaweb.pe/t/test-stub' } })
   );
+
+  // getOrder returns paid (IPN already processed in stub)
+  await page.route('**/api/orders/ord1', (r) => {
+    if (r.request().method() === 'GET') {
+      return r.fulfill({
+        status: 200,
+        json: {
+          order: {
+            id: 'ord1', status: 'paid', total: '70', buyer_email: 'ana@example.com',
+            buyer_first_name: 'Ana', buyer_last_name: 'López', expires_at: null,
+            tickets: [ticket('tok1', 's1'), ticket('tok2', 's2')],
+          },
+        },
+      });
+    }
+    return r.continue();
+  });
 
   await page.route('**/api/tickets/tok1/check-in', (r) => {
     checkedIn = true;
@@ -90,7 +99,7 @@ async function setupMocks(page: Page) {
 test('full journey: fan buys two seats, then staff checks one in', async ({ page }) => {
   await setupMocks(page);
   await page.addInitScript(() => {
-    window.__CULQI_TEST_TOKEN__ = 'tkn_demo';
+    (window as Window & { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__ = true;
   });
 
   // --- The fan ---
@@ -120,8 +129,8 @@ test('full journey: fan buys two seats, then staff checks one in', async ({ page
     await beat(page);
   });
 
-  await test.step('Pays with Culqi', async () => {
-    await narrate(page, 'Paga con tarjeta / Yape (Culqi)');
+  await test.step('Pays with Izipay', async () => {
+    await narrate(page, 'Paga con tarjeta / Yape (Izipay — redirigido y confirmado)');
     await page.getByRole('button', { name: /pagar/i }).click();
     await expect(page.getByText(/compra confirmada/i)).toBeVisible();
     await narrate(page, '¡Compra confirmada! Recibe sus entradas');

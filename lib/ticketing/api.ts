@@ -45,11 +45,12 @@ export const ticketingApi = {
     });
   },
 
-  payOrder(orderId: string, token: string): Promise<{ order: Order }> {
-    return request(`/orders/${orderId}/pay`, {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
+  createPaymentLink(orderId: string): Promise<{ payment_url: string }> {
+    return request(`/orders/${orderId}/payment-link`, { method: 'POST' });
+  },
+
+  getOrder(orderId: string): Promise<{ order: Order }> {
+    return request(`/orders/${orderId}`);
   },
 
   getTicket(token: string): Promise<{ ticket: Ticket }> {

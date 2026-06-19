@@ -1,12 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { setupTicketingMocks } from './fixtures';
 
+// Inject the Izipay test hook that suppresses the real redirect and lets the
+// mock getOrder (GET /orders/:id) resolve the flow as paid.
+function injectIzipayTestHook(page: Parameters<typeof page.addInitScript>[0]) {
+  return (page as import('@playwright/test').Page).addInitScript(() => {
+    (window as Window & { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__ = true;
+  });
+}
+
 test.describe('Fan ticket purchase flow', () => {
   test('buys two seats end-to-end and opens a printable ticket', async ({ page }) => {
     await setupTicketingMocks(page);
-    await page.addInitScript(() => {
-      window.__CULQI_TEST_TOKEN__ = 'tkn_test';
-    });
+    await injectIzipayTestHook(page);
 
     await page.goto('/evento?slug=gala-2026');
     // F1: event detail page - click CTA to advance to seat selection
@@ -23,9 +29,9 @@ test.describe('Fan ticket purchase flow', () => {
 
     // Pay step shows the authoritative total
     await expect(page.getByTestId('order-total')).toContainText('70');
-    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await page.getByRole('button', { name: /pagar con izipay/i }).click();
 
-    // Confirmation + ticket links
+    // Confirmation + ticket links (test hook suppresses redirect; mock getOrder returns paid)
     await expect(page.getByText(/compra confirmada/i)).toBeVisible();
     const links = page.getByTestId('ticket-link');
     await expect(links).toHaveCount(2);
@@ -106,7 +112,7 @@ test.describe('Fan ticket purchase flow', () => {
 
   test('F3: checkout has NO buyer inputs and pay advances to success', async ({ page }) => {
     await setupTicketingMocks(page);
-    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await injectIzipayTestHook(page);
     await page.goto('/evento?slug=gala-2026');
 
     // reach F3
@@ -118,35 +124,35 @@ test.describe('Fan ticket purchase flow', () => {
     await expect(page.getByLabel(/nombre/i)).not.toBeVisible();
     await expect(page.getByLabel(/email/i)).not.toBeVisible();
 
-    // pay button present
-    await expect(page.getByRole('button', { name: /pagar con culqi/i })).toBeVisible();
+    // pay button present (Izipay now)
+    await expect(page.getByRole('button', { name: /pagar con izipay/i })).toBeVisible();
 
-    // click pay -> advances to success
-    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    // click pay -> advances to success (redirect stubbed, getOrder returns paid)
+    await page.getByRole('button', { name: /pagar con izipay/i }).click();
     await expect(page.getByText(/compra confirmada/i)).toBeVisible();
   });
 
   test('F4: with name shows no ask-name; without name shows ask-name card', async ({ page }) => {
     // Without name
     await setupTicketingMocks(page, { noName: true });
-    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await injectIzipayTestHook(page);
     await page.goto('/evento?slug=gala-2026');
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
     await page.getByRole('button', { name: /ir a pagar/i }).click();
-    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await page.getByRole('button', { name: /pagar con izipay/i }).click();
     await expect(page.getByTestId('ask-name-card')).toBeVisible();
   });
 
   test('F4: with name hides ask-name card', async ({ page }) => {
     // With name (default mock returns Juan Pérez)
     await setupTicketingMocks(page);
-    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await injectIzipayTestHook(page);
     await page.goto('/evento?slug=gala-2026');
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
     await page.getByRole('button', { name: /ir a pagar/i }).click();
-    await page.getByRole('button', { name: /pagar con culqi/i }).click();
+    await page.getByRole('button', { name: /pagar con izipay/i }).click();
     await expect(page.getByTestId('ask-name-card')).not.toBeVisible();
   });
 
@@ -168,7 +174,7 @@ test.describe('Fan ticket purchase flow', () => {
 
   test('F3: checkout shows subtotal and discount rows', async ({ page }) => {
     await setupTicketingMocks(page);
-    await page.addInitScript(() => { window.__CULQI_TEST_TOKEN__ = 'tkn_test'; });
+    await injectIzipayTestHook(page);
     await page.goto('/evento?slug=gala-2026');
     // select 2 seats to trigger combo
     await page.getByRole('button', { name: /comprar entradas/i }).click();
