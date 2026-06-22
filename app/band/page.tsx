@@ -1,17 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { checkSession, setSession, verifyPassword, getTocadaSongs, setTocada } from '@/lib/auth'
+import { AdminGate } from '@/components/admin2/AdminGate'
+import { getTocadaSongs, setTocada } from '@/lib/auth'
 import { aggregateRequests, formatDate, formatDisplayDate, getRequestsForDate } from '@/lib/requests'
-import { Request, RequestWithCount } from '@/lib/types'
+import { Request } from '@/lib/types'
 
-export default function BandDashboard() {
+function BandRequests() {
   const [mounted, setMounted] = useState(false)
-  const [authenticated, setAuthenticated] = useState(false)
-  const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState('')
-  const [verifying, setVerifying] = useState(false)
-
   const [selectedDate, setSelectedDate] = useState(() => formatDate(new Date()))
   const [requests, setRequests] = useState<Request[]>([])
   const [loading, setLoading] = useState(false)
@@ -19,9 +15,6 @@ export default function BandDashboard() {
 
   useEffect(() => {
     setMounted(true)
-    if (checkSession()) {
-      setAuthenticated(true)
-    }
   }, [])
 
   const fetchRequests = useCallback(async (date: string) => {
@@ -36,40 +29,8 @@ export default function BandDashboard() {
   }, [])
 
   useEffect(() => {
-    if (authenticated) {
-      fetchRequests(selectedDate)
-    }
-  }, [authenticated, selectedDate, fetchRequests])
-
-  const handleLogin = async () => {
-    if (!password.trim()) {
-      setAuthError('Ingresa la contrasena')
-      return
-    }
-
-    setVerifying(true)
-    setAuthError('')
-
-    try {
-      const valid = await verifyPassword(password)
-      if (valid) {
-        setSession()
-        setAuthenticated(true)
-      } else {
-        setAuthError('Contrasena incorrecta')
-      }
-    } catch {
-      setAuthError('Error al verificar')
-    } finally {
-      setVerifying(false)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleLogin()
-    }
-  }
+    fetchRequests(selectedDate)
+  }, [selectedDate, fetchRequests])
 
   const handleToggleTocada = (songId: string) => {
     const isTocada = tocadaSongs.has(songId)
@@ -140,6 +101,29 @@ export default function BandDashboard() {
           margin: 0.5rem 0 0;
         }
 
+        .band-nav {
+          display: flex;
+          gap: 0.5rem;
+          justify-content: center;
+          flex-wrap: wrap;
+          margin-top: 1rem;
+        }
+
+        .band-nav a {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 0.95rem;
+          letter-spacing: 0.06em;
+          color: var(--cyan);
+          text-decoration: none;
+          padding: 0.4rem 0.9rem;
+          border: 1px solid rgba(0,229,255,0.4);
+          border-radius: 20px;
+          transition: all 0.2s;
+        }
+        .band-nav a:hover {
+          background: rgba(0,229,255,0.12);
+        }
+
         .band-card {
           background: rgba(255,255,255,0.04);
           backdrop-filter: blur(16px);
@@ -147,78 +131,6 @@ export default function BandDashboard() {
           border-radius: 16px;
           padding: 1.5rem;
           border: 1px solid rgba(255,255,255,0.1);
-          margin-bottom: 1rem;
-        }
-
-        .form-group {
-          margin-bottom: 1.2rem;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 0.9rem;
-          color: rgba(255,255,255,0.7);
-          margin-bottom: 0.5rem;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 0.8rem 1rem;
-          font-family: 'Outfit', sans-serif;
-          font-size: 1rem;
-          color: #fff;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.15);
-          border-radius: 10px;
-          outline: none;
-          transition: border-color 0.3s;
-          box-sizing: border-box;
-        }
-
-        .form-input:focus {
-          border-color: var(--cyan);
-        }
-
-        .form-input::placeholder {
-          color: rgba(255,255,255,0.3);
-        }
-
-        .band-btn {
-          display: block;
-          width: 100%;
-          padding: 1rem 2rem;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.3rem;
-          letter-spacing: 0.1em;
-          color: #fff;
-          background: linear-gradient(135deg, rgba(255,20,147,0.3), rgba(191,0,255,0.3));
-          border: 1px solid rgba(255,255,255,0.2);
-          border-radius: 40px;
-          cursor: pointer;
-          transition: all 0.3s;
-          box-shadow: 0 0 20px rgba(255,20,147,0.2);
-          text-align: center;
-          text-decoration: none;
-        }
-
-        .band-btn:hover:not(:disabled) {
-          background: linear-gradient(135deg, rgba(255,20,147,0.5), rgba(191,0,255,0.5));
-          transform: translateY(-2px);
-          box-shadow: 0 0 30px rgba(255,20,147,0.4);
-        }
-
-        .band-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .error-msg {
-          background: rgba(255,50,50,0.2);
-          border: 1px solid rgba(255,50,50,0.4);
-          border-radius: 8px;
-          padding: 0.8rem 1rem;
-          color: #ff6b6b;
-          font-size: 0.9rem;
           margin-bottom: 1rem;
         }
 
@@ -383,6 +295,30 @@ export default function BandDashboard() {
           color: rgba(255,255,255,0.6);
         }
 
+        .band-btn {
+          display: block;
+          width: 100%;
+          padding: 1rem 2rem;
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 1.3rem;
+          letter-spacing: 0.1em;
+          color: #fff;
+          background: linear-gradient(135deg, rgba(255,20,147,0.3), rgba(191,0,255,0.3));
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 40px;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 0 20px rgba(255,20,147,0.2);
+          text-align: center;
+          text-decoration: none;
+        }
+
+        .band-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(255,20,147,0.5), rgba(191,0,255,0.5));
+          transform: translateY(-2px);
+          box-shadow: 0 0 30px rgba(255,20,147,0.4);
+        }
+
         .back-link {
           display: block;
           text-align: center;
@@ -404,108 +340,89 @@ export default function BandDashboard() {
           <header className="band-header">
             <a href="/" className="band-brand">RETROGROOVE</a>
             <h1 className="band-title">Band Dashboard</h1>
+            <nav className="band-nav">
+              <a href="/band/tickets">Ticketing admin</a>
+              <a href="/band/setlist">Setlist</a>
+            </nav>
           </header>
 
-          {!authenticated ? (
-            <div className="band-card">
-              {authError && <div className="error-msg">{authError}</div>}
-
-              <div className="form-group">
-                <label className="form-label">Contrasena de la banda</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="Ingresa la contrasena"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                />
-              </div>
-
-              <button
-                className="band-btn"
-                onClick={handleLogin}
-                disabled={verifying}
-              >
-                {verifying ? 'Verificando...' : 'Entrar'}
-              </button>
-
-              <a href="/" className="back-link">Volver al inicio</a>
+          <div className="band-card">
+            <div className="date-picker-row">
+              <input
+                type="date"
+                className="date-input"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+              />
             </div>
-          ) : (
-            <>
-              <div className="band-card">
-                <div className="date-picker-row">
-                  <input
-                    type="date"
-                    className="date-input"
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                  />
-                </div>
-                <div className="display-date">{formatDisplayDate(selectedDate)}</div>
+            <div className="display-date">{formatDisplayDate(selectedDate)}</div>
+          </div>
+
+          <div className="stats-row">
+            <div className="stat-item">
+              <div className="stat-value">{totalRequests}</div>
+              <div className="stat-label">Total Pedidos</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-value">{uniqueSongs}</div>
+              <div className="stat-label">Canciones</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-value">{songsPlayed}</div>
+              <div className="stat-label">Tocadas</div>
+            </div>
+          </div>
+
+          <div className="band-card">
+            {loading ? (
+              <div className="loading-state">Cargando pedidos...</div>
+            ) : aggregated.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">~</div>
+                <div>No hay pedidos para esta fecha</div>
               </div>
-
-              <div className="stats-row">
-                <div className="stat-item">
-                  <div className="stat-value">{totalRequests}</div>
-                  <div className="stat-label">Total Pedidos</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-value">{uniqueSongs}</div>
-                  <div className="stat-label">Canciones</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-value">{songsPlayed}</div>
-                  <div className="stat-label">Tocadas</div>
-                </div>
+            ) : (
+              <div className="request-list">
+                {aggregated.map(item => {
+                  const isTocada = tocadaSongs.has(item.song.id)
+                  return (
+                    <div
+                      key={item.song.id}
+                      className={`request-item ${isTocada ? 'tocada' : ''}`}
+                    >
+                      <div className="request-info">
+                        <div className="request-title">{item.song.title}</div>
+                        <div className="request-artist">{item.song.artist}</div>
+                      </div>
+                      <div className="count-badge">{item.count}</div>
+                      <button
+                        className={`tocada-btn ${isTocada ? 'active' : ''}`}
+                        onClick={() => handleToggleTocada(item.song.id)}
+                      >
+                        {isTocada ? 'Tocada' : 'Tocar'}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
+            )}
+          </div>
 
-              <div className="band-card">
-                {loading ? (
-                  <div className="loading-state">Cargando pedidos...</div>
-                ) : aggregated.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-state-icon">~</div>
-                    <div>No hay pedidos para esta fecha</div>
-                  </div>
-                ) : (
-                  <div className="request-list">
-                    {aggregated.map(item => {
-                      const isTocada = tocadaSongs.has(item.song.id)
-                      return (
-                        <div
-                          key={item.song.id}
-                          className={`request-item ${isTocada ? 'tocada' : ''}`}
-                        >
-                          <div className="request-info">
-                            <div className="request-title">{item.song.title}</div>
-                            <div className="request-artist">{item.song.artist}</div>
-                          </div>
-                          <div className="count-badge">{item.count}</div>
-                          <button
-                            className={`tocada-btn ${isTocada ? 'active' : ''}`}
-                            onClick={() => handleToggleTocada(item.song.id)}
-                          >
-                            {isTocada ? 'Tocada' : 'Tocar'}
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+          <a href="/band/setlist" className="band-btn" style={{ marginTop: '1rem' }}>
+            Imprimir Setlist
+          </a>
 
-              <a href="/band/setlist" className="band-btn" style={{ marginTop: '1rem' }}>
-                Imprimir Setlist
-              </a>
-
-              <a href="/" className="back-link">Volver al inicio</a>
-            </>
-          )}
+          <a href="/" className="back-link">Volver al inicio</a>
         </div>
       </div>
     </>
+  )
+}
+
+export default function BandPage() {
+  return (
+    <AdminGate>
+      <BandRequests />
+    </AdminGate>
   )
 }

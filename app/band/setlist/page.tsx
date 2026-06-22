@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { AdminGate } from '@/components/admin2/AdminGate'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
 
 type ViewMode = 'repertorio' | 'builder'
 
-export default function SetlistPage() {
+function SetlistBuilder() {
   const [songs, setSongs] = useState<Song[]>([])
   const [songsLoaded, setSongsLoaded] = useState(false)
   const allSongs = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title)), [songs])
@@ -583,5 +584,13 @@ export default function SetlistPage() {
         )}
       </div>
     </>
+  )
+}
+
+export default function SetlistPage() {
+  return (
+    <AdminGate>
+      <SetlistBuilder />
+    </AdminGate>
   )
 }

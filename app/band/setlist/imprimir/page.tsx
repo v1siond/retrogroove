@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { AdminGate } from '@/components/admin2/AdminGate'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
 
@@ -483,12 +484,12 @@ function SetlistPrintInner() {
 
 export default function SetlistPrint() {
   return (
-    <>
+    <AdminGate>
       <title>Repertorio Imprimible — RetroGroove</title>
       <style>{STYLES}</style>
       <Suspense fallback={<div className="print-page loading">Cargando...</div>}>
         <SetlistPrintInner />
       </Suspense>
-    </>
+    </AdminGate>
   )
 }
