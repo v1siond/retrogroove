@@ -25,7 +25,16 @@ test('the ticket page shows status, QR and the entry token', async ({ page }) =>
   await expect(page.getByTestId('ticket-token')).toHaveText('ABCD1234');
 });
 
-test('F5: ticket card renders QR, code, status and PDF link', async ({ page }) => {
+test('F5: ticket card renders QR, code, status and a client-side PDF download', async ({ page }) => {
+  // A real EQRCode-style SVG so the in-browser rasterizer has something to draw.
+  const qrSvg = '<?xml version="1.0" standalone="yes"?>\n'
+    + '<svg width="100" height="100" version="1.1" xmlns="http://www.w3.org/2000/svg" '
+    + 'viewBox="0 0 5 5" shape-rendering="crispEdges">'
+    + '<rect width="5" height="5" style="fill:#FFF"/>'
+    + '<rect width="1" height="1" x="0" y="0" style="fill:#000"/>'
+    + '<rect width="1" height="1" x="2" y="2" style="fill:#000"/>'
+    + '<rect width="1" height="1" x="4" y="4" style="fill:#000"/></svg>';
+
   await page.route('**/api/tickets/tok1', (r) => r.fulfill({
     status: 200,
     json: {
@@ -34,7 +43,7 @@ test('F5: ticket card renders QR, code, status and PDF link', async ({ page }) =
         code: 'RG-TOK1',
         public_token: 'tok1',
         status: 'valid',
-        qr_svg: '<svg data-qr="1"><rect width="10" height="10" /></svg>',
+        qr_svg: qrSvg,
         checked_in_at: null,
         seat_id: 's1',
         event_name: 'Gala 2026',
@@ -45,6 +54,11 @@ test('F5: ticket card renders QR, code, status and PDF link', async ({ page }) =
     },
   }));
 
+  // The PDF is built in the browser — fail loudly if the page hits the old
+  // server endpoint.
+  let hitServerPdf = false;
+  await page.route('**/tickets/*/pdf', (r) => { hitServerPdf = true; r.abort(); });
+
   await page.goto('/t?token=tok1');
 
   // QR visible on white background
@@ -53,9 +67,13 @@ test('F5: ticket card renders QR, code, status and PDF link', async ({ page }) =
   // status
   await expect(page.getByTestId('ticket-status')).toContainText('Válida');
 
-  // PDF download link
-  const pdfLink = page.getByTestId('pdf-link');
-  await expect(pdfLink).toBeVisible();
-  const href = await pdfLink.getAttribute('href');
-  expect(href).toMatch(/tickets\/tok1\/pdf/);
+  // PDF download — clicking generates the PDF client-side and downloads it.
+  const pdfBtn = page.getByTestId('pdf-link');
+  await expect(pdfBtn).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await pdfBtn.click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+  expect(hitServerPdf).toBe(false);
 });

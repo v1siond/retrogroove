@@ -4,12 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ticketingApi, ApiError } from '@/lib/ticketing/api';
 import { bundleTotal } from '@/lib/ticketing/pricing';
+import { buildOrderPdf, downloadPdf, ticketFilename } from '@/lib/ticketing/pdf';
 import { Nav, Footer, SeatLegend, Money } from '@/components/ui';
 import type { TicketEvent, Order, Section, Seat, VenueTable } from '@/lib/ticketing/types';
 
 const SECTION_COLORS = ['#ff1493', '#00e5ff', '#ffd700', '#bf00ff', '#22c55e', '#ff8c00'];
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 function seatName(seat: Seat): string {
   return seat.row ? `${seat.row}${seat.number}` : seat.label || String(seat.number);
@@ -387,6 +386,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
   const [askLastName, setAskLastName] = useState('');
   const [nameSaved, setNameSaved] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   // Load the event. Two entry points:
   //  1. ?slug=<slug> — normal buy flow: load the event directly.
@@ -652,6 +652,27 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
       setNameSaved(true);
     } catch {
       // silent
+    }
+  }
+
+  // Build the order's tickets into one PDF (a page per ticket) in the browser
+  // and trigger a download. QR is rasterized from the backend qr_svg so it
+  // scans identically to the on-screen ticket.
+  async function handleDownloadPdf() {
+    if (!order || !event || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      const buyerName = [order.buyer_first_name, order.buyer_last_name]
+        .filter(Boolean).join(' ').trim() || null;
+      const bytes = await buildOrderPdf(order.tickets, {
+        eventName: event.name,
+        venue: event.venue_name,
+        date: event.starts_at,
+        buyerName,
+      });
+      downloadPdf(bytes, ticketFilename(event.name, order.tickets[0]?.public_token));
+    } finally {
+      setPdfBusy(false);
     }
   }
 
@@ -1733,14 +1754,16 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                   VER MIS ENTRADAS
                 </Link>
               )}
-              {/* Descargar PDF — wired to first ticket PDF */}
+              {/* Descargar PDF — built client-side from the order's tickets */}
               {firstToken && (
-                <a
-                  href={`${API_BASE}/tickets/${firstToken}/pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  data-testid="download-pdf"
+                  onClick={handleDownloadPdf}
+                  disabled={pdfBusy}
                   style={{
                     display: 'block',
+                    width: '100%',
                     textAlign: 'center',
                     background: 'transparent',
                     color: 'var(--color-text)',
@@ -1750,12 +1773,13 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                     fontFamily: 'var(--font-display)',
                     letterSpacing: '0.06em',
                     fontSize: '1.05rem',
-                    textDecoration: 'none',
+                    cursor: pdfBusy ? 'wait' : 'pointer',
                     marginBottom: '12px',
+                    opacity: pdfBusy ? 0.7 : 1,
                   }}
                 >
-                  Descargar PDF
-                </a>
+                  {pdfBusy ? 'Generando PDF...' : 'Descargar PDF'}
+                </button>
               )}
             </div>
 

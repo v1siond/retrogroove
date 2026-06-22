@@ -36,6 +36,13 @@ test.describe('Fan ticket purchase flow', () => {
     const links = page.getByTestId('ticket-link');
     await expect(links).toHaveCount(2);
 
+    // Descargar PDF builds the order's tickets into a PDF in the browser — no
+    // server call — and downloads it.
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('download-pdf').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+
     // Open the printable ticket
     await links.first().click();
     await expect(page).toHaveURL(/\/t\?token=tok1/);

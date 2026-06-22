@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { ticketingApi } from '@/lib/ticketing/api';
+import { buildTicketPdf, downloadPdf, ticketFilename } from '@/lib/ticketing/pdf';
 import type { Ticket } from '@/lib/ticketing/types';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 function formatDate(iso: string): string {
   try {
@@ -37,6 +36,7 @@ function statusColor(status: Ticket['status']): string {
 export default function TicketView({ token }: { token: string }) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     ticketingApi
@@ -45,6 +45,21 @@ export default function TicketView({ token }: { token: string }) {
       .catch(() => setTicket(null))
       .finally(() => setLoading(false));
   }, [token]);
+
+  async function handleDownloadPdf() {
+    if (!ticket || generating) return;
+    setGenerating(true);
+    try {
+      const eventName = ticket.event_name || 'RetroGroove';
+      const bytes = await buildTicketPdf(ticket, {
+        eventName,
+        date: ticket.event_starts_at,
+      });
+      downloadPdf(bytes, ticketFilename(eventName, ticket.public_token));
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (loading) return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
@@ -170,15 +185,15 @@ export default function TicketView({ token }: { token: string }) {
             >
               Compartir
             </button>
-            <a
+            <button
+              type="button"
               data-testid="pdf-link"
-              href={`${API_BASE}/tickets/${token}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ flex: 1, padding: '10px', background: 'var(--color-pink)', color: 'var(--color-text)', border: 'none', borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em', textDecoration: 'none', textAlign: 'center', display: 'inline-block', boxShadow: 'var(--shadow-cta)' }}
+              onClick={handleDownloadPdf}
+              disabled={generating}
+              style={{ flex: 1, padding: '10px', background: 'var(--color-pink)', color: 'var(--color-text)', border: 'none', borderRadius: 'var(--radius-pill)', cursor: generating ? 'wait' : 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em', textAlign: 'center', display: 'inline-block', boxShadow: 'var(--shadow-cta)', opacity: generating ? 0.7 : 1 }}
             >
-              Descargar PDF
-            </a>
+              {generating ? 'Generando...' : 'Descargar PDF'}
+            </button>
           </div>
         </div>
       </div>

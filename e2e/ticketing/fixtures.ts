@@ -100,7 +100,9 @@ function ticket(id: string, token: string, seat: string) {
     code: 'CODE' + id,
     public_token: token,
     status: 'valid',
-    qr_svg: '<svg data-qr="1"><rect/></svg>',
+    qr_svg: '<svg data-qr="1" width="80" height="80" viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg">'
+      + '<rect width="4" height="4" fill="#FFF"/><rect width="1" height="1" x="0" y="0" fill="#000"/>'
+      + '<rect width="1" height="1" x="3" y="3" fill="#000"/></svg>',
     checked_in_at: null,
     seat_id: seat,
     event_name: 'Gala 2026',
