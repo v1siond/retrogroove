@@ -87,6 +87,10 @@ export interface Order {
   buyer_first_name: string | null;
   buyer_last_name: string | null;
   expires_at: string | null;
+  // Event the order belongs to — present on GET /orders/:id so the return-URL
+  // resume (/evento?order=<id>) can load the right event without a slug param.
+  event_slug?: string | null;
+  event_name?: string | null;
   tickets: Ticket[];
 }
 

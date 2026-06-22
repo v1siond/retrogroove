@@ -200,6 +200,35 @@ export async function setupTicketingMocks(page: Page, opts: Opts = {}) {
   });
 }
 
+// Resume by ?order=<id> (Izipay return URL with no slug). The order carries its
+// event_slug so the page can load the event and show the ticket view. `paid`
+// controls whether it lands on the success view or the polling interstitial.
+export async function setupOrderResumeMock(page: Page, opts: { paid?: boolean } = {}) {
+  const event = JSON.parse(JSON.stringify(mockEvent));
+  await page.route('**/api/events/gala-2026', (r) => r.fulfill({ status: 200, json: { event } }));
+
+  await page.route('**/api/orders/ord1', (r) => {
+    if (r.request().method() !== 'GET') return r.fallback();
+    return r.fulfill({
+      status: 200,
+      json: {
+        order: {
+          id: 'ord1',
+          status: opts.paid === false ? 'pending' : 'paid',
+          total: '70',
+          event_slug: 'gala-2026',
+          event_name: 'Gala 2026',
+          buyer_email: 'fan@example.com',
+          buyer_first_name: 'Juan',
+          buyer_last_name: 'Pérez',
+          expires_at: null,
+          tickets: opts.paid === false ? [] : [ticket('t1', 'tok1', 's1'), ticket('t2', 'tok2', 's2')],
+        },
+      },
+    });
+  });
+}
+
 // ── Admin dashboard mocks (login + global orders/tickets/songs/setlists) ──────
 
 export async function setupAdminLogin(page: Page) {

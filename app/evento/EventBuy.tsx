@@ -15,6 +15,13 @@ function seatName(seat: Seat): string {
   return seat.row ? `${seat.row}${seat.number}` : seat.label || String(seat.number);
 }
 
+// Human label for a price bundle, keyed by how many seats it covers.
+// 1 → "1 asiento", 2 → "Combo · 2 asientos", n → "Combo · n asientos".
+function bundleLabel(quantity: number): string {
+  if (quantity <= 1) return '1 asiento';
+  return `Combo · ${quantity} asientos`;
+}
+
 // Full seat label: "Mesa 1 — Asiento 3"
 function seatFullLabel(seat: Seat, table?: VenueTable | null): string {
   if (table) return `${table.label} — Asiento ${seatName(seat)}`;
@@ -363,8 +370,9 @@ function SeatMapCanvas({
   );
 }
 
-export default function EventBuy({ slug }: { slug: string }) {
+export default function EventBuy({ slug, orderId }: { slug: string; orderId?: string }) {
   const [event, setEvent] = useState<TicketEvent | null>(null);
+  const [resolvedSlug, setResolvedSlug] = useState(slug);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
   const [gaQty, setGaQty] = useState<Record<string, number>>({});
@@ -380,13 +388,44 @@ export default function EventBuy({ slug }: { slug: string }) {
   const [nameSaved, setNameSaved] = useState(false);
   const [polling, setPolling] = useState(false);
 
+  // Load the event. Two entry points:
+  //  1. ?slug=<slug> — normal buy flow: load the event directly.
+  //  2. ?order=<id> with no slug — Izipay return URL: fetch the order, derive
+  //     its event slug, load that event, then drop straight into the success
+  //     view (paid → ticket; pending → CONFIRMANDO PAGO + poll).
   useEffect(() => {
+    if (slug) {
+      ticketingApi
+        .getEvent(slug)
+        .then((r) => setEvent(r.event))
+        .catch(() => setError('No se pudo cargar el evento'))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+
     ticketingApi
-      .getEvent(slug)
-      .then((r) => setEvent(r.event))
+      .getOrder(orderId)
+      .then(async (r) => {
+        const o = r.order;
+        const orderSlug = o.event_slug;
+        if (!orderSlug) {
+          setError('No se pudo cargar el evento');
+          return;
+        }
+        const { event: ev } = await ticketingApi.getEvent(orderSlug);
+        setEvent(ev);
+        setResolvedSlug(orderSlug);
+        setOrder(o);
+        setStep('done');
+      })
       .catch(() => setError('No se pudo cargar el evento'))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, orderId]);
 
   // Resume after returning from Izipay: if a pending order for this event was
   // persisted before the redirect, jump straight to the success view. If it's
@@ -394,6 +433,9 @@ export default function EventBuy({ slug }: { slug: string }) {
   // pollUntilPaid (the "CONFIRMANDO PAGO" interstitial) until it confirms.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // The ?order= path already resumes from the order itself — skip the
+    // localStorage path so they don't race.
+    if (orderId) return;
     const raw = localStorage.getItem('rg_pending_order');
     if (!raw) return;
     let pending: { id?: string; slug?: string };
@@ -418,7 +460,7 @@ export default function EventBuy({ slug }: { slug: string }) {
         // Order lookup failed — drop the stale key, stay on the detail view.
         localStorage.removeItem('rg_pending_order');
       });
-  }, [slug]);
+  }, [slug, orderId]);
 
   // When arriving at the success page after Izipay redirect, confirmation is
   // async (IPN). Poll until order transitions to paid.
@@ -563,7 +605,7 @@ export default function EventBuy({ slug }: { slug: string }) {
       // Persist the pending order so we can resume the ticket view when Izipay
       // redirects back (it may land on the homepage, not here).
       if (typeof window !== 'undefined') {
-        localStorage.setItem('rg_pending_order', JSON.stringify({ id: order.id, slug }));
+        localStorage.setItem('rg_pending_order', JSON.stringify({ id: order.id, slug: resolvedSlug }));
       }
       // In tests, window.__IZIPAY_TEST_SKIP__ suppresses the redirect so the
       // mock can simulate a paid order without leaving the page.
@@ -678,28 +720,17 @@ export default function EventBuy({ slug }: { slug: string }) {
         <Nav />
 
         <main>
-          {/* Hero — flyer as background with a dark overlay so text stays legible */}
+          {/* Hero — neon gradient (no flyer background); the flyer renders as a
+              contained poster at the top of the content below. */}
           <section style={{
             position: 'relative',
             minHeight: 'clamp(440px, 62vh, 720px)',
-            background: event.flyer_url
-              ? `url(${event.flyer_url}) center/cover no-repeat`
-              : 'radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%), radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%), radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%), linear-gradient(180deg,#1a0626,#08020e)',
+            background: 'radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%), radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%), radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%), linear-gradient(180deg,#1a0626,#08020e)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
             padding: '40px 28px 48px',
           }}>
-            {/* Overlay — only when a flyer is present, keeps the neon gradient when not */}
-            {event.flyer_url && (
-              <div aria-hidden="true" style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(180deg, rgba(8,2,14,.45) 0%, rgba(8,2,14,.2) 35%, rgba(8,2,14,.82) 100%)',
-                pointerEvents: 'none',
-                zIndex: 1,
-              }} />
-            )}
             <div style={{ maxWidth: '1120px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 2 }}>
               {/* Badges */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
@@ -756,6 +787,27 @@ export default function EventBuy({ slug }: { slug: string }) {
           }}>
             {/* Left column */}
             <div>
+              {/* Flyer — full poster, contained (object-contain) so it's never
+                  cropped; sits at the top of the content, not behind the hero. */}
+              {event.flyer_url && (
+                <div style={{ marginBottom: '34px' }}>
+                  <img
+                    data-testid="event-flyer"
+                    src={event.flyer_url}
+                    alt={`Flyer de ${event.name}`}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: '720px',
+                      objectFit: 'contain',
+                      borderRadius: 'var(--radius-frame)',
+                      border: '1px solid var(--color-border)',
+                      background: '#0b0020',
+                    }}
+                  />
+                </div>
+              )}
+
               {event.description && (
                 <div style={{ marginBottom: '34px' }}>
                   <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>Acerca del evento</p>
@@ -848,40 +900,47 @@ export default function EventBuy({ slug }: { slug: string }) {
                 </div>
               </div>
 
-              {/* Pricing list */}
+              {/* Pricing list — render EVERY price bundle, not just the first.
+                  e.g. S/40 (1 asiento) and the S/70 combo (2 asientos). */}
               <div>
                 <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>Entradas</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {event.sections.map((section) => (
-                    <div key={section.id} style={{
-                      background: 'var(--color-surface)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-card)',
-                      padding: '14px 16px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 500 }}>{section.name}</p>
-                        {section.price_bundles.length > 1 && (
-                          <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--color-gold)' }}>
-                            Combo disponible
-                          </p>
+                  {event.sections.map((section) => {
+                    const bundles = [...section.price_bundles].sort((a, b) => a.quantity - b.quantity);
+                    return (
+                      <div key={section.id} data-testid="price-section" style={{
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-card)',
+                        padding: '14px 16px',
+                      }}>
+                        <p style={{ margin: '0 0 6px', fontWeight: 500 }}>{section.name}</p>
+                        {bundles.length === 0 ? (
+                          <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Precio por confirmar</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {bundles.map((b) => (
+                              <div key={b.quantity} data-testid="price-bundle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px' }}>
+                                <span style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
+                                  {bundleLabel(b.quantity)}
+                                </span>
+                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', color: 'var(--color-pink)' }}>
+                                  S/ {b.price}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--color-pink)', margin: 0 }}>
-                        S/ {section.price_bundles[0]?.price || '—'}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Seat-map preview — read-only, so visitors see the distribution before buying */}
               {seatedSections.length > 0 && (
                 <div style={{ marginTop: '34px' }}>
-                  <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>Distribución</p>
+                  <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>{isMesas ? 'Distribución de mesas' : 'Distribución'}</p>
                   <div style={{
                     background: 'var(--color-surface)',
                     border: '1px solid var(--color-border)',
