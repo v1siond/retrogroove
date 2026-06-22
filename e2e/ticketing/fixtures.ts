@@ -18,6 +18,8 @@ export const mockEvent = {
   stage_y: 0,
   stage_w: 1000,
   stage_h: 120,
+  external_url: null,
+  instagram_url: null,
   sections: [
     {
       id: 'sec1',
@@ -41,6 +43,56 @@ export const mockEvent = {
     },
   ],
 };
+
+// Songs + setlists served by GET /api/songs and GET /api/setlists.
+export const mockSongs = [
+  { id: 'take-on-me', title: 'Take on Me', artist: 'a-ha', enabled: true },
+  { id: 'i-will-survive', title: 'I Will Survive', artist: 'Gloria Gaynor', enabled: true },
+  { id: 'celebration', title: 'Celebration', artist: 'Kool & The Gang', enabled: true },
+  // Disabled songs must not appear in the public /pedir picker.
+  { id: 'hidden-track', title: 'Hidden Track', artist: 'Nobody', enabled: false },
+];
+
+export const mockSetlists = [
+  { id: 'bloque-1', name: 'Bloque 1', song_ids: ['take-on-me', 'i-will-survive'] },
+  { id: 'extras', name: 'Extras', song_ids: ['celebration'] },
+];
+
+export async function setupMusicMocks(page: Page) {
+  await page.route('**/api/songs', async (route) => {
+    await route.fulfill({ status: 200, json: { songs: mockSongs } });
+  });
+  await page.route('**/api/setlists', async (route) => {
+    await route.fulfill({ status: 200, json: { setlists: mockSetlists } });
+  });
+}
+
+// Upcoming events for the homepage timeline: one ticketed (has sections → buy
+// flow) and one announcement-only (no sections → external link / Instagram).
+export const ticketedEvent = {
+  ...mockEvent,
+  id: 'ev-ticketed',
+  slug: 'gala-2026',
+  name: 'Gala 2026',
+  venue_name: 'Teatro Municipal',
+};
+
+export const announcementEvent = {
+  ...mockEvent,
+  id: 'ev-announce',
+  slug: 'cafe-rock',
+  name: 'Café Rock',
+  venue_name: 'Lince, Lima',
+  external_url: 'https://caferock.pe/',
+  instagram_url: 'https://www.instagram.com/caferock_lince/',
+  sections: [] as typeof mockEvent.sections,
+};
+
+export async function setupUpcomingMock(page: Page, events: unknown[]) {
+  await page.route('**/api/events/upcoming', async (route) => {
+    await route.fulfill({ status: 200, json: { events } });
+  });
+}
 
 function ticket(id: string, token: string, seat: string) {
   return {
