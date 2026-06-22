@@ -27,32 +27,6 @@ const REFLECTIONS = Array.from({ length: 20 }, (_, i) => ({
   size: sr(i * 5 + 205) * 4 + 2,
 }))
 
-const UPCOMING_SHOWS: Array<{ date: string; title: string; venue: string; time?: string; tickets?: string; instagram?: string; website?: string; isPrivate?: boolean }> = [
-  {
-    date: '2026-06-10',
-    title: 'Cafe Rock',
-    venue: 'Lince, Lima',
-    time: '9:00 PM',
-    website: 'https://caferock.pe/',
-    instagram: 'https://www.instagram.com/caferock_lince/',
-  },
-  {
-    date: '2026-08-06',
-    title: 'La Basílica 640',
-    venue: 'Lima',
-    time: '9:30 PM',
-    tickets: '85 entradas disponibles — contacta a la banda',
-    website: 'https://labasilica640.pe/',
-    instagram: 'https://www.instagram.com/labasilica640/',
-  },
-  {
-    date: '2026-08-08',
-    title: 'Evento Privado',
-    venue: 'Lima',
-    isPrivate: true,
-  },
-]
-
 const FAQ_ITEMS = [
   {
     category: 'EQUIPO',
@@ -194,27 +168,18 @@ export default function Home() {
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const date = new Date(year, month - 1, day)
-    const dayNum = date.getDate()
-    const monthStr = date.toLocaleDateString('es-PE', { month: 'short' }).toUpperCase()
-    return { day: dayNum, month: monthStr }
-  }
-
-  const isUpcoming = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const eventDate = new Date(year, month - 1, day, 23, 59, 59)
-    return eventDate >= new Date()
-  }
-
-  const upcomingShows = UPCOMING_SHOWS.filter(show => isUpcoming(show.date))
-
-  // Ticketed events come from the API (created by admins) and are linked to the
-  // purchase flow. They render inside the same "Próximos Shows" timeline.
-  const [ticketedEvents, setTicketedEvents] = useState<TicketEvent[]>([])
+  // The "Próximos Shows" timeline is sourced entirely from the API. Events come
+  // in two kinds: ticketed (non-empty sections → internal buy flow) and
+  // announcement-only (no sections → external link / Instagram). One source of
+  // truth, no hardcoded shows.
+  const [events, setEvents] = useState<TicketEvent[]>([])
+  const [eventsLoaded, setEventsLoaded] = useState(false)
   useEffect(() => {
-    ticketingApi.getUpcoming().then(r => setTicketedEvents(r.events)).catch(() => {})
+    ticketingApi
+      .getUpcoming()
+      .then(r => setEvents(r.events))
+      .catch(() => setEvents([]))
+      .finally(() => setEventsLoaded(true))
   }, [])
 
   // Resume after Izipay redirect: the buyer often lands here instead of the
@@ -1043,10 +1008,16 @@ export default function Home() {
               <h2 className="section-title">Próximos Shows</h2>
               <p className="section-subtitle">Próximas presentaciones confirmadas</p>
             </div>
-            {(ticketedEvents.length > 0 || upcomingShows.length > 0) ? (
+            {!eventsLoaded ? (
+              <div className="timeline-empty">
+                <p>Cargando próximas fechas...</p>
+              </div>
+            ) : events.length > 0 ? (
               <div className="timeline">
-                {ticketedEvents.map((ev) => {
+                {events.map((ev) => {
                   const d = new Date(ev.starts_at)
+                  const time = d.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  const isTicketed = (ev.sections?.length ?? 0) > 0
                   return (
                     <div key={ev.id} className="timeline-item" data-testid="event-card">
                       <div className="timeline-date-box">
@@ -1056,41 +1027,21 @@ export default function Home() {
                       <div className="timeline-divider" />
                       <div className="timeline-info">
                         <div className="timeline-title">{ev.name}</div>
-                        <div className="timeline-venue">{ev.venue_name}</div>
-                        <div className="timeline-links">
-                          <a href={`/evento?slug=${ev.slug}`} className="timeline-link" data-testid="buy-link">Comprar entradas</a>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {upcomingShows.map((show, i) => {
-                  const { day, month } = formatDate(show.date)
-                  return (
-                    <div key={i} className="timeline-item">
-                      <div className="timeline-date-box">
-                        <div className="timeline-day">{day}</div>
-                        <div className="timeline-month">{month}</div>
-                      </div>
-                      <div className="timeline-divider" />
-                      <div className="timeline-info">
-                        <div className="timeline-title">
-                          {show.isPrivate ? 'Evento Privado' : show.title}
-                        </div>
                         <div className="timeline-venue">
-                          {show.isPrivate ? 'Lima' : show.venue}
-                          {show.time && <span className="timeline-time"> · {show.time}</span>}
+                          {ev.venue_name}
+                          <span className="timeline-time"> · {time}</span>
                         </div>
-                        {show.tickets && (
-                          <div className="timeline-tickets">{show.tickets}</div>
-                        )}
-                        {!show.isPrivate && (show.website || show.instagram) && (
+                        {isTicketed ? (
                           <div className="timeline-links">
-                            {show.website && (
-                              <a href={show.website} target="_blank" rel="noopener noreferrer" className="timeline-link">Web</a>
+                            <a href={`/evento?slug=${ev.slug}`} className="timeline-link" data-testid="buy-link">Comprar entradas</a>
+                          </div>
+                        ) : (ev.external_url || ev.instagram_url) && (
+                          <div className="timeline-links">
+                            {ev.external_url && (
+                              <a href={ev.external_url} target="_blank" rel="noopener noreferrer" className="timeline-link" data-testid="external-link">Más info</a>
                             )}
-                            {show.instagram && (
-                              <a href={show.instagram} target="_blank" rel="noopener noreferrer" className="timeline-link">Instagram</a>
+                            {ev.instagram_url && (
+                              <a href={ev.instagram_url} target="_blank" rel="noopener noreferrer" className="timeline-link" data-testid="instagram-link">Instagram</a>
                             )}
                           </div>
                         )}
