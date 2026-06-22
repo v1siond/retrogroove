@@ -199,3 +199,122 @@ export async function setupTicketingMocks(page: Page, opts: Opts = {}) {
     await route.fulfill({ status: 200, json: { ticket: ticket('t1', 'tok1', 's1') } });
   });
 }
+
+// ── Admin dashboard mocks (login + global orders/tickets/songs/setlists) ──────
+
+export async function setupAdminLogin(page: Page) {
+  await page.route('**/api/auth/login', (r) =>
+    r.fulfill({
+      status: 200,
+      json: { token: 'jwt_test', user: { id: 'u1', email: 'admin@retrogroove.com', name: 'Admin', role: 'admin' } },
+    })
+  );
+}
+
+export async function adminLogin(page: Page) {
+  await page.goto('/band/tickets');
+  await page.getByLabel('Email').fill('admin@retrogroove.com');
+  await page.getByLabel('Contraseña').fill('password123');
+  await page.getByRole('button', { name: 'Entrar' }).click();
+}
+
+export const adminGlobalOrders = [
+  {
+    id: 'ord1', event_id: 'ev1', event_name: 'Gala 2026', status: 'paid', total: '70',
+    buyer_email: 'fan@example.com', buyer_first_name: 'Juan', buyer_last_name: 'Pérez',
+    ticket_count: 2, payment_ref: 'IZP-123', paid_at: '2026-12-01T10:00:00Z', inserted_at: '2026-12-01T09:55:00Z',
+  },
+  {
+    id: 'ord2', event_id: 'ev2', event_name: 'Verano 2027', status: 'pending', total: '40',
+    buyer_email: 'maria@example.com', buyer_first_name: null, buyer_last_name: null,
+    ticket_count: 1, payment_ref: null, paid_at: null, inserted_at: '2026-12-02T11:00:00Z',
+  },
+];
+
+export const adminGlobalTickets = [
+  { code: 'RG-AAA', public_token: 'tokA', status: 'valid', checked_in_at: null, event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 1' },
+  { code: 'RG-BBB', public_token: 'tokB', status: 'used', checked_in_at: '2026-12-31T22:10:00Z', event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 2' },
+];
+
+export const adminSongsCrud = [
+  { id: 'take-on-me', title: 'Take on Me', artist: 'a-ha', enabled: true },
+  { id: 'celebration', title: 'Celebration', artist: 'Kool & The Gang', enabled: false },
+];
+
+export const adminSetlistsCrud = [
+  { id: 'bloque-1', name: 'Bloque 1', song_ids: ['take-on-me'] },
+];
+
+// Wire every admin dashboard endpoint to in-memory contract data.
+export async function setupAdminDashboard(page: Page) {
+  await page.route('**/api/admin/events', (r) =>
+    r.fulfill({
+      status: 200,
+      json: {
+        events: [
+          { id: 'ev1', slug: 'gala-2026', name: 'Gala 2026', status: 'published', starts_at: '2026-12-31T21:00:00Z', venue_name: 'Teatro Municipal' },
+          { id: 'ev2', slug: 'verano-2027', name: 'Verano 2027', status: 'draft', starts_at: '2027-02-14T22:00:00Z', venue_name: 'La Basílica' },
+        ],
+      },
+    })
+  );
+
+  // Global orders (status filter honored).
+  await page.route('**/api/admin/orders**', (r) => {
+    const url = new URL(r.request().url());
+    const status = url.searchParams.get('status');
+    const orders = status ? adminGlobalOrders.filter((o) => o.status === status) : adminGlobalOrders;
+    r.fulfill({ status: 200, json: { orders } });
+  });
+
+  // Cancel order.
+  await page.route('**/api/orders/ord1/cancel', (r) =>
+    r.fulfill({ status: 200, json: { order: { ...adminGlobalOrders[0], status: 'cancelled' } } })
+  );
+
+  // Global tickets.
+  await page.route('**/api/admin/tickets**', (r) => {
+    const url = new URL(r.request().url());
+    const status = url.searchParams.get('status');
+    const tickets = status ? adminGlobalTickets.filter((t) => t.status === status) : adminGlobalTickets;
+    r.fulfill({ status: 200, json: { tickets } });
+  });
+
+  // Check-in / undo / void from the tickets panel.
+  await page.route('**/api/tickets/tokA/check-in', (r) =>
+    r.fulfill({ status: 200, json: { ticket: { ...adminGlobalTickets[0], status: 'used', checked_in_at: '2026-12-31T22:30:00Z' } } })
+  );
+  await page.route('**/api/tickets/tokB/undo-check-in', (r) =>
+    r.fulfill({ status: 200, json: { ticket: { ...adminGlobalTickets[1], status: 'valid', checked_in_at: null } } })
+  );
+  await page.route('**/api/tickets/tokA/void', (r) =>
+    r.fulfill({ status: 200, json: { ticket: { ...adminGlobalTickets[0], status: 'void' } } })
+  );
+
+  // Songs CRUD.
+  await page.route('**/api/songs', (r) => r.fulfill({ status: 200, json: { songs: adminSongsCrud } }));
+  await page.route('**/api/admin/songs', (r) =>
+    r.fulfill({ status: 201, json: { song: { id: 'new-song', title: 'Billie Jean', artist: 'Michael Jackson', enabled: true } } })
+  );
+  await page.route('**/api/songs/take-on-me', (r) => {
+    if (r.request().method() === 'DELETE') return r.fulfill({ status: 204, body: '' });
+    const body = r.request().postDataJSON() as { song: Record<string, unknown> };
+    return r.fulfill({ status: 200, json: { song: { ...adminSongsCrud[0], ...body.song } } });
+  });
+  await page.route('**/api/songs/celebration', (r) => {
+    if (r.request().method() === 'DELETE') return r.fulfill({ status: 204, body: '' });
+    const body = r.request().postDataJSON() as { song: Record<string, unknown> };
+    return r.fulfill({ status: 200, json: { song: { ...adminSongsCrud[1], ...body.song } } });
+  });
+
+  // Setlists CRUD.
+  await page.route('**/api/setlists', (r) => r.fulfill({ status: 200, json: { setlists: adminSetlistsCrud } }));
+  await page.route('**/api/admin/setlists', (r) =>
+    r.fulfill({ status: 201, json: { setlist: { id: 'new-setlist', name: 'Cierre', song_ids: [] } } })
+  );
+  await page.route('**/api/setlists/bloque-1', (r) => {
+    if (r.request().method() === 'DELETE') return r.fulfill({ status: 204, body: '' });
+    const body = r.request().postDataJSON() as { setlist: Record<string, unknown> };
+    return r.fulfill({ status: 200, json: { setlist: { ...adminSetlistsCrud[0], ...body.setlist } } });
+  });
+}

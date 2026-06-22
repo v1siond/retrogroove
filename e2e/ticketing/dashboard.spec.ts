@@ -99,7 +99,7 @@ test.describe('Admin dashboard', () => {
 
     // Orders panel: 2 orders, buyer + total + status
     await expect(page.getByTestId('order-row')).toHaveCount(2);
-    const orders = page.getByTestId('orders-panel');
+    const orders = page.getByTestId('event-orders-panel');
     await expect(orders).toContainText('Juan Pérez');
     await expect(orders).toContainText('S/ 70');
     await expect(orders).toContainText('IZP-123');
@@ -107,7 +107,7 @@ test.describe('Admin dashboard', () => {
 
     // Tickets panel: 2 tickets, code + status + check-in
     await expect(page.getByTestId('ticket-row')).toHaveCount(2);
-    const tickets = page.getByTestId('tickets-panel');
+    const tickets = page.getByTestId('event-tickets-panel');
     await expect(tickets).toContainText('RG-AAA');
     await expect(tickets).toContainText('RG-BBB');
 
@@ -153,7 +153,7 @@ test.describe('Admin dashboard', () => {
 
     // Confirm step required
     await page.getByTestId('delete-event').click();
-    await page.getByTestId('confirm-delete').click();
+    await page.getByTestId('delete-event-confirm').click();
 
     await expect(page.getByTestId('events-list')).toBeVisible();
     expect(deleted).toBe(true);

@@ -19,6 +19,14 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+// Build a `?a=1&b=2` query string, dropping empty/undefined values.
+function queryString(params: Record<string, string | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v != null && v !== '');
+  if (entries.length === 0) return '';
+  const qs = new URLSearchParams(entries as [string, string][]);
+  return `?${qs.toString()}`;
+}
+
 async function authed<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {
@@ -78,6 +86,35 @@ export interface AdminTicket {
   checked_in_at: string | null;
   buyer_email: string;
   seat_label: string | null;
+  event_name?: string | null;
+}
+
+// Global orders list (GET /admin/orders) carries the event so the admin can act
+// on orders without first drilling into an event.
+export interface AdminGlobalOrder extends AdminOrder {
+  event_id: string;
+  event_name: string | null;
+}
+
+export interface AdminSong {
+  id: string;
+  title: string;
+  artist: string;
+  enabled: boolean;
+}
+
+export interface AdminSetlist {
+  id: string;
+  name: string;
+  song_ids: string[];
+}
+
+export interface AdminPromoCode {
+  id: string;
+  code: string;
+  kind: string; // 'percent' | 'fixed'
+  value: string;
+  active: boolean;
 }
 
 export const adminApi = {
@@ -99,6 +136,76 @@ export const adminApi = {
 
   listTickets(eventId: string): Promise<{ tickets: AdminTicket[] }> {
     return authed(`/events/${eventId}/tickets`);
+  },
+
+  // ── Global orders ────────────────────────────────────────────────────────
+  // List orders across every event; optional status/event filters.
+  listAllOrders(filters: { status?: string; event_id?: string } = {}): Promise<{ orders: AdminGlobalOrder[] }> {
+    return authed(`/admin/orders${queryString(filters)}`);
+  },
+
+  cancelOrder(id: string): Promise<{ order: AdminGlobalOrder }> {
+    return authed(`/orders/${id}/cancel`, { method: 'POST' });
+  },
+
+  // ── Global tickets ───────────────────────────────────────────────────────
+  listAllTickets(filters: { status?: string; event_id?: string } = {}): Promise<{ tickets: AdminTicket[] }> {
+    return authed(`/admin/tickets${queryString(filters)}`);
+  },
+
+  undoCheckIn(token: string): Promise<{ ticket: AdminTicket }> {
+    return authed(`/tickets/${token}/undo-check-in`, { method: 'POST' });
+  },
+
+  voidTicket(token: string): Promise<{ ticket: AdminTicket }> {
+    return authed(`/tickets/${token}/void`, { method: 'POST' });
+  },
+
+  // ── Songs ────────────────────────────────────────────────────────────────
+  listSongs(): Promise<{ songs: AdminSong[] }> {
+    return authed('/songs');
+  },
+
+  createSong(attrs: { title: string; artist: string; enabled?: boolean }): Promise<{ song: AdminSong }> {
+    return authed('/admin/songs', { method: 'POST', body: JSON.stringify({ song: attrs }) });
+  },
+
+  updateSong(id: string, attrs: Partial<{ title: string; artist: string; enabled: boolean }>): Promise<{ song: AdminSong }> {
+    return authed(`/songs/${id}`, { method: 'PUT', body: JSON.stringify({ song: attrs }) });
+  },
+
+  deleteSong(id: string): Promise<void> {
+    return authed(`/songs/${id}`, { method: 'DELETE' });
+  },
+
+  // ── Setlists ─────────────────────────────────────────────────────────────
+  listSetlists(): Promise<{ setlists: AdminSetlist[] }> {
+    return authed('/setlists');
+  },
+
+  createSetlist(attrs: { name: string; song_ids: string[] }): Promise<{ setlist: AdminSetlist }> {
+    return authed('/admin/setlists', { method: 'POST', body: JSON.stringify({ setlist: attrs }) });
+  },
+
+  updateSetlist(id: string, attrs: Partial<{ name: string; song_ids: string[] }>): Promise<{ setlist: AdminSetlist }> {
+    return authed(`/setlists/${id}`, { method: 'PUT', body: JSON.stringify({ setlist: attrs }) });
+  },
+
+  deleteSetlist(id: string): Promise<void> {
+    return authed(`/setlists/${id}`, { method: 'DELETE' });
+  },
+
+  // ── Promo codes (per event) ──────────────────────────────────────────────
+  listPromoCodes(eventId: string): Promise<{ promo_codes: AdminPromoCode[] }> {
+    return authed(`/events/${eventId}/promo-codes`);
+  },
+
+  updatePromo(id: string, attrs: Record<string, unknown>): Promise<{ promo_code: AdminPromoCode }> {
+    return authed(`/promo-codes/${id}`, { method: 'PUT', body: JSON.stringify({ promo_code: attrs }) });
+  },
+
+  deletePromo(id: string): Promise<void> {
+    return authed(`/promo-codes/${id}`, { method: 'DELETE' });
   },
 
   updateEvent(id: string, attrs: Record<string, unknown>): Promise<{ event: TicketEvent }> {
