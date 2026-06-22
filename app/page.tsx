@@ -1017,7 +1017,10 @@ export default function Home() {
                 {events.map((ev) => {
                   const d = new Date(ev.starts_at)
                   const time = d.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true })
-                  const isTicketed = (ev.sections?.length ?? 0) > 0
+                  // /events/upcoming flattens sections to [], so ticketed-ness is keyed off
+                  // the announcement links: announcement gigs carry external_url/instagram_url,
+                  // ticketed events (sold through us) don't.
+                  const isTicketed = !(ev.external_url || ev.instagram_url)
                   return (
                     <div key={ev.id} className="timeline-item" data-testid="event-card">
                       <div className="timeline-date-box">
