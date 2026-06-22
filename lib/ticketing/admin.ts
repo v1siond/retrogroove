@@ -48,6 +48,38 @@ export interface AdminUser {
   role: string;
 }
 
+// Dashboard list/detail shapes — match the admin API contract.
+export interface AdminEventSummary {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  starts_at: string;
+  venue_name: string | null;
+}
+
+export interface AdminOrder {
+  id: string;
+  status: string;
+  total: string;
+  buyer_email: string;
+  buyer_first_name: string | null;
+  buyer_last_name: string | null;
+  payment_ref: string | null;
+  paid_at: string | null;
+  inserted_at: string;
+  ticket_count: number;
+}
+
+export interface AdminTicket {
+  code: string;
+  public_token: string;
+  status: string;
+  checked_in_at: string | null;
+  buyer_email: string;
+  seat_label: string | null;
+}
+
 export const adminApi = {
   login(email: string, password: string): Promise<{ token: string; user: AdminUser }> {
     return authed('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
@@ -55,6 +87,26 @@ export const adminApi = {
 
   getEvent(slug: string): Promise<{ event: TicketEvent }> {
     return authed(`/events/${slug}`);
+  },
+
+  listAllEvents(): Promise<{ events: AdminEventSummary[] }> {
+    return authed('/admin/events');
+  },
+
+  listOrders(eventId: string): Promise<{ orders: AdminOrder[] }> {
+    return authed(`/events/${eventId}/orders`);
+  },
+
+  listTickets(eventId: string): Promise<{ tickets: AdminTicket[] }> {
+    return authed(`/events/${eventId}/tickets`);
+  },
+
+  updateEvent(id: string, attrs: Record<string, unknown>): Promise<{ event: TicketEvent }> {
+    return authed(`/events/${id}`, { method: 'PUT', body: JSON.stringify({ event: attrs }) });
+  },
+
+  deleteEvent(id: string): Promise<void> {
+    return authed(`/events/${id}`, { method: 'DELETE' });
   },
 
   createEvent(attrs: Record<string, unknown>): Promise<{ event: TicketEvent }> {
