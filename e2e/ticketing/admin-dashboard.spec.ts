@@ -99,22 +99,111 @@ test.describe('Admin dashboard shell', () => {
     await expect(page.getByTestId('feedback-ok')).toContainText(/eliminada/i);
   });
 
-  test('one backend login unlocks /band and /band/setlist (unified auth)', async ({ page }) => {
-    // The request dashboard now uses the same email/password AdminGate, not the
-    // old single-password gate.
+  test('/band redirects to the new admin (/band/tickets)', async ({ page }) => {
+    // The old song-request dashboard is gone; /band is now just a redirect to the
+    // single admin. Logged out, that lands on the admin login gate.
     await page.goto('/band');
+    await expect(page).toHaveURL(/\/band\/tickets$/);
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Contraseña')).toBeVisible();
+  });
 
+  test('/band/setlist still reachable behind the shared admin gate', async ({ page }) => {
     await page.goto('/band/setlist');
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Contraseña')).toBeVisible();
 
-    // After logging in via the shared gate, the request dashboard renders.
     await page.getByLabel('Email').fill('admin@retrogroove.com');
     await page.getByLabel('Contraseña').fill('password123');
     await page.getByRole('button', { name: 'Entrar' }).click();
     await expect(page.getByText('RETROGROOVE')).toBeVisible();
+  });
+
+  test('Events: defaults to Activos, toggles to Pasados and Todos', async ({ page }) => {
+    await adminLogin(page);
+
+    // Default view is the active filter — two upcoming events.
+    await expect(page.getByTestId('event-filter-active')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('event-item')).toHaveCount(2);
+    const list = page.getByTestId('events-list');
+    await expect(list).toContainText('Gala 2026');
+    await expect(list).toContainText('Verano 2027');
+
+    // Pasados -> the single past event, none of the active ones.
+    await page.getByTestId('event-filter-past').click();
+    await expect(page.getByTestId('event-filter-past')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('event-item')).toHaveCount(1);
+    await expect(list).toContainText('Retro 2025');
+    await expect(list).not.toContainText('Gala 2026');
+
+    // Todos -> active + past together.
+    await page.getByTestId('event-filter-all').click();
+    await expect(page.getByTestId('event-item')).toHaveCount(3);
+    await expect(list).toContainText('Gala 2026');
+    await expect(list).toContainText('Retro 2025');
+  });
+
+  test('Issue: emits reserved-seat tickets for a buyer', async ({ page }) => {
+    await adminLogin(page);
+    await page.getByTestId('nav-issue').click();
+
+    // Pick the event, then two reserved seats.
+    await page.getByTestId('issue-event-item').filter({ hasText: 'Gala 2026' }).click();
+    await expect(page.getByTestId('issue-form')).toBeVisible();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.locator('[data-seat-id="s2"]').click();
+    await expect(page.getByTestId('issue-selection')).toContainText('2 asiento');
+
+    // Buyer + submit.
+    await page.getByLabel('Email del invitado').fill('amigo@x.com');
+    await page.getByLabel('Nombre').fill('Ana');
+    await page.getByLabel('Apellido').fill('López');
+    await page.getByTestId('issue-submit').click();
+
+    // Issued tickets with codes + links.
+    await expect(page.getByTestId('issued')).toContainText('2 entrada');
+    await expect(page.getByTestId('issued')).toContainText('amigo@x.com');
+    await expect(page.getByTestId('issued-ticket')).toHaveCount(2);
+    await expect(page.getByTestId('issued')).toContainText('MAN-1');
+  });
+
+  test('Issue: emits general-admission tickets by quantity', async ({ page }) => {
+    await adminLogin(page);
+    await page.getByTestId('nav-issue').click();
+
+    await page.getByTestId('issue-event-item').filter({ hasText: 'Gala 2026' }).click();
+    await expect(page.getByTestId('issue-form')).toBeVisible();
+
+    // Choose the GA section, set quantity to 3.
+    await page.getByTestId('ga-pick-sec-ga').check();
+    await page.getByTestId('ga-quantity').fill('3');
+    await expect(page.getByTestId('issue-selection')).toContainText('3 entrada');
+
+    await page.getByLabel('Email del invitado').fill('grupo@x.com');
+    await page.getByTestId('issue-submit').click();
+
+    await expect(page.getByTestId('issued')).toContainText('3 entrada');
+    await expect(page.getByTestId('issued-ticket')).toHaveCount(3);
+  });
+
+  test('Issue: surfaces a clear message when seats are unavailable', async ({ page }) => {
+    // Re-wire the dashboard so comp-orders rejects with the seats_unavailable
+    // contract error; the panel must show the mapped message, not a generic one.
+    await setupAdminDashboard(page, {
+      compError: { status: 409, error: 'seats_unavailable', seat_ids: ['s1'] },
+    });
+    await adminLogin(page);
+    await page.getByTestId('nav-issue').click();
+
+    await page.getByTestId('issue-event-item').filter({ hasText: 'Gala 2026' }).click();
+    await expect(page.getByTestId('issue-form')).toBeVisible();
+    await page.locator('[data-seat-id="s1"]').click();
+    await page.getByLabel('Email del invitado').fill('amigo@x.com');
+    await page.getByTestId('issue-submit').click();
+
+    await expect(page.getByTestId('feedback-error')).toContainText(/no está disponible/i);
+    // No tickets were issued.
+    await expect(page.getByTestId('issued')).toHaveCount(0);
   });
 
   test('Setlists: list, create, and edit (add + reorder song_ids)', async ({ page }) => {

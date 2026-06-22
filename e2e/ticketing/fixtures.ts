@@ -231,6 +231,32 @@ export async function setupOrderResumeMock(page: Page, opts: { paid?: boolean } 
 
 // ── Admin dashboard mocks (login + global orders/tickets/songs/setlists) ──────
 
+// POST body the comp-orders / manual-ticket endpoint receives.
+interface ManualBody {
+  buyer: { email: string; first_name?: string; last_name?: string };
+  seat_ids?: string[];
+  section_id?: string;
+  quantity?: number;
+}
+
+// Full event for the Issue panel: one reserved (tables) section with two seats
+// and one general-admission section.
+export const issueEvent = {
+  ...mockEvent,
+  sections: [
+    mockEvent.sections[0], // VIP reserved (seats s1, s2)
+    {
+      id: 'sec-ga',
+      name: 'General',
+      layout_type: 'general',
+      pos_x: 0, pos_y: 220, width: 200, height: 120,
+      tables: [] as never[],
+      seats: [] as never[],
+      price_bundles: [{ quantity: 1, price: '25' }],
+    },
+  ],
+};
+
 export async function setupAdminLogin(page: Page) {
   await page.route('**/api/auth/login', (r) =>
     r.fulfill({
@@ -274,19 +300,37 @@ export const adminSetlistsCrud = [
   { id: 'bloque-1', name: 'Bloque 1', song_ids: ['take-on-me'] },
 ];
 
+// Admin events split by the backend filter: active = upcoming soonest-first,
+// past = most-recent-first, all = active first then past.
+export const adminEventsActive = [
+  { id: 'ev1', slug: 'gala-2026', name: 'Gala 2026', status: 'published', starts_at: '2026-12-31T21:00:00Z', venue_name: 'Teatro Municipal' },
+  { id: 'ev2', slug: 'verano-2027', name: 'Verano 2027', status: 'draft', starts_at: '2027-02-14T22:00:00Z', venue_name: 'La Basílica' },
+];
+
+export const adminEventsPast = [
+  { id: 'ev3', slug: 'retro-2025', name: 'Retro 2025', status: 'published', starts_at: '2025-08-10T21:00:00Z', venue_name: 'Centro de Convenciones' },
+];
+
+// Resolve the events list the backend would return for a given ?filter=.
+export function adminEventsFor(filter: string | null) {
+  if (filter === 'past') return adminEventsPast;
+  if (filter === 'all') return [...adminEventsActive, ...adminEventsPast];
+  return adminEventsActive; // default + explicit 'active'
+}
+
+interface DashboardOpts {
+  // Force the comp-orders endpoint to reject with a contract error so the
+  // Issue panel's error mapping can be exercised.
+  compError?: { status: number; error: string; seat_ids?: string[] };
+}
+
 // Wire every admin dashboard endpoint to in-memory contract data.
-export async function setupAdminDashboard(page: Page) {
-  await page.route('**/api/admin/events', (r) =>
-    r.fulfill({
-      status: 200,
-      json: {
-        events: [
-          { id: 'ev1', slug: 'gala-2026', name: 'Gala 2026', status: 'published', starts_at: '2026-12-31T21:00:00Z', venue_name: 'Teatro Municipal' },
-          { id: 'ev2', slug: 'verano-2027', name: 'Verano 2027', status: 'draft', starts_at: '2027-02-14T22:00:00Z', venue_name: 'La Basílica' },
-        ],
-      },
-    })
-  );
+export async function setupAdminDashboard(page: Page, opts: DashboardOpts = {}) {
+  // ** swallows the optional ?filter= query so the route matches every variant.
+  await page.route('**/api/admin/events**', (r) => {
+    const filter = new URL(r.request().url()).searchParams.get('filter');
+    r.fulfill({ status: 200, json: { events: adminEventsFor(filter) } });
+  });
 
   // Global orders (status filter honored).
   await page.route('**/api/admin/orders**', (r) => {
@@ -334,6 +378,37 @@ export async function setupAdminDashboard(page: Page) {
     if (r.request().method() === 'DELETE') return r.fulfill({ status: 204, body: '' });
     const body = r.request().postDataJSON() as { song: Record<string, unknown> };
     return r.fulfill({ status: 200, json: { song: { ...adminSongsCrud[1], ...body.song } } });
+  });
+
+  // Issue panel: full event (reserved seats + a GA section) and comp-orders POST.
+  await page.route('**/api/events/gala-2026', (r) => {
+    if (r.request().method() !== 'GET') return r.fallback();
+    return r.fulfill({ status: 200, json: { event: issueEvent } });
+  });
+  await page.route('**/api/events/ev1/comp-orders', (r) => {
+    if (r.request().method() !== 'POST') return r.fallback();
+    if (opts.compError) {
+      const { status, error, seat_ids } = opts.compError;
+      return r.fulfill({ status, json: { error, ...(seat_ids ? { seat_ids } : {}) } });
+    }
+    const body = r.request().postDataJSON() as ManualBody;
+    const count = body.seat_ids ? body.seat_ids.length : (body.quantity ?? 1);
+    const tickets = Array.from({ length: count }, (_, i) => ({
+      id: `mt${i + 1}`, code: `MAN-${i + 1}`, public_token: `mtok${i + 1}`,
+      status: 'valid', qr_svg: null, checked_in_at: null, seat_id: body.seat_ids?.[i] ?? null,
+    }));
+    return r.fulfill({
+      status: 201,
+      json: {
+        order: {
+          id: 'mord1', status: 'comp', total: '0',
+          buyer_email: body.buyer.email,
+          buyer_first_name: body.buyer.first_name ?? null,
+          buyer_last_name: body.buyer.last_name ?? null,
+          expires_at: null, tickets,
+        },
+      },
+    });
   });
 
   // Setlists CRUD.

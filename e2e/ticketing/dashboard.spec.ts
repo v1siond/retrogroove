@@ -22,7 +22,8 @@ async function login(page: Page) {
 }
 
 async function mockDashboard(page: Page) {
-  await page.route('**/api/admin/events', (r) =>
+  // ** swallows the ?filter=active query the panel now sends.
+  await page.route('**/api/admin/events**', (r) =>
     r.fulfill({
       status: 200,
       json: {
