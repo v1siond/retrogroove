@@ -9,8 +9,14 @@ import { useEffect, useState, useCallback, FormEvent } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import { ui } from '@/lib/ticketing/ui';
-import type { AdminEventSummary, AdminOrder, AdminTicket } from '@/lib/ticketing/admin';
-import { StatusPill, fmtDate, Feedback, ConfirmAction } from '../shared';
+import type { AdminEventSummary, AdminOrder, AdminTicket, EventFilter } from '@/lib/ticketing/admin';
+import { StatusPill, fmtDate, Feedback, ConfirmAction, Segmented, searchStyle } from '../shared';
+
+const EVENT_FILTERS: { key: EventFilter; label: string }[] = [
+  { key: 'active', label: 'Activos' },
+  { key: 'past', label: 'Pasados' },
+  { key: 'all', label: 'Todos' },
+];
 
 function buyerName(o: AdminOrder): string {
   const name = [o.buyer_first_name, o.buyer_last_name].filter(Boolean).join(' ').trim();
@@ -319,17 +325,24 @@ function EventDetail({
 
 // ── panel root ───────────────────────────────────────────────────────────────
 
+const EMPTY_BY_FILTER: Record<EventFilter, string> = {
+  active: 'No hay eventos activos ni próximos.',
+  past: 'No hay eventos pasados.',
+  all: 'No hay eventos.',
+};
+
 export default function EventsPanel() {
   const [events, setEvents] = useState<AdminEventSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminEventSummary | null>(null);
   const [creating, setCreating] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [filter, setFilter] = useState<EventFilter>('active');
   const [query, setQuery] = useState('');
 
-  const load = useCallback(() => {
+  const load = useCallback((f: EventFilter) => {
+    setEvents(null);
     setError(null);
-    adminApi.listAllEvents()
+    adminApi.listAllEvents(f)
       .then((r) => setEvents(r.events))
       .catch((err) => {
         const status = (err as ApiError)?.status;
@@ -338,21 +351,21 @@ export default function EventsPanel() {
       });
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Re-fetch whenever the backend filter changes (default: active).
+  useEffect(() => { load(filter); }, [load, filter]);
 
   if (selected) {
-    return <EventDetail event={selected} onBack={() => setSelected(null)} onChanged={load} />;
+    return <EventDetail event={selected} onBack={() => setSelected(null)} onChanged={() => load(filter)} />;
   }
 
   if (creating) {
-    return <CreateEvent onCreated={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />;
+    return <CreateEvent onCreated={() => { setCreating(false); load(filter); }} onCancel={() => setCreating(false)} />;
   }
 
-  const filtered = (events || []).filter((ev) => {
-    if (statusFilter && ev.status !== statusFilter) return false;
-    if (query && !`${ev.name} ${ev.venue_name || ''}`.toLowerCase().includes(query.toLowerCase())) return false;
-    return true;
-  });
+  // Search filters client-side only; the backend already ordered the list
+  // (active soonest-first, past most-recent-first) so we must NOT re-sort.
+  const filtered = (events || []).filter((ev) =>
+    !query || `${ev.name} ${ev.venue_name || ''}`.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div>
@@ -361,15 +374,15 @@ export default function EventsPanel() {
         <button type="button" data-testid="new-event" className={ui.btn} onClick={() => setCreating(true)}>Nuevo evento</button>
       </div>
 
-      <div className={`${ui.card} flex gap-3 items-center flex-wrap`}>
-        <select data-testid="event-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '10px', padding: '8px 12px', fontSize: '0.85rem' }}>
-          <option value="">Todos los estados</option>
-          <option value="published">Publicados</option>
-          <option value="draft">Borradores</option>
-        </select>
+      <div className={`${ui.card} flex gap-4 items-center flex-wrap`}>
+        <Segmented
+          testId="event-filter"
+          options={EVENT_FILTERS}
+          value={filter}
+          onChange={setFilter}
+        />
         <input data-testid="event-search" placeholder="Buscar evento o lugar…" value={query} onChange={(e) => setQuery(e.target.value)}
-          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '10px', padding: '8px 12px', fontSize: '0.85rem', minWidth: '200px', flex: '1 1 200px' }} />
+          style={searchStyle} />
       </div>
 
       {error && <Feedback kind="error">{error}</Feedback>}
@@ -378,12 +391,12 @@ export default function EventsPanel() {
         {events === null ? (
           <p className="text-[var(--color-text-muted)]">Cargando eventos...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay eventos.</p>
+          <p className="text-[var(--color-text-muted)]">{query ? 'Ningún evento coincide con la búsqueda.' : EMPTY_BY_FILTER[filter]}</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             {filtered.map((ev) => (
               <button key={ev.id} type="button" data-testid="event-item" onClick={() => setSelected(ev)}
-                className="flex items-center justify-between gap-3 py-3 px-3 rounded-xl text-left cursor-pointer border border-transparent hover:border-[var(--color-border)] hover:bg-white/5 transition">
+                className="flex items-center justify-between gap-3 py-3 px-3 rounded-xl text-left cursor-pointer border border-transparent hover:border-[var(--color-border)] hover:bg-white/[0.06] transition">
                 <div className="min-w-0">
                   <div className="text-base">{ev.name}</div>
                   <div className="text-xs text-[var(--color-text-muted)]">{fmtDate(ev.starts_at)}{ev.venue_name ? ` · ${ev.venue_name}` : ''}</div>

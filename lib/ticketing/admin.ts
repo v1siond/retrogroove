@@ -56,6 +56,15 @@ export interface AdminUser {
   role: string;
 }
 
+// Event-list filter for the admin Events panel.
+export type EventFilter = 'active' | 'past' | 'all';
+
+// Manual ticket issuance (no payment). Reserved seats by id, OR a GA section +
+// quantity. The buyer is always required.
+export type ManualTicketPayload =
+  | { buyer: Buyer; seat_ids: string[] }
+  | { buyer: Buyer; section_id: string; quantity: number };
+
 // Dashboard list/detail shapes — match the admin API contract.
 export interface AdminEventSummary {
   id: string;
@@ -126,8 +135,10 @@ export const adminApi = {
     return authed(`/events/${slug}`);
   },
 
-  listAllEvents(): Promise<{ events: AdminEventSummary[] }> {
-    return authed('/admin/events');
+  // filter: 'active' (upcoming, soonest-first) | 'past' (most-recent-first) |
+  // 'all'. Backend defaults to 'active' when omitted.
+  listAllEvents(filter?: EventFilter): Promise<{ events: AdminEventSummary[] }> {
+    return authed(`/admin/events${queryString({ filter })}`);
   },
 
   listOrders(eventId: string): Promise<{ orders: AdminOrder[] }> {
@@ -271,6 +282,17 @@ export const adminApi = {
     return authed(`/events/${eventId}/comp-orders`, {
       method: 'POST',
       body: JSON.stringify({ seat_ids: seatIds, buyer }),
+    });
+  },
+
+  // Issue tickets without payment (comp / manual). Reserved seats via
+  // { seat_ids }, general admission via { section_id, quantity }. Both carry the
+  // buyer. Hits the same comp-orders endpoint as compOrder, but takes the full
+  // payload so the GA path is expressible.
+  createManualTickets(eventId: string, payload: ManualTicketPayload): Promise<{ order: Order }> {
+    return authed(`/events/${eventId}/comp-orders`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 

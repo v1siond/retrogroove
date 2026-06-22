@@ -126,6 +126,65 @@ export function ConfirmAction({
   );
 }
 
+// A segmented control (pill group) for mutually-exclusive filters. Active
+// segment glows pink; the rest stay muted. Generic over the option key type.
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  testId,
+}: {
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  testId: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      data-testid={testId}
+      style={{
+        display: 'inline-flex',
+        gap: '4px',
+        padding: '4px',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-pill)',
+      }}
+    >
+      {options.map((opt) => {
+        const active = opt.key === value;
+        return (
+          <button
+            key={opt.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            data-testid={`${testId}-${opt.key}`}
+            data-active={active}
+            onClick={() => onChange(opt.key)}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 'var(--radius-pill)',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.9rem',
+              letterSpacing: '0.04em',
+              transition: 'all 0.15s',
+              ...(active
+                ? { background: 'var(--color-pink)', color: '#fff', boxShadow: 'var(--shadow-cta)' }
+                : { background: 'transparent', color: 'var(--color-text-muted)' }),
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // Filter/search toolbar shell.
 export function Toolbar({ children }: { children: ReactNode }) {
   return (
