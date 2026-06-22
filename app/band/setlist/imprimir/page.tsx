@@ -289,7 +289,8 @@ const STYLES = `
 
 function SetlistPrintInner() {
   const searchParams = useSearchParams()
-  const allSongs = useMemo(() => getAllSongs(), [])
+  const [allSongs, setAllSongs] = useState<Song[]>([])
+  const [songsLoaded, setSongsLoaded] = useState(false)
   const songsMap = useMemo(() => new Map(allSongs.map(s => [s.id, s])), [allSongs])
   const alphabetical = useMemo(() => [...allSongs].sort((a, b) => a.title.localeCompare(b.title)), [allSongs])
 
@@ -301,8 +302,17 @@ function SetlistPrintInner() {
   const dragIdx = useRef<number | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
+  useEffect(() => { setMounted(true) }, [])
+
   useEffect(() => {
-    setMounted(true)
+    getAllSongs()
+      .then(setAllSongs)
+      .catch(() => setAllSongs([]))
+      .finally(() => setSongsLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    if (!songsLoaded) return
     const songsParam = searchParams.get('songs')
     if (songsParam) {
       const songIds = songsParam.split(',').filter(Boolean)
@@ -317,7 +327,7 @@ function SetlistPrintInner() {
     }
     setSongs(alphabetical)
     setSelected(new Set(alphabetical.map(songKey)))
-  }, [alphabetical, searchParams, songsMap])
+  }, [songsLoaded, alphabetical, searchParams, songsMap])
 
   const selectedCount = selected.size
 
@@ -398,6 +408,7 @@ function SetlistPrintInner() {
   }
 
   if (!mounted) return null
+  if (!songsLoaded) return <div className="print-page loading">Cargando...</div>
 
   return (
     <div className="print-page">

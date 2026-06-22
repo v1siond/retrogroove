@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
 
+type LoadState = 'loading' | 'ready' | 'error'
+
 type Step = 'guide' | 'select' | 'form' | 'success'
 
 const BAND_PHONE = '969 622 293'
@@ -20,9 +22,21 @@ export default function PedirPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  const [songs, setSongs] = useState<Song[]>([])
+  const [loadState, setLoadState] = useState<LoadState>('loading')
+
   useEffect(() => { setMounted(true) }, [])
 
-  const allSongs = useMemo(() => getAllSongs().filter(s => s.enabled).sort((a, b) => a.title.localeCompare(b.title)), [])
+  useEffect(() => {
+    getAllSongs()
+      .then(data => { setSongs(data); setLoadState('ready') })
+      .catch(() => setLoadState('error'))
+  }, [])
+
+  const allSongs = useMemo(
+    () => songs.filter(s => s.enabled).sort((a, b) => a.title.localeCompare(b.title)),
+    [songs],
+  )
 
   const filteredSongs = useMemo(() => {
     if (!searchQuery.trim()) return allSongs
@@ -87,6 +101,7 @@ export default function PedirPage() {
         .search { width: 100%; padding: 0.8rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 1rem; margin-bottom: 1rem; box-sizing: border-box; }
         .search::placeholder { color: rgba(255,255,255,0.3); }
         .song-list { max-height: 350px; overflow-y: auto; }
+        .list-msg { padding: 2rem 1rem; text-align: center; color: rgba(255,255,255,0.5); font-size: 0.9rem; }
         .song-item { padding: 0.7rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid transparent; border-radius: 8px; margin-bottom: 0.4rem; cursor: pointer; }
         .song-item:hover { background: rgba(255,255,255,0.08); }
         .song-item.selected { border-color: var(--gold); background: rgba(255,215,0,0.1); }
@@ -128,7 +143,16 @@ export default function PedirPage() {
             <div className="card">
               <input type="text" className="search" placeholder="Buscar canción o artista..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               <div className="song-list">
-                {filteredSongs.map(song => (
+                {loadState === 'loading' && (
+                  <div className="list-msg">Cargando canciones...</div>
+                )}
+                {loadState === 'error' && (
+                  <div className="list-msg">No pudimos cargar el repertorio. Intenta de nuevo.</div>
+                )}
+                {loadState === 'ready' && filteredSongs.length === 0 && (
+                  <div className="list-msg">No se encontraron canciones.</div>
+                )}
+                {loadState === 'ready' && filteredSongs.map(song => (
                   <div key={song.id} className={`song-item ${selectedSong?.id === song.id ? 'selected' : ''}`} onClick={() => setSelectedSong(song)}>
                     <div className="title">{song.title}</div>
                     <div className="artist">{song.artist}</div>

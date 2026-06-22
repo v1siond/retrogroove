@@ -7,7 +7,9 @@ import { Song } from '@/lib/types'
 type ViewMode = 'repertorio' | 'builder'
 
 export default function SetlistPage() {
-  const allSongs = useMemo(() => getAllSongs().sort((a, b) => a.title.localeCompare(b.title)), [])
+  const [songs, setSongs] = useState<Song[]>([])
+  const [songsLoaded, setSongsLoaded] = useState(false)
+  const allSongs = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title)), [songs])
 
   const [mounted, setMounted] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('repertorio')
@@ -19,6 +21,13 @@ export default function SetlistPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    getAllSongs()
+      .then(setSongs)
+      .catch(() => setSongs([]))
+      .finally(() => setSongsLoaded(true))
+  }, [])
 
   const songsMap = useMemo(() => new Map(allSongs.map(s => [s.id, s])), [allSongs])
 
@@ -446,7 +455,11 @@ export default function SetlistPage() {
                 />
               </div>
 
-              {filteredSongs.length === 0 ? (
+              {!songsLoaded ? (
+                <div className="no-results">
+                  <p>Cargando repertorio...</p>
+                </div>
+              ) : filteredSongs.length === 0 ? (
                 <div className="no-results">
                   <p>No se encontraron canciones para "{searchQuery}"</p>
                 </div>
