@@ -54,6 +54,8 @@ export interface TicketEvent {
   starts_at: string;
   status: string;
   flyer_url: string | null;
+  external_url: string | null;
+  instagram_url: string | null;
   canvas_width: number;
   canvas_height: number;
   stage_x?: number;

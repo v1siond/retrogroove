@@ -1,36 +1,28 @@
-import { Setlist, SetlistWithSongs } from './types'
-import { getSongsByIds } from './songs'
+import { Setlist, SetlistWithSongs, Song } from './types'
+import { musicApi } from './music'
 
-import bloque1 from '@/content/setlists/bloque-1.json'
-import bloque2 from '@/content/setlists/bloque-2.json'
-import bloque3 from '@/content/setlists/bloque-3.json'
-import bloque4 from '@/content/setlists/bloque-4.json'
-import extras from '@/content/setlists/extras.json'
+// Setlists (and the songs they reference) come from the RetroGroove API. Fetched
+// at runtime from the client, same as lib/songs.ts.
 
-const allSetlists: Setlist[] = [
-  bloque1 as Setlist,
-  bloque2 as Setlist,
-  bloque3 as Setlist,
-  bloque4 as Setlist,
-  extras as Setlist,
-]
-
-export function getAllSetlists(): Setlist[] {
-  return allSetlists
+export function getAllSetlists(): Promise<Setlist[]> {
+  return musicApi.getSetlists()
 }
 
-export function getSetlistById(id: string): Setlist | undefined {
-  return allSetlists.find(s => s.id === id)
+export async function getSetlistById(id: string): Promise<Setlist | undefined> {
+  const setlists = await musicApi.getSetlists()
+  return setlists.find(s => s.id === id)
 }
 
-export function getSetlistWithSongs(setlist: Setlist): SetlistWithSongs {
+function withSongs(setlist: Setlist, songsById: Map<string, Song>): SetlistWithSongs {
   return {
     id: setlist.id,
     name: setlist.name,
-    songs: getSongsByIds(setlist.songIds),
+    songs: setlist.songIds.map(id => songsById.get(id)).filter((s): s is Song => !!s),
   }
 }
 
-export function getAllSetlistsWithSongs(): SetlistWithSongs[] {
-  return allSetlists.map(getSetlistWithSongs)
+export async function getAllSetlistsWithSongs(): Promise<SetlistWithSongs[]> {
+  const [setlists, songs] = await Promise.all([musicApi.getSetlists(), musicApi.getSongs()])
+  const songsById = new Map(songs.map(s => [s.id, s]))
+  return setlists.map(setlist => withSongs(setlist, songsById))
 }
