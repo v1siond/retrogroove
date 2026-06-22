@@ -71,6 +71,298 @@ function seatsAroundTable(count: number): { x: number; y: number }[] {
 type Step = 'detail' | 'select' | 'pay' | 'done';
 type MapView = 'map' | 'list';
 
+interface SeatMapCanvasProps {
+  seatedSections: Section[];
+  isMesas: boolean;
+  showNums: boolean;
+  totalSeated: number;
+  cw: number;
+  ch: number;
+  stageStyle: React.CSSProperties;
+  selected: string[];
+  /** When false the map is a read-only preview: no selection, no pointer events. */
+  interactive: boolean;
+  onToggle?: (id: string) => void;
+}
+
+// Presentational seat/table layout. Rendered interactive on the 'select' step
+// and read-only on the 'detail' step so visitors can preview the distribution
+// before buying. Layout math lives here; selection state is passed in.
+function SeatMapCanvas({
+  seatedSections,
+  isMesas,
+  showNums,
+  totalSeated,
+  cw,
+  ch,
+  stageStyle,
+  selected,
+  interactive,
+  onToggle,
+}: SeatMapCanvasProps) {
+  const handleToggle = (id: string) => {
+    if (interactive) onToggle?.(id);
+  };
+
+  return (
+    <div
+      data-testid={interactive ? 'seat-map' : 'seat-map-preview'}
+      style={{
+        position: 'relative',
+        width: '100%',
+        borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,.1)',
+        overflow: 'hidden',
+        background: 'radial-gradient(circle at 50% 0%,rgba(255,20,147,.14),transparent 55%), #0b0020',
+        aspectRatio: `${cw} / ${ch}`,
+        marginTop: '16px',
+      }}
+    >
+      {/* Stage — positioned from event data or fallback band */}
+      <div data-testid="buyer-stage" style={stageStyle}>ESCENARIO</div>
+
+      {seatedSections.map((section, si) => {
+        const color = SECTION_COLORS[si % SECTION_COLORS.length];
+
+        if (isMesas && section.layout_type === 'tables') {
+          // Group seats by table, render table rings
+          const tableMap = new Map<string, Seat[]>();
+          const noTable: Seat[] = [];
+          section.seats.forEach((seat) => {
+            if (seat.table_id) {
+              const grp = tableMap.get(seat.table_id) || [];
+              grp.push(seat);
+              tableMap.set(seat.table_id, grp);
+            } else {
+              noTable.push(seat);
+            }
+          });
+
+          return (
+            <section key={section.id} data-section-id={section.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', opacity: 0 }}>{section.name}</span>
+              {/* Table rings */}
+              {section.tables.map((tbl) => {
+                const tableSeats = tableMap.get(tbl.id) || [];
+                const isVip = section.name.toLowerCase().includes('vip');
+                const ringColor = isVip ? 'rgba(255,20,147,.4)' : 'rgba(255,255,255,.12)';
+                const surfaceBg = isVip
+                  ? 'radial-gradient(circle at 50% 35%,#3a1030,#1e0a1a)'
+                  : 'radial-gradient(circle at 50% 35%,#2a1430,#160a1e)';
+                // Sort seats by pos_x so ring positions honor left-to-right order
+                const sortedSeats = [...tableSeats].sort((a, b) => a.pos_x - b.pos_x);
+                const seatPositions = seatsAroundTable(sortedSeats.length);
+                // Table size as % of canvas (use tbl.size or default 56)
+                const tsize = tbl.size || 56;
+                const twPct = (tsize / cw) * 100;
+                const thPct = (tsize / ch) * 100;
+
+                return (
+                  <div
+                    key={tbl.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${tbl.pos_x - twPct / 2}%`,
+                      top: `${tbl.pos_y - thPct / 2}%`,
+                      width: `${twPct}%`,
+                      // height (not paddingBottom): paddingBottom % is relative to
+                      // container WIDTH, which stretched tables into tall ovals.
+                      height: `${thPct}%`,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {/* Table surface circle */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: '18%',
+                      borderRadius: '50%',
+                      border: `1px solid ${ringColor}`,
+                      background: surfaceBg,
+                    }} />
+                    {/* Table label */}
+                    <div style={{
+                      position: 'absolute',
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      fontSize: '0.55rem',
+                      color: isVip ? '#ff8fce' : 'rgba(236,230,240,.5)',
+                      pointerEvents: 'none',
+                      whiteSpace: 'nowrap',
+                      textAlign: 'center',
+                    }}>
+                      {sortedSeats.length}
+                    </div>
+                    {/* Table name below */}
+                    <div style={{
+                      position: 'absolute',
+                      left: '50%',
+                      bottom: '-14%',
+                      transform: 'translateX(-50%)',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.52rem',
+                      letterSpacing: '0.06em',
+                      color: isVip ? '#ff8fce' : 'rgba(236,230,240,.55)',
+                      pointerEvents: 'none',
+                    }}>
+                      {tbl.label}
+                    </div>
+                    {/* Seat dots around ring */}
+                    {sortedSeats.map((seat, idx) => {
+                      const pos = seatPositions[idx] || { x: 50, y: 50 };
+                      const isSel = interactive && selected.includes(seat.id);
+                      const available = seat.status === 'available';
+                      const seatColor = isVip ? 'var(--color-pink)' : color;
+                      return (
+                        <button
+                          key={seat.id}
+                          type="button"
+                          data-seat-id={seat.id}
+                          data-status={seat.status}
+                          data-selected={isSel}
+                          disabled={!interactive || !available}
+                          aria-pressed={isSel}
+                          aria-label={`${tbl.label} Asiento ${seatName(seat)}`}
+                          title={`${section.name} · ${tbl.label} · Asiento ${seatName(seat)}`}
+                          onClick={() => handleToggle(seat.id)}
+                          style={{
+                            position: 'absolute',
+                            left: `${pos.x}%`,
+                            top: `${pos.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            pointerEvents: interactive ? 'auto' : 'none',
+                            borderRadius: '50%',
+                            border: '1.5px solid',
+                            width: '11px',
+                            height: '11px',
+                            cursor: interactive && available ? 'pointer' : 'default',
+                            transition: 'all 0.15s',
+                            padding: 0,
+                            ...(isSel
+                              ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
+                              : !available
+                                ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
+                                : { background: isVip ? 'rgba(255,20,147,.18)' : `rgba(0,229,255,.15)`, borderColor: seatColor }),
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Seats not in any table (fallback) */}
+              {noTable.map((seat) => {
+                const isSel = interactive && selected.includes(seat.id);
+                const available = seat.status === 'available';
+                return (
+                  <button
+                    key={seat.id}
+                    type="button"
+                    data-seat-id={seat.id}
+                    data-status={seat.status}
+                    data-selected={isSel}
+                    disabled={!interactive || !available}
+                    aria-pressed={isSel}
+                    aria-label={`Asiento ${seatName(seat)}`}
+                    onClick={() => handleToggle(seat.id)}
+                    style={{
+                      position: 'absolute',
+                      left: `${seat.pos_x}%`,
+                      top: `${seat.pos_y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: interactive ? 'auto' : 'none',
+                      borderRadius: '50%',
+                      border: '1.5px solid',
+                      width: showNums ? '24px' : '11px',
+                      height: showNums ? '24px' : '11px',
+                      cursor: interactive && available ? 'pointer' : 'default',
+                      transition: 'all 0.15s',
+                      padding: 0,
+                      ...(isSel
+                        ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
+                        : !available
+                          ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
+                          : { background: `${color}26`, borderColor: color }),
+                    }}
+                  />
+                );
+              })}
+            </section>
+          );
+        }
+
+        // rows/teatro layout — rows of seats
+        return (
+          <section key={section.id} data-section-id={section.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', opacity: 0 }}>{section.name}</span>
+            {rowTagsFor(section.seats).map((t) => (
+              <span
+                key={t.row}
+                style={{
+                  position: 'absolute',
+                  left: `${t.left}%`,
+                  top: `${t.top}%`,
+                  transform: 'translateY(-50%)',
+                  color: 'rgba(236,230,240,.35)',
+                  fontSize: '0.6rem',
+                  fontWeight: 600,
+                  pointerEvents: 'none',
+                }}
+              >
+                {t.row}
+              </span>
+            ))}
+            {section.seats.map((seat) => {
+              const isSel = interactive && selected.includes(seat.id);
+              const available = seat.status === 'available';
+              const label = seatName(seat);
+              return (
+                <button
+                  key={seat.id}
+                  type="button"
+                  data-seat-id={seat.id}
+                  data-status={seat.status}
+                  data-selected={isSel}
+                  disabled={!interactive || !available}
+                  aria-pressed={isSel}
+                  aria-label={`Asiento ${label}`}
+                  title={`${section.name} · Asiento ${label}`}
+                  onClick={() => handleToggle(seat.id)}
+                  style={{
+                    position: 'absolute',
+                    left: `${seat.pos_x}%`,
+                    top: `${seat.pos_y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    pointerEvents: interactive ? 'auto' : 'none',
+                    borderRadius: '50%',
+                    border: '1px solid',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s',
+                    cursor: interactive && available ? 'pointer' : 'default',
+                    width: showNums ? '24px' : totalSeated <= 800 ? '14px' : '8px',
+                    height: showNums ? '24px' : totalSeated <= 800 ? '14px' : '8px',
+                    fontSize: showNums ? '0.55rem' : '0',
+                    ...(isSel
+                      ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', color: '#fff', boxShadow: '0 0 8px var(--color-pink)' }
+                      : !available
+                        ? { background: 'rgba(255,255,255,.05)', borderColor: 'rgba(255,255,255,.15)', color: 'rgba(255,255,255,.25)' }
+                        : { background: `${color}26`, borderColor: color, color }),
+                  }}
+                >
+                  {showNums ? seat.number : ''}
+                </button>
+              );
+            })}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function EventBuy({ slug }: { slug: string }) {
   const [event, setEvent] = useState<TicketEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,6 +386,38 @@ export default function EventBuy({ slug }: { slug: string }) {
       .then((r) => setEvent(r.event))
       .catch(() => setError('No se pudo cargar el evento'))
       .finally(() => setLoading(false));
+  }, [slug]);
+
+  // Resume after returning from Izipay: if a pending order for this event was
+  // persisted before the redirect, jump straight to the success view. If it's
+  // already paid we show the ticket; if not we land on 'done' which triggers
+  // pollUntilPaid (the "CONFIRMANDO PAGO" interstitial) until it confirms.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = localStorage.getItem('rg_pending_order');
+    if (!raw) return;
+    let pending: { id?: string; slug?: string };
+    try {
+      pending = JSON.parse(raw);
+    } catch {
+      localStorage.removeItem('rg_pending_order');
+      return;
+    }
+    if (!pending.id || (pending.slug && pending.slug !== slug)) return;
+
+    ticketingApi
+      .getOrder(pending.id)
+      .then((r) => {
+        setOrder(r.order);
+        setStep('done');
+        if (r.order.status === 'paid') {
+          localStorage.removeItem('rg_pending_order');
+        }
+      })
+      .catch(() => {
+        // Order lookup failed — drop the stale key, stay on the detail view.
+        localStorage.removeItem('rg_pending_order');
+      });
   }, [slug]);
 
   // When arriving at the success page after Izipay redirect, confirmation is
@@ -236,6 +560,11 @@ export default function EventBuy({ slug }: { slug: string }) {
     setError(null);
     try {
       const { payment_url } = await ticketingApi.createPaymentLink(order.id);
+      // Persist the pending order so we can resume the ticket view when Izipay
+      // redirects back (it may land on the homepage, not here).
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('rg_pending_order', JSON.stringify({ id: order.id, slug }));
+      }
       // In tests, window.__IZIPAY_TEST_SKIP__ suppresses the redirect so the
       // mock can simulate a paid order without leaving the page.
       if (typeof window !== 'undefined' && (window as Window & { __IZIPAY_TEST_SKIP__?: boolean }).__IZIPAY_TEST_SKIP__) {
@@ -264,6 +593,7 @@ export default function EventBuy({ slug }: { slug: string }) {
         if (refreshed.status === 'paid') {
           setOrder(refreshed);
           setPolling(false);
+          if (typeof window !== 'undefined') localStorage.removeItem('rg_pending_order');
           return;
         }
       } catch {
@@ -348,16 +678,29 @@ export default function EventBuy({ slug }: { slug: string }) {
         <Nav />
 
         <main>
-          {/* Hero */}
+          {/* Hero — flyer as background with a dark overlay so text stays legible */}
           <section style={{
+            position: 'relative',
             minHeight: 'clamp(440px, 62vh, 720px)',
-            background: 'radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%), radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%), radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%), linear-gradient(180deg,#1a0626,#08020e)',
+            background: event.flyer_url
+              ? `url(${event.flyer_url}) center/cover no-repeat`
+              : 'radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%), radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%), radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%), linear-gradient(180deg,#1a0626,#08020e)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
             padding: '40px 28px 48px',
           }}>
-            <div style={{ maxWidth: '1120px', margin: '0 auto', width: '100%' }}>
+            {/* Overlay — only when a flyer is present, keeps the neon gradient when not */}
+            {event.flyer_url && (
+              <div aria-hidden="true" style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(180deg, rgba(8,2,14,.45) 0%, rgba(8,2,14,.2) 35%, rgba(8,2,14,.82) 100%)',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }} />
+            )}
+            <div style={{ maxWidth: '1120px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 2 }}>
               {/* Badges */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
                 <span style={{ background: 'rgba(0,229,255,.12)', border: '1px solid rgba(0,229,255,.5)', borderRadius: 'var(--radius-pill)', padding: '6px 12px', fontSize: '0.66rem', color: 'var(--color-cyan)', letterSpacing: '0.16em', fontWeight: 600, textTransform: 'uppercase' }}>
@@ -431,10 +774,10 @@ export default function EventBuy({ slug }: { slug: string }) {
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                 }}>
-                  {/* Photo side */}
+                  {/* Photo side — venue photo (not the flyer); gradient fallback when null */}
                   <div style={{
-                    background: event.flyer_url
-                      ? `url(${event.flyer_url}) center/cover`
+                    background: event.venue_photo_url
+                      ? `url(${event.venue_photo_url}) center/cover`
                       : 'radial-gradient(70% 80% at 30% 20%,rgba(0,229,255,.25),transparent 60%), radial-gradient(80% 80% at 80% 90%,rgba(255,20,147,.3),transparent 60%), linear-gradient(135deg,#1a1230,#0c0820)',
                     minHeight: '200px',
                     display: 'flex',
@@ -534,6 +877,35 @@ export default function EventBuy({ slug }: { slug: string }) {
                   ))}
                 </div>
               </div>
+
+              {/* Seat-map preview — read-only, so visitors see the distribution before buying */}
+              {seatedSections.length > 0 && (
+                <div style={{ marginTop: '34px' }}>
+                  <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>Distribución</p>
+                  <div style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '16px',
+                    padding: '18px 20px',
+                  }}>
+                    <SeatMapCanvas
+                      seatedSections={seatedSections}
+                      isMesas={isMesas}
+                      showNums={showNums}
+                      totalSeated={totalSeated}
+                      cw={cw}
+                      ch={ch}
+                      stageStyle={stageStyle}
+                      selected={[]}
+                      interactive={false}
+                    />
+                    <SeatLegend style={{ marginTop: '18px', justifyContent: 'center' }} />
+                    <p style={{ fontSize: '0.66rem', color: 'var(--color-text-faint)', textAlign: 'center', margin: '12px 0 0' }}>
+                      Elige tus asientos al comprar
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right column — sticky buy box */}
@@ -740,263 +1112,18 @@ export default function EventBuy({ slug }: { slug: string }) {
               {mapView === 'map' && (
                 <>
                   {seatedSections.length > 0 && (
-                    <>
-                      <div
-                        data-testid="seat-map"
-                        style={{
-                          position: 'relative',
-                          width: '100%',
-                          borderRadius: '12px',
-                          border: '1px solid rgba(255,255,255,.1)',
-                          overflow: 'hidden',
-                          background: 'radial-gradient(circle at 50% 0%,rgba(255,20,147,.14),transparent 55%), #0b0020',
-                          aspectRatio: `${cw} / ${ch}`,
-                          marginTop: '16px',
-                        }}
-                      >
-                        {/* Stage — positioned from event data or fallback band */}
-                        <div data-testid="buyer-stage" style={stageStyle}>ESCENARIO</div>
-
-                        {seatedSections.map((section, si) => {
-                          const color = SECTION_COLORS[si % SECTION_COLORS.length];
-
-                          if (isMesas && section.layout_type === 'tables') {
-                            // Group seats by table, render table rings
-                            const tableMap = new Map<string, Seat[]>();
-                            const noTable: Seat[] = [];
-                            section.seats.forEach((seat) => {
-                              if (seat.table_id) {
-                                const grp = tableMap.get(seat.table_id) || [];
-                                grp.push(seat);
-                                tableMap.set(seat.table_id, grp);
-                              } else {
-                                noTable.push(seat);
-                              }
-                            });
-
-                            return (
-                              <section key={section.id} data-section-id={section.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                                <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', opacity: 0 }}>{section.name}</span>
-                                {/* Table rings */}
-                                {section.tables.map((tbl) => {
-                                  const tableSeats = tableMap.get(tbl.id) || [];
-                                  const isVip = section.name.toLowerCase().includes('vip');
-                                  const ringColor = isVip ? 'rgba(255,20,147,.4)' : 'rgba(255,255,255,.12)';
-                                  const surfaceBg = isVip
-                                    ? 'radial-gradient(circle at 50% 35%,#3a1030,#1e0a1a)'
-                                    : 'radial-gradient(circle at 50% 35%,#2a1430,#160a1e)';
-                                  // Sort seats by pos_x so ring positions honor left-to-right order
-                                  const sortedSeats = [...tableSeats].sort((a, b) => a.pos_x - b.pos_x);
-                                  const seatPositions = seatsAroundTable(sortedSeats.length);
-                                  // Table size as % of canvas (use tbl.size or default 56)
-                                  const tsize = tbl.size || 56;
-                                  const twPct = (tsize / cw) * 100;
-                                  const thPct = (tsize / ch) * 100;
-
-                                  return (
-                                    <div
-                                      key={tbl.id}
-                                      style={{
-                                        position: 'absolute',
-                                        left: `${tbl.pos_x - twPct / 2}%`,
-                                        top: `${tbl.pos_y - thPct / 2}%`,
-                                        width: `${twPct}%`,
-                                        // height (not paddingBottom): paddingBottom % is relative to
-                                        // container WIDTH, which stretched tables into tall ovals.
-                                        height: `${thPct}%`,
-                                        pointerEvents: 'none',
-                                      }}
-                                    >
-                                      {/* Table surface circle */}
-                                      <div style={{
-                                        position: 'absolute',
-                                        inset: '18%',
-                                        borderRadius: '50%',
-                                        border: `1px solid ${ringColor}`,
-                                        background: surfaceBg,
-                                      }} />
-                                      {/* Table label */}
-                                      <div style={{
-                                        position: 'absolute',
-                                        left: '50%',
-                                        top: '50%',
-                                        transform: 'translate(-50%, -50%)',
-                                        fontSize: '0.55rem',
-                                        color: isVip ? '#ff8fce' : 'rgba(236,230,240,.5)',
-                                        pointerEvents: 'none',
-                                        whiteSpace: 'nowrap',
-                                        textAlign: 'center',
-                                      }}>
-                                        {sortedSeats.length}
-                                      </div>
-                                      {/* Table name below */}
-                                      <div style={{
-                                        position: 'absolute',
-                                        left: '50%',
-                                        bottom: '-14%',
-                                        transform: 'translateX(-50%)',
-                                        whiteSpace: 'nowrap',
-                                        fontSize: '0.52rem',
-                                        letterSpacing: '0.06em',
-                                        color: isVip ? '#ff8fce' : 'rgba(236,230,240,.55)',
-                                        pointerEvents: 'none',
-                                      }}>
-                                        {tbl.label}
-                                      </div>
-                                      {/* Seat dots around ring */}
-                                      {sortedSeats.map((seat, idx) => {
-                                        const pos = seatPositions[idx] || { x: 50, y: 50 };
-                                        const isSel = selected.includes(seat.id);
-                                        const available = seat.status === 'available';
-                                        const seatColor = isVip ? 'var(--color-pink)' : color;
-                                        return (
-                                          <button
-                                            key={seat.id}
-                                            type="button"
-                                            data-seat-id={seat.id}
-                                            data-status={seat.status}
-                                            data-selected={isSel}
-                                            disabled={!available}
-                                            aria-pressed={isSel}
-                                            aria-label={`${tbl.label} Asiento ${seatName(seat)}`}
-                                            title={`${section.name} · ${tbl.label} · Asiento ${seatName(seat)}`}
-                                            onClick={() => toggleSeat(seat.id)}
-                                            style={{
-                                              position: 'absolute',
-                                              left: `${pos.x}%`,
-                                              top: `${pos.y}%`,
-                                              transform: 'translate(-50%, -50%)',
-                                              pointerEvents: 'auto',
-                                              borderRadius: '50%',
-                                              border: '1.5px solid',
-                                              width: '11px',
-                                              height: '11px',
-                                              cursor: available ? 'pointer' : 'not-allowed',
-                                              transition: 'all 0.15s',
-                                              padding: 0,
-                                              ...(isSel
-                                                ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
-                                                : !available
-                                                  ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
-                                                  : { background: isVip ? 'rgba(255,20,147,.18)' : `rgba(0,229,255,.15)`, borderColor: seatColor }),
-                                            }}
-                                          />
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-
-                                {/* Seats not in any table (fallback) */}
-                                {noTable.map((seat) => {
-                                  const isSel = selected.includes(seat.id);
-                                  const available = seat.status === 'available';
-                                  return (
-                                    <button
-                                      key={seat.id}
-                                      type="button"
-                                      data-seat-id={seat.id}
-                                      data-status={seat.status}
-                                      data-selected={isSel}
-                                      disabled={!available}
-                                      aria-pressed={isSel}
-                                      aria-label={`Asiento ${seatName(seat)}`}
-                                      onClick={() => toggleSeat(seat.id)}
-                                      style={{
-                                        position: 'absolute',
-                                        left: `${seat.pos_x}%`,
-                                        top: `${seat.pos_y}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                        pointerEvents: 'auto',
-                                        borderRadius: '50%',
-                                        border: '1.5px solid',
-                                        width: showNums ? '24px' : '11px',
-                                        height: showNums ? '24px' : '11px',
-                                        cursor: available ? 'pointer' : 'not-allowed',
-                                        transition: 'all 0.15s',
-                                        padding: 0,
-                                        ...(isSel
-                                          ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
-                                          : !available
-                                            ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
-                                            : { background: `${color}26`, borderColor: color }),
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </section>
-                            );
-                          }
-
-                          // rows/teatro layout — rows of seats
-                          return (
-                            <section key={section.id} data-section-id={section.id} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                              <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', opacity: 0 }}>{section.name}</span>
-                              {rowTagsFor(section.seats).map((t) => (
-                                <span
-                                  key={t.row}
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${t.left}%`,
-                                    top: `${t.top}%`,
-                                    transform: 'translateY(-50%)',
-                                    color: 'rgba(236,230,240,.35)',
-                                    fontSize: '0.6rem',
-                                    fontWeight: 600,
-                                    pointerEvents: 'none',
-                                  }}
-                                >
-                                  {t.row}
-                                </span>
-                              ))}
-                              {section.seats.map((seat) => {
-                                const isSel = selected.includes(seat.id);
-                                const available = seat.status === 'available';
-                                const label = seatName(seat);
-                                return (
-                                  <button
-                                    key={seat.id}
-                                    type="button"
-                                    data-seat-id={seat.id}
-                                    data-status={seat.status}
-                                    data-selected={isSel}
-                                    disabled={!available}
-                                    aria-pressed={isSel}
-                                    aria-label={`Asiento ${label}`}
-                                    title={`${section.name} · Asiento ${label}`}
-                                    onClick={() => toggleSeat(seat.id)}
-                                    style={{
-                                      position: 'absolute',
-                                      left: `${seat.pos_x}%`,
-                                      top: `${seat.pos_y}%`,
-                                      transform: 'translate(-50%, -50%)',
-                                      pointerEvents: 'auto',
-                                      borderRadius: '50%',
-                                      border: '1px solid',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      transition: 'all 0.15s',
-                                      cursor: available ? 'pointer' : 'not-allowed',
-                                      width: showNums ? '24px' : totalSeated <= 800 ? '14px' : '8px',
-                                      height: showNums ? '24px' : totalSeated <= 800 ? '14px' : '8px',
-                                      fontSize: showNums ? '0.55rem' : '0',
-                                      ...(isSel
-                                        ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', color: '#fff', boxShadow: '0 0 8px var(--color-pink)' }
-                                        : !available
-                                          ? { background: 'rgba(255,255,255,.05)', borderColor: 'rgba(255,255,255,.15)', color: 'rgba(255,255,255,.25)' }
-                                          : { background: `${color}26`, borderColor: color, color }),
-                                    }}
-                                  >
-                                    {showNums ? seat.number : ''}
-                                  </button>
-                                );
-                              })}
-                            </section>
-                          );
-                        })}
-                      </div>
-                    </>
+                    <SeatMapCanvas
+                      seatedSections={seatedSections}
+                      isMesas={isMesas}
+                      showNums={showNums}
+                      totalSeated={totalSeated}
+                      cw={cw}
+                      ch={ch}
+                      stageStyle={stageStyle}
+                      selected={selected}
+                      interactive
+                      onToggle={toggleSeat}
+                    />
                   )}
 
                   {gaSections.map((section) => (

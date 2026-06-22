@@ -217,6 +217,32 @@ export default function Home() {
     ticketingApi.getUpcoming().then(r => setTicketedEvents(r.events)).catch(() => {})
   }, [])
 
+  // Resume after Izipay redirect: the buyer often lands here instead of the
+  // event page. If we stashed a pending order before paying, send them to the
+  // event-page success view (EventBuy reads the same key, polls, and clears it).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = localStorage.getItem('rg_pending_order')
+    if (!raw) return
+    let pending: { id?: string; slug?: string }
+    try {
+      pending = JSON.parse(raw)
+    } catch {
+      localStorage.removeItem('rg_pending_order')
+      return
+    }
+    if (!pending.id || !pending.slug) {
+      localStorage.removeItem('rg_pending_order')
+      return
+    }
+    // Confirm the order still exists before redirecting; whether paid or pending
+    // the event page handles the right view (ticket vs "CONFIRMANDO PAGO").
+    ticketingApi
+      .getOrder(pending.id)
+      .then(() => { window.location.href = `/evento?slug=${pending.slug}` })
+      .catch(() => localStorage.removeItem('rg_pending_order'))
+  }, [])
+
   return (
     <>
       <title>RetroGroove — Banda de Covers Premium | Disco &amp; Rock en Vivo</title>
