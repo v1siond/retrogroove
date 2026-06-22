@@ -200,7 +200,8 @@ export const adminApi = {
     return authed(`/events/${eventId}/promo-codes`);
   },
 
-  updatePromo(id: string, attrs: Record<string, unknown>): Promise<{ promo_code: AdminPromoCode }> {
+  // Backend PUT returns the LayoutController `{data}` envelope, not `{promo_code}`.
+  updatePromo(id: string, attrs: Record<string, unknown>): Promise<{ data: AdminPromoCode }> {
     return authed(`/promo-codes/${id}`, { method: 'PUT', body: JSON.stringify({ promo_code: attrs }) });
   },
 
