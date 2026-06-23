@@ -100,10 +100,15 @@ function OrderDrawer({
 
       <DrawerSectionTitle>Pago</DrawerSectionTitle>
       <FieldList>
-        <Field label="Referencia" copy={order.payment_ref} />
+        <Field label="N.° de operación" copy={order.payment_ref} />
         <Field label="Pagada" mono>{fmtDate(order.paid_at)}</Field>
         <Field label="Creada" mono>{fmtDate(order.inserted_at)}</Field>
       </FieldList>
+      {order.status === 'pending' && (
+        <Feedback kind="error">
+          Verifica el Yapeo (monto, nombre y N.° de operación) en tu app antes de marcar como pagada.
+        </Feedback>
+      )}
     </Drawer>
   );
 }

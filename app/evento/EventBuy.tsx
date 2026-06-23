@@ -81,6 +81,9 @@ type Step = 'detail' | 'select' | 'pay' | 'coordinate' | 'pending' | 'done';
 // so one number covers both. Set NEXT_PUBLIC_BAND_PHONE in the env (DEPLOY.md: the Yape/Plin number).
 const BAND_PHONE = process.env.NEXT_PUBLIC_BAND_PHONE || '969 622 293';
 const WHATSAPP_DIGITS = '51' + BAND_PHONE.replace(/\D/g, '');
+// Max seats per order — keep in sync with the backend @max_per_order (6). Stops one
+// buyer grabbing/holding a big chunk of the room (esp. manual orders, 24h hold).
+const MAX_SEATS_PER_ORDER = 6;
 type MapView = 'map' | 'list';
 
 interface SeatMapCanvasProps {
@@ -597,7 +600,17 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
   }, [event]);
 
   function toggleSeat(id: string) {
-    setSelected((cur) => (cur.includes(id) ? cur.filter((s) => s !== id) : [...cur, id]));
+    setSelected((cur) => {
+      if (cur.includes(id)) {
+        setError(null);
+        return cur.filter((s) => s !== id);
+      }
+      if (cur.length >= MAX_SEATS_PER_ORDER) {
+        setError(`Máximo ${MAX_SEATS_PER_ORDER} entradas por compra.`);
+        return cur;
+      }
+      return [...cur, id];
+    });
   }
 
   function removeSeat(id: string) {
@@ -629,9 +642,11 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
           ? 'Algunos asientos ya no están disponibles. Elige otros.'
           : data?.error === 'sold_out'
             ? 'Ya no quedan entradas disponibles.'
-            : data?.error === 'invalid_promo'
-              ? 'El código de descuento no es válido.'
-              : 'No se pudo crear la orden.'
+            : data?.error === 'too_many'
+              ? `Máximo ${MAX_SEATS_PER_ORDER} entradas por compra.`
+              : data?.error === 'invalid_promo'
+                ? 'El código de descuento no es válido.'
+                : 'No se pudo crear la orden.'
       );
     } finally {
       setWorking(false);
@@ -657,7 +672,9 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
       setError(
         data?.error === 'seats_unavailable'
           ? 'Algunos asientos ya no están disponibles. Elige otros.'
-          : 'No se pudo crear la reserva.'
+          : data?.error === 'too_many'
+            ? `Máximo ${MAX_SEATS_PER_ORDER} entradas por compra.`
+            : 'No se pudo crear la reserva.'
       );
     } finally {
       setWorking(false);
