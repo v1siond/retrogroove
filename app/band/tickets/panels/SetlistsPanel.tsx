@@ -1,14 +1,17 @@
 'use client';
 
-// Setlists resource: list, create, edit (rename + add/remove/reorder the
-// song_ids), and delete. Needs the song catalog to resolve ids to titles and to
-// offer songs for adding.
+// Setlists resource — reusable ordered blocks of songs. Table (name · #songs).
+// Create from the toolbar; clicking a row opens the editor drawer to rename and
+// add / remove / reorder its song_ids. Needs the song catalog to resolve ids to
+// titles and to offer songs for adding.
 
 import { useEffect, useState, useCallback, FormEvent } from 'react';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
 import type { AdminSetlist, AdminSong } from '@/lib/ticketing/admin';
-import { Feedback, ConfirmAction } from '../shared';
+import {
+  DataTable, Column, Drawer, Toolbar, SearchBox, Button, ConfirmAction,
+  Feedback, EmptyState, ToastStack, useToasts, CopyId, IconList, IconPlus,
+} from '../console/ui';
 
 function move<T>(arr: T[], from: number, to: number): T[] {
   if (to < 0 || to >= arr.length) return arr;
@@ -18,22 +21,19 @@ function move<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-// Edit a setlist's name + ordered song_ids.
-function SetlistEditor({
-  setlist,
-  songs,
-  onSaved,
-  onCancel,
+function SetlistDrawer({
+  setlist, songs, onSaved, onClose, onDeleted, notify,
 }: {
   setlist: AdminSetlist;
   songs: AdminSong[];
   onSaved: (s: AdminSetlist) => void;
-  onCancel: () => void;
+  onClose: () => void;
+  onDeleted: (id: string) => void;
+  notify: (kind: 'ok' | 'error', msg: string) => void;
 }) {
   const [name, setName] = useState(setlist.name);
   const [ids, setIds] = useState<string[]>(setlist.song_ids);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const byId = new Map(songs.map((s) => [s.id, s]));
   const available = songs.filter((s) => !ids.includes(s.id));
@@ -41,70 +41,103 @@ function SetlistEditor({
   async function save(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     try {
       const { setlist: updated } = await adminApi.updateSetlist(setlist.id, { name, song_ids: ids });
       onSaved(updated);
+      notify('ok', `Setlist “${updated.name}” guardado.`);
+      onClose();
     } catch {
-      setError('No se pudo guardar el setlist.');
+      notify('error', 'No se pudo guardar el setlist.');
       setBusy(false);
     }
   }
 
+  async function doDelete() {
+    try {
+      await adminApi.deleteSetlist(setlist.id);
+      onDeleted(setlist.id);
+      notify('ok', `Setlist “${setlist.name}” eliminado.`);
+      onClose();
+    } catch {
+      notify('error', 'No se pudo eliminar el setlist.');
+    }
+  }
+
+  const footer = (
+    <>
+      <Button variant="primary" type="submit" form={`setlist-edit-${setlist.id}`} disabled={busy}>
+        {busy ? 'Guardando…' : 'Guardar setlist'}
+      </Button>
+      <ConfirmAction testId={`delete-setlist-${setlist.id}`} label="Eliminar" confirmLabel="Sí, eliminar"
+        prompt="¿Eliminar el setlist?" onConfirm={doDelete} />
+    </>
+  );
+
   return (
-    <form onSubmit={save} data-testid={`setlist-edit-${setlist.id}`} className="py-2">
-      {error && <Feedback kind="error">{error}</Feedback>}
-      <label className={ui.label} htmlFor={`sl-name-${setlist.id}`}>Nombre</label>
-      <input id={`sl-name-${setlist.id}`} className={ui.input} value={name} onChange={(e) => setName(e.target.value)} required />
-
-      <label className={ui.label}>Canciones ({ids.length})</label>
-      <div data-testid="setlist-songs" className="flex flex-col gap-1">
-        {ids.length === 0 && <p className="text-[var(--color-text-faint)] text-sm">Vacío — añade canciones abajo.</p>}
-        {ids.map((id, i) => {
-          const song = byId.get(id);
-          return (
-            <div key={id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-white/5">
-              <span className="text-xs text-[var(--color-gold)] w-6 text-center">{i + 1}</span>
-              <span className="flex-1 text-sm min-w-0 truncate">{song ? `${song.title} — ${song.artist}` : id}</span>
-              <button type="button" aria-label="Subir" data-testid={`sl-up-${id}`} onClick={() => setIds((c) => move(c, i, i - 1))} disabled={i === 0}
-                className="px-2 text-[var(--color-cyan)] disabled:opacity-30 cursor-pointer">↑</button>
-              <button type="button" aria-label="Bajar" data-testid={`sl-down-${id}`} onClick={() => setIds((c) => move(c, i, i + 1))} disabled={i === ids.length - 1}
-                className="px-2 text-[var(--color-cyan)] disabled:opacity-30 cursor-pointer">↓</button>
-              <button type="button" aria-label="Quitar" data-testid={`sl-remove-${id}`} onClick={() => setIds((c) => c.filter((x) => x !== id))}
-                className="px-2 text-[var(--color-red)] cursor-pointer">✕</button>
-            </div>
-          );
-        })}
-      </div>
-
-      {available.length > 0 && (
-        <div className="mt-3">
-          <label className={ui.label} htmlFor={`sl-add-${setlist.id}`}>Añadir canción</label>
-          <select id={`sl-add-${setlist.id}`} data-testid="setlist-add-song" defaultValue="" onChange={(e) => { if (e.target.value) { setIds((c) => [...c, e.target.value]); e.target.value = ''; } }}
-            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: '10px', padding: '8px 12px', fontSize: '0.85rem', width: '100%', maxWidth: '28rem' }}>
-            <option value="">— elige una canción —</option>
-            {available.map((s) => <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>)}
-          </select>
+    <Drawer open onClose={onClose} testId="setlist-detail" title={setlist.name}
+      subtitle={`${ids.length} canción${ids.length === 1 ? '' : 'es'}`} footer={footer}>
+      <form id={`setlist-edit-${setlist.id}`} data-testid={`setlist-edit-${setlist.id}`} onSubmit={save}>
+        <div className="rg-field">
+          <label className="rg-label" htmlFor={`sl-name-${setlist.id}`}>Nombre</label>
+          <input id={`sl-name-${setlist.id}`} className="rg-input" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
-      )}
 
-      <div className="flex gap-3 items-center mt-3">
-        <button type="submit" className={ui.btn} style={{ marginTop: 0 }} disabled={busy}>{busy ? 'Guardando...' : 'Guardar setlist'}</button>
-        <button type="button" className="underline text-[var(--color-text-muted)] cursor-pointer text-sm" onClick={onCancel}>Cancelar</button>
-      </div>
-    </form>
+        <label className="rg-label">Canciones ({ids.length})</label>
+        <div data-testid="setlist-songs" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {ids.length === 0 && <p className="rg-cell-sub">Vacío — añade canciones abajo.</p>}
+          {ids.map((id, i) => {
+            const song = byId.get(id);
+            return (
+              <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, background: 'var(--neutral-bg)' }}>
+                <span className="rg-mono" style={{ color: 'var(--accent)', width: 22, textAlign: 'center', fontSize: 12 }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {song ? `${song.title} — ${song.artist}` : id}
+                </span>
+                <button type="button" aria-label="Subir" data-testid={`sl-up-${id}`} className="rg-btn rg-btn-ghost rg-btn-sm"
+                  onClick={() => setIds((c) => move(c, i, i - 1))} disabled={i === 0}>↑</button>
+                <button type="button" aria-label="Bajar" data-testid={`sl-down-${id}`} className="rg-btn rg-btn-ghost rg-btn-sm"
+                  onClick={() => setIds((c) => move(c, i, i + 1))} disabled={i === ids.length - 1}>↓</button>
+                <button type="button" aria-label="Quitar" data-testid={`sl-remove-${id}`} className="rg-btn rg-btn-ghost rg-btn-sm"
+                  style={{ color: 'var(--bad-fg)' }} onClick={() => setIds((c) => c.filter((x) => x !== id))}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+
+        {available.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <label className="rg-label" htmlFor={`sl-add-${setlist.id}`}>Añadir canción</label>
+            <select id={`sl-add-${setlist.id}`} data-testid="setlist-add-song" className="rg-select" defaultValue=""
+              style={{ width: '100%' }}
+              onChange={(e) => { if (e.target.value) { setIds((c) => [...c, e.target.value]); e.target.value = ''; } }}>
+              <option value="">— elige una canción —</option>
+              {available.map((s) => <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>)}
+            </select>
+          </div>
+        )}
+      </form>
+    </Drawer>
   );
 }
 
-export default function SetlistsPanel() {
+export default function SetlistsPanel({ query: globalQuery }: { query: string }) {
   const [setlists, setSetlists] = useState<AdminSetlist[] | null>(null);
   const [songs, setSongs] = useState<AdminSong[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminSetlist | null>(null);
+  const [localQuery, setLocalQuery] = useState('');
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const { toasts, push, dismiss } = useToasts();
+
+  const query = globalQuery || localQuery;
+
+  const notify = useCallback((kind: 'ok' | 'error', msg: string) => {
+    push(kind, msg);
+    if (kind === 'ok') { setNotice(msg); setError(null); }
+    else { setError(msg); setNotice(null); }
+  }, [push]);
 
   const load = useCallback(() => {
     setError(null);
@@ -122,88 +155,80 @@ export default function SetlistsPanel() {
   async function create(e: FormEvent) {
     e.preventDefault();
     setCreating(true);
-    setError(null);
-    setNotice(null);
     try {
       const { setlist } = await adminApi.createSetlist({ name: newName, song_ids: [] });
       setSetlists((cur) => (cur ? [...cur, setlist] : [setlist]));
       setNewName('');
-      setEditing(setlist.id);
-      setNotice(`Setlist “${setlist.name}” creado. Añade canciones.`);
+      setSelected(setlist);
+      notify('ok', `Setlist “${setlist.name}” creado. Añade canciones.`);
     } catch {
-      setError('No se pudo crear el setlist.');
+      notify('error', 'No se pudo crear el setlist.');
     } finally {
       setCreating(false);
     }
   }
 
-  async function remove(sl: AdminSetlist) {
-    setBusy(sl.id);
-    setError(null);
-    setNotice(null);
-    try {
-      await adminApi.deleteSetlist(sl.id);
-      setSetlists((cur) => (cur ? cur.filter((x) => x.id !== sl.id) : cur));
-      setNotice(`Setlist “${sl.name}” eliminado.`);
-    } catch {
-      setError('No se pudo eliminar el setlist.');
-    } finally {
-      setBusy(null);
-    }
-  }
+  const filtered = (setlists || []).filter((s) => !query || s.name.toLowerCase().includes(query.toLowerCase()));
+
+  const columns: Column<AdminSetlist>[] = [
+    { key: 'name', header: 'Setlist', render: (s) => <span className="rg-cell-primary">{s.name}</span> },
+    { key: 'id', header: 'ID', render: (s) => <CopyId value={s.id} label="ID" /> },
+    { key: 'count', header: 'Canciones', align: 'right', render: (s) => (
+      <span className="rg-mono">{s.song_ids.length}</span>
+    ) },
+    { key: 'actions', header: '', align: 'right', render: (s) => (
+      <button type="button" className="rg-link" data-testid={`edit-setlist-${s.id}`}
+        onClick={(e) => { e.stopPropagation(); setSelected(s); }}>Editar</button>
+    ) },
+  ];
 
   return (
     <div>
-      <h1 className={ui.h1}>Setlists</h1>
-      <p className={ui.muted}>Bloques de canciones reutilizables para los shows.</p>
+      <div className="rg-page-head">
+        <div>
+          <h1>Setlists</h1>
+          <p>Bloques de canciones reutilizables para los shows.</p>
+        </div>
+      </div>
 
       {error && <Feedback kind="error">{error}</Feedback>}
       {notice && <Feedback kind="ok">{notice}</Feedback>}
 
-      <form className={ui.card} onSubmit={create} data-testid="create-setlist-form">
-        <h2 className={ui.h2}>Nuevo setlist</h2>
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <label className={ui.label} htmlFor="setlist-name">Nombre</label>
-            <input id="setlist-name" className={ui.input} value={newName} onChange={(e) => setNewName(e.target.value)} required />
+      <div className="rg-card" style={{ marginBottom: 14 }}>
+        <h3>Nuevo setlist</h3>
+        <form onSubmit={create} data-testid="create-setlist-form" className="rg-form-row">
+          <div className="rg-field" style={{ flex: '1 1 240px', marginBottom: 0 }}>
+            <label className="rg-label" htmlFor="setlist-name">Nombre</label>
+            <input id="setlist-name" className="rg-input" value={newName} onChange={(e) => setNewName(e.target.value)} required />
           </div>
-          <button type="submit" className={ui.btn} disabled={creating}>{creating ? 'Creando...' : 'Crear'}</button>
-        </div>
-      </form>
-
-      <div className={ui.card} data-testid="setlists-list">
-        {setlists === null ? (
-          <p className="text-[var(--color-text-muted)]">Cargando setlists...</p>
-        ) : setlists.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay setlists.</p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {setlists.map((sl) => (
-              <div key={sl.id} data-testid="setlist-row" className="border-b border-[var(--color-border)] last:border-0 py-2">
-                {editing === sl.id ? (
-                  <SetlistEditor
-                    setlist={sl}
-                    songs={songs}
-                    onSaved={(updated) => { setSetlists((cur) => cur ? cur.map((x) => x.id === updated.id ? updated : x) : cur); setEditing(null); }}
-                    onCancel={() => setEditing(null)}
-                  />
-                ) : (
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="text-sm">{sl.name}</div>
-                      <div className="text-xs text-[var(--color-text-muted)]">{sl.song_ids.length} canción{sl.song_ids.length === 1 ? '' : 'es'}</div>
-                    </div>
-                    <div className="flex items-center gap-3 whitespace-nowrap">
-                      <button type="button" data-testid={`edit-setlist-${sl.id}`} onClick={() => setEditing(sl.id)} className="text-[#00e5ff] underline text-sm cursor-pointer">Editar</button>
-                      <ConfirmAction testId={`delete-setlist-${sl.id}`} label="Eliminar" confirmLabel="Sí" prompt="¿Eliminar?" busy={busy === sl.id} onConfirm={() => remove(sl)} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+          <Button variant="primary" type="submit" disabled={creating}><IconPlus /> {creating ? 'Creando…' : 'Crear'}</Button>
+        </form>
       </div>
+
+      <Toolbar>
+        <SearchBox testId="setlist-search" placeholder="Buscar setlist…" value={localQuery} onChange={setLocalQuery} />
+      </Toolbar>
+
+      <div data-testid="setlists-list">
+        <DataTable
+          columns={columns}
+          rows={setlists === null ? null : filtered}
+          rowKey={(s) => s.id}
+          rowTestId="setlist-row"
+          onRowClick={setSelected}
+          empty={<EmptyState icon={<IconList />} title="Sin setlists"
+            description="Crea un setlist para agrupar canciones reutilizables." />}
+        />
+      </div>
+
+      {selected && (
+        <SetlistDrawer setlist={selected} songs={songs} notify={notify}
+          onClose={() => setSelected(null)}
+          onSaved={(s) => setSetlists((cur) => (cur ? cur.map((x) => (x.id === s.id ? s : x)) : cur))}
+          onDeleted={(id) => setSetlists((cur) => (cur ? cur.filter((x) => x.id !== id) : cur))} />
+      )}
+
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

@@ -1,17 +1,19 @@
 'use client';
 
-// Issue tickets resource: hand out entradas without payment (comp / manual).
-// Flow: pick an event → pick reserved seats OR a GA section + quantity → enter
-// the buyer (email required, names optional) → "Emitir entradas" → POST to the
-// comp-orders endpoint → show the issued ticket codes + links.
+// Emitir entradas — hand out entradas without payment (comp / manual). Flow:
+// pick an event → pick reserved seats OR a GA section + quantity → enter the
+// buyer (email required) → POST to comp-orders → show issued ticket codes +
+// links. Restyled to the operations console; selectors preserved.
 
 import { useEffect, useState, useCallback, FormEvent } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
 import type { AdminEventSummary, EventFilter, ManualTicketPayload } from '@/lib/ticketing/admin';
 import type { TicketEvent, Section, Order } from '@/lib/ticketing/types';
-import { fmtDate, Feedback, Segmented, searchStyle } from '../shared';
+import {
+  DataTable, Column, Segmented, Button, Feedback, EmptyState, fmtDate,
+  StatusBadge, CopyId, IconCalendar, IconSend,
+} from '../console/ui';
 
 const EVENT_FILTERS: { key: EventFilter; label: string }[] = [
   { key: 'active', label: 'Activos' },
@@ -19,15 +21,10 @@ const EVENT_FILTERS: { key: EventFilter; label: string }[] = [
   { key: 'all', label: 'Todos' },
 ];
 
-// A section is general-admission (no seat map) when its layout is 'general' or
-// it simply has no individual seats to pick.
 function isGeneralAdmission(section: Section): boolean {
   return section.layout_type === 'general' || section.seats.length === 0;
 }
 
-// Map a backend error code to a human message. Mirrors the comp-orders
-// contract: seats_unavailable (some seat got taken), sold_out (GA capacity
-// gone), not_general (tried a quantity on a reserved section).
 const ISSUE_ERRORS: Record<string, string> = {
   seats_unavailable: 'Algún asiento ya no está disponible. Vuelve a elegir.',
   sold_out: 'No quedan entradas generales en esa sección.',
@@ -41,7 +38,7 @@ function issueErrorMessage(err: unknown): string {
 
 // ── step 1: choose an event ──────────────────────────────────────────────────
 
-function EventPicker({ onPick }: { onPick: (ev: AdminEventSummary) => void }) {
+function EventPicker({ query, onPick }: { query: string; onPick: (ev: AdminEventSummary) => void }) {
   const [events, setEvents] = useState<AdminEventSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<EventFilter>('active');
@@ -58,34 +55,38 @@ function EventPicker({ onPick }: { onPick: (ev: AdminEventSummary) => void }) {
       });
   }, [filter]);
 
+  const filtered = (events || []).filter((ev) =>
+    !query || `${ev.name} ${ev.venue_name || ''}`.toLowerCase().includes(query.toLowerCase()));
+
+  const columns: Column<AdminEventSummary>[] = [
+    { key: 'name', header: 'Evento', render: (e) => (
+      <div>
+        <div className="rg-cell-primary">{e.name}</div>
+        <div className="rg-cell-sub">{fmtDate(e.starts_at)}{e.venue_name ? ` · ${e.venue_name}` : ''}</div>
+      </div>
+    ) },
+    { key: 'status', header: 'Estado', render: (e) => <StatusBadge status={e.status} /> },
+    { key: 'go', header: '', align: 'right', render: () => <span className="rg-link">Emitir →</span> },
+  ];
+
   return (
     <div>
-      <h2 className={ui.h2}>1 · Elige el evento</h2>
-      <div className={`${ui.card} flex gap-4 items-center flex-wrap`}>
+      <h3 style={{ fontSize: 13, fontWeight: 600, margin: '0 0 10px' }}>1 · Elige el evento</h3>
+      <div style={{ marginBottom: 14 }}>
         <Segmented testId="issue-event-filter" options={EVENT_FILTERS} value={filter} onChange={setFilter} />
       </div>
 
       {error && <Feedback kind="error">{error}</Feedback>}
 
-      <div className={ui.card} data-testid="issue-events-list">
-        {events === null ? (
-          <p className="text-[var(--color-text-muted)]">Cargando eventos...</p>
-        ) : events.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay eventos.</p>
-        ) : (
-          <div className="flex flex-col">
-            {events.map((ev) => (
-              <button key={ev.id} type="button" data-testid="issue-event-item" onClick={() => onPick(ev)}
-                className="flex items-center justify-between gap-3 py-3 px-3 rounded-xl text-left cursor-pointer border border-transparent hover:border-[var(--color-border)] hover:bg-white/[0.06] transition">
-                <div className="min-w-0">
-                  <div className="text-base">{ev.name}</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">{fmtDate(ev.starts_at)}{ev.venue_name ? ` · ${ev.venue_name}` : ''}</div>
-                </div>
-                <span className="text-[var(--color-cyan)] text-sm">Emitir →</span>
-              </button>
-            ))}
-          </div>
-        )}
+      <div data-testid="issue-events-list">
+        <DataTable
+          columns={columns}
+          rows={events === null ? null : filtered}
+          rowKey={(e) => e.id}
+          rowTestId="issue-event-item"
+          onRowClick={onPick}
+          empty={<EmptyState icon={<IconCalendar />} title="Sin eventos" description="No hay eventos disponibles." />}
+        />
       </div>
     </div>
   );
@@ -93,11 +94,7 @@ function EventPicker({ onPick }: { onPick: (ev: AdminEventSummary) => void }) {
 
 // ── step 2: pick seats / GA quantity + buyer, then issue ─────────────────────
 
-interface IssueState {
-  selectedSeats: string[];
-  gaSectionId: string | null;
-  gaQuantity: number;
-}
+interface IssueState { selectedSeats: string[]; gaSectionId: string | null; gaQuantity: number }
 
 function buildPayload(buyer: { email: string; first_name: string; last_name: string }, s: IssueState): ManualTicketPayload | null {
   const cleanBuyer = {
@@ -105,12 +102,8 @@ function buildPayload(buyer: { email: string; first_name: string; last_name: str
     first_name: buyer.first_name.trim() || undefined,
     last_name: buyer.last_name.trim() || undefined,
   };
-  if (s.gaSectionId && s.gaQuantity > 0) {
-    return { buyer: cleanBuyer, section_id: s.gaSectionId, quantity: s.gaQuantity };
-  }
-  if (s.selectedSeats.length > 0) {
-    return { buyer: cleanBuyer, seat_ids: s.selectedSeats };
-  }
+  if (s.gaSectionId && s.gaQuantity > 0) return { buyer: cleanBuyer, section_id: s.gaSectionId, quantity: s.gaQuantity };
+  if (s.selectedSeats.length > 0) return { buyer: cleanBuyer, seat_ids: s.selectedSeats };
   return null;
 }
 
@@ -135,10 +128,8 @@ function IssueForm({ ev, onBack }: { ev: AdminEventSummary; onBack: () => void }
   useEffect(() => { load(); }, [load]);
 
   function toggleSeat(seatId: string) {
-    // Picking seats clears any GA selection, and vice versa — one mode at a time.
     setState((s) => ({
-      gaSectionId: null,
-      gaQuantity: 1,
+      gaSectionId: null, gaQuantity: 1,
       selectedSeats: s.selectedSeats.includes(seatId)
         ? s.selectedSeats.filter((x) => x !== seatId)
         : [...s.selectedSeats, seatId],
@@ -174,62 +165,43 @@ function IssueForm({ ev, onBack }: { ev: AdminEventSummary; onBack: () => void }
 
   return (
     <div data-testid="issue-form">
-      <button type="button" className="text-[#00e5ff] underline text-sm" onClick={onBack}>← Otro evento</button>
-      <h2 className={ui.h2}>2 · {ev.name}</h2>
-      <p className={ui.muted}>{fmtDate(ev.starts_at)}{ev.venue_name ? ` · ${ev.venue_name}` : ''}</p>
+      <button type="button" className="rg-link" onClick={onBack} style={{ marginBottom: 10, display: 'inline-block' }}>← Otro evento</button>
+      <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 2px' }}>2 · {ev.name}</h3>
+      <p className="rg-cell-sub" style={{ marginBottom: 14 }}>{fmtDate(ev.starts_at)}{ev.venue_name ? ` · ${ev.venue_name}` : ''}</p>
 
       {loadError && <Feedback kind="error">{loadError}</Feedback>}
 
       {event && event.sections.map((section) => (
         isGeneralAdmission(section) ? (
-          <section key={section.id} className={ui.card} data-section-id={section.id} data-section-kind="general">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h3 className={ui.h3} style={{ marginTop: 0 }}>{section.name} <span className="text-[var(--color-text-faint)] text-sm">· general</span></h3>
-              <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <input
-                  type="radio"
-                  name="ga-section"
-                  data-testid={`ga-pick-${section.id}`}
-                  checked={state.gaSectionId === section.id}
-                  onChange={() => pickGaSection(section.id)}
-                />
+          <section key={section.id} className="rg-card" style={{ marginBottom: 14 }} data-section-id={section.id} data-section-kind="general">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0 }}>{section.name} <span className="rg-cell-sub">· general</span></h3>
+              <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+                <input type="radio" name="ga-section" data-testid={`ga-pick-${section.id}`}
+                  checked={state.gaSectionId === section.id} onChange={() => pickGaSection(section.id)} />
                 Entradas generales
               </label>
             </div>
             {state.gaSectionId === section.id && (
-              <div className="mt-3 flex items-center gap-2">
-                <label className={ui.label} htmlFor={`ga-qty-${section.id}`} style={{ marginTop: 0 }}>Cantidad</label>
-                <input
-                  id={`ga-qty-${section.id}`}
-                  data-testid="ga-quantity"
-                  type="number"
-                  min={1}
-                  value={state.gaQuantity}
-                  onChange={(e) => setState((s) => ({ ...s, gaQuantity: Math.max(1, Number(e.target.value) || 1) }))}
-                  style={{ ...searchStyle, width: '90px', minWidth: '90px', flex: '0 0 auto' }}
-                />
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label className="rg-label" htmlFor={`ga-qty-${section.id}`} style={{ margin: 0 }}>Cantidad</label>
+                <input id={`ga-qty-${section.id}`} data-testid="ga-quantity" type="number" min={1} className="rg-input"
+                  style={{ width: 90 }} value={state.gaQuantity}
+                  onChange={(e) => setState((s) => ({ ...s, gaQuantity: Math.max(1, Number(e.target.value) || 1) }))} />
               </div>
             )}
           </section>
         ) : (
-          <section key={section.id} className={ui.card} data-section-id={section.id} data-section-kind="reserved">
-            <h3 className={ui.h3} style={{ marginTop: 0 }}>{section.name}</h3>
-            <div className="flex flex-wrap gap-2 mt-2">
+          <section key={section.id} className="rg-card" style={{ marginBottom: 14 }} data-section-id={section.id} data-section-kind="reserved">
+            <h3 style={{ marginTop: 0 }}>{section.name}</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
               {section.seats.map((seat) => {
                 const isSel = state.selectedSeats.includes(seat.id);
                 const available = seat.status === 'available';
                 return (
-                  <button
-                    key={seat.id}
-                    type="button"
-                    className={ui.seat}
-                    data-seat-id={seat.id}
-                    data-status={seat.status}
-                    data-selected={isSel}
-                    disabled={!available}
-                    aria-pressed={isSel}
-                    onClick={() => toggleSeat(seat.id)}
-                  >
+                  <button key={seat.id} type="button" className="rg-issue-seat"
+                    data-seat-id={seat.id} data-status={seat.status} data-selected={isSel}
+                    disabled={!available} aria-pressed={isSel} onClick={() => toggleSeat(seat.id)}>
                     {seat.label || seat.number}
                   </button>
                 );
@@ -239,47 +211,44 @@ function IssueForm({ ev, onBack }: { ev: AdminEventSummary; onBack: () => void }
         )
       ))}
 
-      {/* Selection summary + buyer + submit */}
-      <form className={ui.card} onSubmit={issue}>
-        <p data-testid="issue-selection" className="text-[var(--color-gold)] font-semibold">
+      <form className="rg-card" onSubmit={issue}>
+        <p data-testid="issue-selection" style={{ fontWeight: 600, marginBottom: 12, color: 'var(--accent)' }}>
           {state.gaSectionId
             ? `${state.gaQuantity} entrada(s) general(es)`
             : `${state.selectedSeats.length} asiento(s) seleccionado(s)`}
         </p>
 
-        <label className={ui.label} htmlFor="issue-email">Email del invitado</label>
-        <input id="issue-email" type="email" className={ui.input} value={email} onChange={(e) => setEmail(e.target.value)} required />
-
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[160px]">
-            <label className={ui.label} htmlFor="issue-first">Nombre</label>
-            <input id="issue-first" className={ui.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        <div className="rg-field">
+          <label className="rg-label" htmlFor="issue-email">Email del invitado</label>
+          <input id="issue-email" type="email" className="rg-input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="rg-form-grid">
+          <div className="rg-field">
+            <label className="rg-label" htmlFor="issue-first">Nombre</label>
+            <input id="issue-first" className="rg-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           </div>
-          <div className="flex-1 min-w-[160px]">
-            <label className={ui.label} htmlFor="issue-last">Apellido</label>
-            <input id="issue-last" className={ui.input} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <div className="rg-field">
+            <label className="rg-label" htmlFor="issue-last">Apellido</label>
+            <input id="issue-last" className="rg-input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
         </div>
 
         {error && <Feedback kind="error">{error}</Feedback>}
 
-        <div>
-          <button type="submit" data-testid="issue-submit" className={ui.btn} disabled={!canSubmit}>
-            {working ? 'Emitiendo...' : 'Emitir entradas'}
-          </button>
-        </div>
+        <Button variant="primary" type="submit" data-testid="issue-submit" disabled={!canSubmit}>
+          <IconSend /> {working ? 'Emitiendo…' : 'Emitir entradas'}
+        </Button>
       </form>
 
       {issued && (
-        <div className={ui.card} data-testid="issued">
+        <div className="rg-card" data-testid="issued" style={{ marginTop: 14 }}>
           <Feedback kind="ok">{issued.tickets.length} entrada(s) emitida(s) para {issued.buyer_email}.</Feedback>
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {issued.tickets.map((t) => (
-              <li key={t.id} data-testid="issued-ticket" className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-white/5">
-                <span className="font-mono text-sm">{t.code || t.public_token}</span>
-                {t.public_token && (
-                  <Link href={`/t?token=${t.public_token}`} className="text-[#00e5ff] underline text-sm">Ver entrada</Link>
-                )}
+              <li key={t.id} data-testid="issued-ticket"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--neutral-bg)' }}>
+                <CopyId value={t.code || t.public_token} label="código" />
+                {t.public_token && <Link href={`/t?token=${t.public_token}`} className="rg-link">Ver entrada</Link>}
               </li>
             ))}
           </ul>
@@ -291,17 +260,21 @@ function IssueForm({ ev, onBack }: { ev: AdminEventSummary; onBack: () => void }
 
 // ── panel root ───────────────────────────────────────────────────────────────
 
-export default function IssuePanel() {
+export default function IssuePanel({ query }: { query: string }) {
   const [picked, setPicked] = useState<AdminEventSummary | null>(null);
 
   return (
     <div>
-      <h1 className={ui.h1}>Emitir entradas</h1>
-      <p className={ui.muted}>Genera entradas sin cobro (cortesía / venta manual). Elige un evento, luego asientos o entradas generales.</p>
+      <div className="rg-page-head">
+        <div>
+          <h1>Emitir entradas</h1>
+          <p>Genera entradas sin cobro (cortesía / venta manual).</p>
+        </div>
+      </div>
 
       {picked
         ? <IssueForm ev={picked} onBack={() => setPicked(null)} />
-        : <EventPicker onPick={setPicked} />}
+        : <EventPicker query={query} onPick={setPicked} />}
     </div>
   );
 }

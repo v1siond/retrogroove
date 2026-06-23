@@ -1,44 +1,83 @@
 'use client';
 
-// Admin dashboard shell: a persistent nav across every resource — Events,
-// Orders, Tickets, Songs, Setlists, and manual ticket issuance — so staff can
-// list and act on everything globally, not only by drilling into one event.
-// Each resource is a self-contained panel; the shell owns the active tab and the
-// chrome (login is handled by the AdminGate wrapping this page).
+// Operations console shell: a fixed dark left sidebar for resource navigation +
+// a light content area with a top bar. Each resource is a self-contained panel
+// that owns its toolbar, data table, and detail drawer. The shell owns the
+// active resource, the global search term (passed to the active panel), and the
+// chrome. Login is handled by AdminGate wrapping the page.
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import { clearToken } from '@/lib/ticketing/admin';
+import './console.css';
+import {
+  IconCalendar, IconReceipt, IconTicket, IconMusic, IconList, IconTag,
+  IconSend, IconLogout, IconMenu, IconSearch, IconX,
+} from './console/ui';
 import EventsPanel from './panels/EventsPanel';
 import OrdersPanel from './panels/OrdersPanel';
 import TicketsPanel from './panels/TicketsPanel';
 import SongsPanel from './panels/SongsPanel';
 import SetlistsPanel from './panels/SetlistsPanel';
+import PromosPanel from './panels/PromosPanel';
 import IssuePanel from './panels/IssuePanel';
 
-type Resource = 'events' | 'orders' | 'tickets' | 'issue' | 'songs' | 'setlists';
+type Resource = 'events' | 'orders' | 'tickets' | 'songs' | 'setlists' | 'promos' | 'issue';
 
-const TABS: { key: Resource; label: string }[] = [
-  { key: 'events', label: 'Eventos' },
-  { key: 'orders', label: 'Órdenes' },
-  { key: 'tickets', label: 'Entradas' },
-  { key: 'issue', label: 'Emitir' },
-  { key: 'songs', label: 'Canciones' },
-  { key: 'setlists', label: 'Setlists' },
+interface PanelProps { query: string }
+
+interface NavEntry {
+  key: Resource;
+  label: string;
+  icon: React.ComponentType;
+  Panel: React.ComponentType<PanelProps>;
+}
+
+// Order matches the spec's sidebar: resources, then a divider, then Emitir.
+const PRIMARY: NavEntry[] = [
+  { key: 'events', label: 'Eventos', icon: IconCalendar, Panel: EventsPanel },
+  { key: 'orders', label: 'Órdenes', icon: IconReceipt, Panel: OrdersPanel },
+  { key: 'tickets', label: 'Entradas', icon: IconTicket, Panel: TicketsPanel },
+  { key: 'songs', label: 'Canciones', icon: IconMusic, Panel: SongsPanel },
+  { key: 'setlists', label: 'Setlists', icon: IconList, Panel: SetlistsPanel },
+  { key: 'promos', label: 'Códigos', icon: IconTag, Panel: PromosPanel },
 ];
 
-const PANELS: Record<Resource, React.ComponentType> = {
-  events: EventsPanel,
-  orders: OrdersPanel,
-  tickets: TicketsPanel,
-  issue: IssuePanel,
-  songs: SongsPanel,
-  setlists: SetlistsPanel,
+const SECONDARY: NavEntry[] = [
+  { key: 'issue', label: 'Emitir entradas', icon: IconSend, Panel: IssuePanel },
+];
+
+const ALL = [...PRIMARY, ...SECONDARY];
+const TITLES: Record<Resource, string> = {
+  events: 'Eventos', orders: 'Órdenes', tickets: 'Entradas', songs: 'Canciones',
+  setlists: 'Setlists', promos: 'Códigos promocionales', issue: 'Emitir entradas',
 };
+
+function NavButton({ entry, active, onClick }: { entry: NavEntry; active: boolean; onClick: () => void }) {
+  const Icon = entry.icon;
+  return (
+    <button type="button" className="rg-nav-item" data-testid={`nav-${entry.key}`}
+      data-active={active} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <Icon />
+      {entry.label}
+    </button>
+  );
+}
 
 export default function Dashboard() {
   const [active, setActive] = useState<Resource>('events');
-  const Panel = PANELS[active];
+  const [query, setQuery] = useState('');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const entry = ALL.find((e) => e.key === active)!;
+  const Panel = entry.Panel;
+
+  function go(key: Resource) {
+    setActive(key);
+    setQuery('');
+    setMobileOpen(false);
+  }
 
   function logout() {
     clearToken();
@@ -46,71 +85,63 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      {/* Top bar */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 40,
-        background: 'rgba(8,2,14,.85)', backdropFilter: 'blur(14px)',
-        borderBottom: '1px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <Link href="/" style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', letterSpacing: '0.08em', textDecoration: 'none', color: 'var(--color-text)', textShadow: '0 0 10px rgba(255,20,147,.4)' }}>
-            RETROGROOVE
+    <div className={`rg-console ${GeistSans.variable} ${GeistMono.variable}`}>
+      <div className="rg-shell">
+        {/* Mobile backdrop */}
+        <div className="rg-mobile-backdrop" data-open={mobileOpen} onClick={() => setMobileOpen(false)} aria-hidden />
+
+        {/* Sidebar */}
+        <nav className="rg-sidebar" data-open={mobileOpen} data-testid="admin-nav" aria-label="Recursos">
+          <Link href="/" className="rg-wordmark">
+            <span className="rg-wordmark-dot">R</span>
+            RetroGroove
           </Link>
-          <span style={{ fontSize: '0.66rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-cyan)', fontWeight: 600 }}>Admin</span>
 
-          <div style={{ flex: 1 }} />
+          <div className="rg-nav">
+            {PRIMARY.map((e) => (
+              <NavButton key={e.key} entry={e} active={active === e.key} onClick={() => go(e.key)} />
+            ))}
 
-          <button
-            type="button"
-            data-testid="admin-logout"
-            onClick={logout}
-            style={{ padding: '7px 16px', borderRadius: 'var(--radius-pill)', cursor: 'pointer', background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-faint)', fontSize: '0.8rem' }}
-          >
+            <div className="rg-nav-section">Operaciones</div>
+            {SECONDARY.map((e) => (
+              <NavButton key={e.key} entry={e} active={active === e.key} onClick={() => go(e.key)} />
+            ))}
+          </div>
+
+          <div className="rg-nav-spacer" />
+          <button type="button" className="rg-nav-item" data-testid="admin-logout" onClick={logout}>
+            <IconLogout />
             Salir
           </button>
-        </div>
-
-        {/* Primary nav — its own row so tabs have room and the active pill reads
-            clearly even on narrow screens (horizontal scroll on overflow). */}
-        <nav
-          data-testid="admin-nav"
-          aria-label="Secciones del panel"
-          style={{
-            maxWidth: '72rem', margin: '0 auto',
-            padding: '0 20px 10px', display: 'flex', gap: '6px',
-            overflowX: 'auto', scrollbarWidth: 'none',
-          }}
-        >
-          {TABS.map((t) => {
-            const isActive = active === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                data-testid={`nav-${t.key}`}
-                data-active={isActive}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => setActive(t.key)}
-                style={{
-                  padding: '8px 18px', borderRadius: 'var(--radius-pill)', cursor: 'pointer',
-                  fontFamily: 'var(--font-display)', fontSize: '1rem', letterSpacing: '0.05em',
-                  whiteSpace: 'nowrap', border: '1px solid', transition: 'all 0.15s',
-                  ...(isActive
-                    ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', color: '#fff', boxShadow: 'var(--shadow-cta)' }
-                    : { background: 'transparent', borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }),
-                }}
-              >
-                {t.label}
-              </button>
-            );
-          })}
         </nav>
-      </header>
 
-      <main style={{ maxWidth: '72rem', margin: '0 auto', padding: '20px' }}>
-        <Panel />
-      </main>
+        {/* Content */}
+        <div className="rg-content">
+          <header className="rg-topbar">
+            <button type="button" className="rg-hamburger" aria-label="Abrir menú"
+              onClick={() => setMobileOpen((o) => !o)}>
+              {mobileOpen ? <IconX /> : <IconMenu />}
+            </button>
+            <span className="rg-topbar-title">{TITLES[active]}</span>
+
+            <div className="rg-topbar-search">
+              <IconSearch />
+              <input type="search" data-testid="global-search" placeholder="Buscar…"
+                value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar" />
+            </div>
+
+            <div className="rg-account">
+              <span className="rg-avatar" aria-hidden>RG</span>
+            </div>
+          </header>
+
+          <main className="rg-main">
+            {/* Remount the panel per resource so its internal state (filters,
+                selected row) resets cleanly when switching. */}
+            <Panel key={active} query={query} />
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

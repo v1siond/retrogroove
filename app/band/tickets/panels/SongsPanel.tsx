@@ -1,56 +1,94 @@
 'use client';
 
-// Songs resource: list, create, edit (inline), delete, and toggle whether a
-// song is enabled in the public request picker.
+// Canciones resource — the public request repertoire. Table (title · artist ·
+// enabled) with search and a create form. Inline edit (drawer), delete, and a
+// quick enabled toggle straight from the row.
 
 import { useEffect, useState, useCallback, FormEvent } from 'react';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
 import type { AdminSong } from '@/lib/ticketing/admin';
-import { Feedback, ConfirmAction, searchStyle } from '../shared';
+import {
+  DataTable, Column, Drawer, Field, FieldList, Toolbar, SearchBox, Button,
+  ConfirmAction, Feedback, EmptyState, ToastStack, useToasts, StatusBadge,
+  IconMusic, IconPlus,
+} from '../console/ui';
 
-function EditRow({ song, onSaved, onCancel }: { song: AdminSong; onSaved: (s: AdminSong) => void; onCancel: () => void }) {
+function SongDrawer({
+  song, onSaved, onClose, notify,
+}: {
+  song: AdminSong;
+  onSaved: (s: AdminSong) => void;
+  onClose: () => void;
+  notify: (kind: 'ok' | 'error', msg: string) => void;
+}) {
   const [title, setTitle] = useState(song.title);
   const [artist, setArtist] = useState(song.artist);
+  const [enabled, setEnabled] = useState(song.enabled);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     try {
-      const { song: updated } = await adminApi.updateSong(song.id, { title, artist });
+      const { song: updated } = await adminApi.updateSong(song.id, { title, artist, enabled });
       onSaved(updated);
+      notify('ok', `Canción “${updated.title}” guardada.`);
+      onClose();
     } catch {
-      setError('No se pudo guardar.');
+      notify('error', 'No se pudo guardar.');
       setBusy(false);
     }
   }
 
+  const footer = (
+    <Button variant="primary" type="submit" form="song-edit-form" disabled={busy}>
+      {busy ? 'Guardando…' : 'Guardar'}
+    </Button>
+  );
+
   return (
-    <form onSubmit={save} data-testid={`song-edit-${song.id}`} className="flex items-center gap-2 py-2 flex-wrap">
-      <input aria-label="Título" value={title} onChange={(e) => setTitle(e.target.value)} required style={searchStyle} />
-      <input aria-label="Artista" value={artist} onChange={(e) => setArtist(e.target.value)} required style={searchStyle} />
-      <button type="submit" className={ui.btn} style={{ marginTop: 0, padding: '6px 16px', fontSize: '0.85rem' }} disabled={busy}>Guardar</button>
-      <button type="button" className="underline text-[var(--color-text-muted)] cursor-pointer text-sm" onClick={onCancel}>Cancelar</button>
-      {error && <span className="text-[var(--color-red)] text-xs">{error}</span>}
-    </form>
+    <Drawer open onClose={onClose} testId="song-detail" title={song.title}
+      subtitle={song.artist} footer={footer}>
+      <FieldList>
+        <Field label="ID" copy={song.id} />
+      </FieldList>
+      <form id="song-edit-form" data-testid={`song-edit-${song.id}`} onSubmit={save} style={{ marginTop: 12 }}>
+        <div className="rg-field">
+          <label className="rg-label" htmlFor={`song-title-${song.id}`}>Título</label>
+          <input id={`song-title-${song.id}`} aria-label="Título" className="rg-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </div>
+        <div className="rg-field">
+          <label className="rg-label" htmlFor={`song-artist-${song.id}`}>Artista</label>
+          <input id={`song-artist-${song.id}`} aria-label="Artista" className="rg-input" value={artist} onChange={(e) => setArtist(e.target.value)} required />
+        </div>
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Visible en el repertorio público
+        </label>
+      </form>
+    </Drawer>
   );
 }
 
-export default function SongsPanel() {
+export default function SongsPanel({ query: globalQuery }: { query: string }) {
   const [songs, setSongs] = useState<AdminSong[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [editing, setEditing] = useState<string | null>(null);
+  const [localQuery, setLocalQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-
-  // New-song form.
+  const [selected, setSelected] = useState<AdminSong | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newArtist, setNewArtist] = useState('');
   const [creating, setCreating] = useState(false);
+  const { toasts, push, dismiss } = useToasts();
+
+  const query = globalQuery || localQuery;
+
+  const notify = useCallback((kind: 'ok' | 'error', msg: string) => {
+    push(kind, msg);
+    if (kind === 'ok') { setNotice(msg); setError(null); }
+    else { setError(msg); setNotice(null); }
+  }, [push]);
 
   const load = useCallback(() => {
     setError(null);
@@ -68,16 +106,14 @@ export default function SongsPanel() {
   async function create(e: FormEvent) {
     e.preventDefault();
     setCreating(true);
-    setError(null);
-    setNotice(null);
     try {
       const { song } = await adminApi.createSong({ title: newTitle, artist: newArtist, enabled: true });
       setSongs((cur) => (cur ? [...cur, song] : [song]));
       setNewTitle('');
       setNewArtist('');
-      setNotice(`Canción “${song.title}” añadida.`);
+      notify('ok', `Canción “${song.title}” añadida.`);
     } catch {
-      setError('No se pudo crear la canción.');
+      notify('error', 'No se pudo crear la canción.');
     } finally {
       setCreating(false);
     }
@@ -85,12 +121,11 @@ export default function SongsPanel() {
 
   async function toggle(song: AdminSong) {
     setBusy(song.id);
-    setError(null);
     try {
       const { song: updated } = await adminApi.updateSong(song.id, { enabled: !song.enabled });
       setSongs((cur) => (cur ? cur.map((s) => (s.id === song.id ? updated : s)) : cur));
     } catch {
-      setError('No se pudo actualizar la canción.');
+      notify('error', 'No se pudo actualizar la canción.');
     } finally {
       setBusy(null);
     }
@@ -98,14 +133,12 @@ export default function SongsPanel() {
 
   async function remove(song: AdminSong) {
     setBusy(song.id);
-    setError(null);
-    setNotice(null);
     try {
       await adminApi.deleteSong(song.id);
       setSongs((cur) => (cur ? cur.filter((s) => s.id !== song.id) : cur));
-      setNotice(`Canción “${song.title}” eliminada.`);
+      notify('ok', `Canción “${song.title}” eliminada.`);
     } catch {
-      setError('No se pudo eliminar la canción.');
+      notify('error', 'No se pudo eliminar la canción.');
     } finally {
       setBusy(null);
     }
@@ -114,71 +147,73 @@ export default function SongsPanel() {
   const filtered = (songs || []).filter((s) =>
     !query || `${s.title} ${s.artist}`.toLowerCase().includes(query.toLowerCase()));
 
+  const columns: Column<AdminSong>[] = [
+    { key: 'title', header: 'Título', render: (s) => <span className="rg-cell-primary">{s.title}</span> },
+    { key: 'artist', header: 'Artista', render: (s) => s.artist },
+    { key: 'enabled', header: 'Estado', render: (s) => <StatusBadge status={s.enabled ? 'published' : 'draft'} /> },
+    { key: 'actions', header: '', align: 'right', render: (s) => (
+      <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="rg-btn rg-btn-secondary rg-btn-sm" data-testid={`toggle-song-${s.id}`}
+          onClick={() => toggle(s)} disabled={busy === s.id}
+          style={s.enabled ? { color: 'var(--ok-fg)', borderColor: '#bbf7d0' } : undefined}>
+          {s.enabled ? 'Activa' : 'Oculta'}
+        </button>
+        <button type="button" className="rg-link" data-testid={`edit-song-${s.id}`} onClick={() => setSelected(s)}>Editar</button>
+        <ConfirmAction testId={`delete-song-${s.id}`} label="Eliminar" confirmLabel="Sí" prompt="¿Eliminar?"
+          busy={busy === s.id} onConfirm={() => remove(s)} />
+      </div>
+    ) },
+  ];
+
   return (
     <div>
-      <h1 className={ui.h1}>Canciones</h1>
-      <p className={ui.muted}>El repertorio que ven los fans al pedir canciones.</p>
+      <div className="rg-page-head">
+        <div>
+          <h1>Canciones</h1>
+          <p>El repertorio que ven los fans al pedir canciones.</p>
+        </div>
+      </div>
 
       {error && <Feedback kind="error">{error}</Feedback>}
       {notice && <Feedback kind="ok">{notice}</Feedback>}
 
-      {/* Create */}
-      <form className={ui.card} onSubmit={create} data-testid="create-song-form">
-        <h2 className={ui.h2}>Añadir canción</h2>
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex-1 min-w-[180px]">
-            <label className={ui.label} htmlFor="song-title">Título</label>
-            <input id="song-title" className={ui.input} value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
+      <div className="rg-card" style={{ marginBottom: 14 }}>
+        <h3>Añadir canción</h3>
+        <form onSubmit={create} data-testid="create-song-form" className="rg-form-row">
+          <div className="rg-field" style={{ flex: '1 1 200px', marginBottom: 0 }}>
+            <label className="rg-label" htmlFor="song-title">Título</label>
+            <input id="song-title" aria-label="Título" className="rg-input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className={ui.label} htmlFor="song-artist">Artista</label>
-            <input id="song-artist" className={ui.input} value={newArtist} onChange={(e) => setNewArtist(e.target.value)} required />
+          <div className="rg-field" style={{ flex: '1 1 200px', marginBottom: 0 }}>
+            <label className="rg-label" htmlFor="song-artist">Artista</label>
+            <input id="song-artist" aria-label="Artista" className="rg-input" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} required />
           </div>
-          <button type="submit" className={ui.btn} disabled={creating}>{creating ? 'Añadiendo...' : 'Añadir'}</button>
-        </div>
-      </form>
-
-      {/* Filter */}
-      <div className={`${ui.card} flex gap-3 items-center flex-wrap`}>
-        <input data-testid="song-search" placeholder="Buscar canción o artista…" value={query} onChange={(e) => setQuery(e.target.value)} style={searchStyle} />
+          <Button variant="primary" type="submit" disabled={creating}><IconPlus /> {creating ? 'Añadiendo…' : 'Añadir'}</Button>
+        </form>
       </div>
 
-      {/* List */}
-      <div className={ui.card} data-testid="songs-list">
-        {songs === null ? (
-          <p className="text-[var(--color-text-muted)]">Cargando canciones...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay canciones.</p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {filtered.map((song) => (
-              <div key={song.id} data-testid="song-row" className="border-b border-[var(--color-border)] last:border-0">
-                {editing === song.id ? (
-                  <EditRow song={song} onSaved={(s) => { setSongs((cur) => cur ? cur.map((x) => x.id === s.id ? s : x) : cur); setEditing(null); }} onCancel={() => setEditing(null)} />
-                ) : (
-                  <div className="flex items-center justify-between gap-3 py-2.5 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="text-sm">{song.title}</div>
-                      <div className="text-xs text-[var(--color-text-muted)]">{song.artist}</div>
-                    </div>
-                    <div className="flex items-center gap-2 whitespace-nowrap flex-wrap justify-end">
-                      <button type="button" data-testid={`toggle-song-${song.id}`} onClick={() => toggle(song)} disabled={busy === song.id}
-                        style={{ background: 'none', border: `1px solid ${song.enabled ? 'var(--color-green)' : 'var(--color-border)'}`,
-                          color: song.enabled ? 'var(--color-green)' : 'var(--color-text-muted)', borderRadius: 'var(--radius-pill)',
-                          padding: '4px 12px', fontSize: '0.72rem', cursor: 'pointer' }}>
-                        {song.enabled ? 'Activa' : 'Oculta'}
-                      </button>
-                      <button type="button" data-testid={`edit-song-${song.id}`} onClick={() => setEditing(song.id)}
-                        className="text-[#00e5ff] underline text-sm cursor-pointer">Editar</button>
-                      <ConfirmAction testId={`delete-song-${song.id}`} label="Eliminar" confirmLabel="Sí" prompt="¿Eliminar?" busy={busy === song.id} onConfirm={() => remove(song)} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+      <Toolbar>
+        <SearchBox testId="song-search" placeholder="Buscar canción…" value={localQuery} onChange={setLocalQuery} />
+      </Toolbar>
+
+      <div data-testid="songs-list">
+        <DataTable
+          columns={columns}
+          rows={songs === null ? null : filtered}
+          rowKey={(s) => s.id}
+          rowTestId="song-row"
+          onRowClick={setSelected}
+          empty={<EmptyState icon={<IconMusic />} title="Sin canciones"
+            description="Añade canciones para que aparezcan en el repertorio público." />}
+        />
       </div>
+
+      {selected && (
+        <SongDrawer song={selected} notify={notify} onClose={() => setSelected(null)}
+          onSaved={(s) => setSongs((cur) => (cur ? cur.map((x) => (x.id === s.id ? s : x)) : cur))} />
+      )}
+
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

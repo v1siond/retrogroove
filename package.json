@@ -13,6 +13,7 @@
     "demo": "bash e2e/demo/run.sh"
   },
   "dependencies": {
+    "geist": "^1.7.2",
     "nanoid": "^3.3.7",
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",

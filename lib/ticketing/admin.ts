@@ -126,6 +126,24 @@ export interface AdminPromoCode {
   active: boolean;
 }
 
+// Event-wide sales phases (early-bird → regular → etc.). Fields match the
+// LayoutController contract; optional ones are tolerated for forward-compat.
+export interface AdminPhase {
+  id: string;
+  name: string;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  active?: boolean;
+}
+
+// Quantity → price tiers attached to a section.
+export interface AdminPriceBundle {
+  id: string;
+  quantity: number;
+  price: string;
+  section_id?: string | null;
+}
+
 export const adminApi = {
   login(email: string, password: string): Promise<{ token: string; user: AdminUser }> {
     return authed('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
@@ -218,6 +236,59 @@ export const adminApi = {
 
   deletePromo(id: string): Promise<void> {
     return authed(`/promo-codes/${id}`, { method: 'DELETE' });
+  },
+
+  // ── Phases (per event) ───────────────────────────────────────────────────
+  listPhases(eventId: string): Promise<{ phases: AdminPhase[] }> {
+    return authed(`/events/${eventId}/phases`);
+  },
+
+  // PUT/DELETE return the LayoutController `{data}` envelope.
+  updatePhase(id: string, attrs: Record<string, unknown>): Promise<{ data: AdminPhase }> {
+    return authed(`/phases/${id}`, { method: 'PUT', body: JSON.stringify({ phase: attrs }) });
+  },
+
+  deletePhase(id: string): Promise<void> {
+    return authed(`/phases/${id}`, { method: 'DELETE' });
+  },
+
+  // ── Price bundles (per event) ────────────────────────────────────────────
+  listBundles(eventId: string): Promise<{ price_bundles: AdminPriceBundle[] }> {
+    return authed(`/events/${eventId}/price-bundles`);
+  },
+
+  updateBundle(id: string, attrs: Record<string, unknown>): Promise<{ data: AdminPriceBundle }> {
+    return authed(`/price-bundles/${id}`, { method: 'PUT', body: JSON.stringify({ price_bundle: attrs }) });
+  },
+
+  deleteBundle(id: string): Promise<void> {
+    return authed(`/price-bundles/${id}`, { method: 'DELETE' });
+  },
+
+  // ── Layout (sections / tables / seats) ───────────────────────────────────
+  // DELETE returns 409 when the section/table/seat has sold tickets.
+  updateSection(id: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
+    return authed(`/sections/${id}`, { method: 'PUT', body: JSON.stringify({ section: attrs }) });
+  },
+
+  deleteSection(id: string): Promise<void> {
+    return authed(`/sections/${id}`, { method: 'DELETE' });
+  },
+
+  updateTable(id: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
+    return authed(`/tables/${id}`, { method: 'PUT', body: JSON.stringify({ table: attrs }) });
+  },
+
+  deleteTable(id: string): Promise<void> {
+    return authed(`/tables/${id}`, { method: 'DELETE' });
+  },
+
+  updateSeat(id: string, attrs: Record<string, unknown>): Promise<{ data: { id: string } }> {
+    return authed(`/seats/${id}`, { method: 'PUT', body: JSON.stringify({ seat: attrs }) });
+  },
+
+  deleteSeat(id: string): Promise<void> {
+    return authed(`/seats/${id}`, { method: 'DELETE' });
   },
 
   updateEvent(id: string, attrs: Record<string, unknown>): Promise<{ event: TicketEvent }> {

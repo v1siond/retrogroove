@@ -1,36 +1,114 @@
 'use client';
 
-// Orders resource: a GLOBAL list of every order across all events. Filter by
-// status, search by buyer, expand a row for detail, and cancel a paid/pending
-// order (with confirm). Comp orders are issued from the event flow — linked here.
+// Órdenes resource — a GLOBAL table across every event. Filter by status + event,
+// search by buyer/event/ref. Clicking a row opens the detail drawer with every
+// order field plus its tickets; cancel a paid/pending/comp order from there.
+// Comp orders are issued from the Emitir flow (linked).
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
-import type { AdminGlobalOrder } from '@/lib/ticketing/admin';
-import { StatusPill, fmtDate, Feedback, ConfirmAction, selectStyle, searchStyle } from '../shared';
+import type { AdminGlobalOrder, AdminEventSummary } from '@/lib/ticketing/admin';
+import type { Ticket } from '@/lib/ticketing/types';
+import {
+  DataTable, Column, Drawer, Field, FieldList, DrawerSectionTitle, StatusBadge,
+  Toolbar, SearchBox, Select, Button, ConfirmAction, Feedback, EmptyState,
+  ToastStack, useToasts, fmtDate, fmtMoney, IconReceipt,
+} from '../console/ui';
+
+const CANCELLABLE = new Set(['paid', 'pending', 'comp']);
 
 function buyerName(o: AdminGlobalOrder): string {
   const name = [o.buyer_first_name, o.buyer_last_name].filter(Boolean).join(' ').trim();
   return name || o.buyer_email;
 }
 
-// Orders that can still be cancelled.
-const CANCELLABLE = new Set(['paid', 'pending', 'comp']);
+// ── Order detail drawer ──────────────────────────────────────────────────────
 
-export default function OrdersPanel() {
+function OrderDrawer({
+  order, onClose, onCancelled, notify,
+}: {
+  order: AdminGlobalOrder;
+  onClose: () => void;
+  onCancelled: (o: AdminGlobalOrder) => void;
+  notify: (kind: 'ok' | 'error', msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function cancel() {
+    setBusy(true);
+    try {
+      const { order: updated } = await adminApi.cancelOrder(order.id);
+      onCancelled({ ...order, ...updated });
+      notify('ok', `Orden de ${buyerName(order)} cancelada.`);
+    } catch {
+      notify('error', 'No se pudo cancelar la orden.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const footer = CANCELLABLE.has(order.status) ? (
+    <ConfirmAction testId={`cancel-order-${order.id}`} label="Cancelar orden" confirmLabel="Sí, cancelar"
+      prompt="¿Cancelar esta orden?" busy={busy} onConfirm={cancel} />
+  ) : (
+    <span className="rg-cell-sub">Sin acciones disponibles para una orden {order.status}.</span>
+  );
+
+  return (
+    <Drawer open onClose={onClose} testId="order-detail" title={buyerName(order)}
+      subtitle={<><StatusBadge status={order.status} /> · {order.event_name || '—'}</>} footer={footer}>
+      <FieldList>
+        <Field label="ID orden" copy={order.id} />
+        <Field label="Estado"><StatusBadge status={order.status} /></Field>
+        <Field label="Evento">{order.event_name}</Field>
+        <Field label="ID evento" copy={order.event_id} />
+        <Field label="Total" mono>{fmtMoney(order.total)}</Field>
+        <Field label="Entradas" mono>{order.ticket_count}</Field>
+      </FieldList>
+
+      <DrawerSectionTitle>Comprador</DrawerSectionTitle>
+      <FieldList>
+        <Field label="Nombre">{[order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(' ')}</Field>
+        <Field label="Email">{order.buyer_email}</Field>
+      </FieldList>
+
+      <DrawerSectionTitle>Pago</DrawerSectionTitle>
+      <FieldList>
+        <Field label="Referencia" copy={order.payment_ref} />
+        <Field label="Pagada" mono>{fmtDate(order.paid_at)}</Field>
+        <Field label="Creada" mono>{fmtDate(order.inserted_at)}</Field>
+      </FieldList>
+    </Drawer>
+  );
+}
+
+// ── Panel root ───────────────────────────────────────────────────────────────
+
+export default function OrdersPanel({ query: globalQuery }: { query: string }) {
   const [orders, setOrders] = useState<AdminGlobalOrder[] | null>(null);
+  const [events, setEvents] = useState<AdminEventSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
-  const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [eventFilter, setEventFilter] = useState('');
+  const [localQuery, setLocalQuery] = useState('');
+  const [selected, setSelected] = useState<AdminGlobalOrder | null>(null);
+  const { toasts, push, dismiss } = useToasts();
 
-  const load = useCallback((status?: string) => {
+  // Surface action results both as a toast (corporate touch) and as an inline
+  // banner (in-context confirmation / the e2e feedback-ok|error contract).
+  const notify = useCallback((kind: 'ok' | 'error', msg: string) => {
+    push(kind, msg);
+    if (kind === 'ok') { setNotice(msg); setError(null); }
+    else { setError(msg); setNotice(null); }
+  }, [push]);
+
+  const query = globalQuery || localQuery;
+
+  const load = useCallback((filters: { status?: string; event_id?: string }) => {
     setError(null);
-    adminApi.listAllOrders(status ? { status } : {})
+    adminApi.listAllOrders(filters)
       .then((r) => setOrders(r.orders))
       .catch((err) => {
         const s = (err as ApiError)?.status;
@@ -39,22 +117,14 @@ export default function OrdersPanel() {
       });
   }, []);
 
-  useEffect(() => { load(statusFilter || undefined); }, [load, statusFilter]);
+  useEffect(() => {
+    load({ status: statusFilter || undefined, event_id: eventFilter || undefined });
+  }, [load, statusFilter, eventFilter]);
 
-  async function cancel(o: AdminGlobalOrder) {
-    setBusy(o.id);
-    setError(null);
-    setNotice(null);
-    try {
-      const { order } = await adminApi.cancelOrder(o.id);
-      setOrders((cur) => (cur ? cur.map((x) => (x.id === o.id ? { ...x, ...order } : x)) : cur));
-      setNotice(`Orden de ${buyerName(o)} cancelada.`);
-    } catch {
-      setError('No se pudo cancelar la orden.');
-    } finally {
-      setBusy(null);
-    }
-  }
+  // Event options for the filter — best-effort, all events.
+  useEffect(() => {
+    adminApi.listAllEvents('all').then((r) => setEvents(r.events)).catch(() => setEvents([]));
+  }, []);
 
   const filtered = (orders || []).filter((o) => {
     if (!query) return true;
@@ -62,78 +132,72 @@ export default function OrdersPanel() {
     return hay.includes(query.toLowerCase());
   });
 
+  const columns: Column<AdminGlobalOrder>[] = [
+    { key: 'buyer', header: 'Comprador', render: (o) => (
+      <div>
+        <div className="rg-cell-primary">{buyerName(o)}</div>
+        <div className="rg-cell-sub">{o.buyer_email}</div>
+      </div>
+    ) },
+    { key: 'event', header: 'Evento', render: (o) => o.event_name || '—' },
+    { key: 'status', header: 'Estado', render: (o) => <StatusBadge status={o.status} /> },
+    { key: 'tickets', header: 'Entr.', align: 'right', render: (o) => <span className="rg-mono">{o.ticket_count}</span> },
+    { key: 'total', header: 'Total', align: 'right', render: (o) => <span className="rg-mono">{fmtMoney(o.total)}</span> },
+    { key: 'paid', header: 'Pagada', render: (o) => <span className="rg-mono">{o.paid_at ? fmtDate(o.paid_at) : '—'}</span> },
+  ];
+
   return (
     <div>
-      <h1 className={ui.h1}>Órdenes</h1>
-      <p className={ui.muted}>Todas las órdenes de todos los eventos.</p>
+      <div className="rg-page-head">
+        <div>
+          <h1>Órdenes</h1>
+          <p>Todas las órdenes de todos los eventos.</p>
+        </div>
+        <div className="rg-page-head-actions">
+          <Link href="/band/tickets/evento" className="rg-btn rg-btn-primary">Crear comp →</Link>
+        </div>
+      </div>
 
-      <div className={`${ui.card} flex gap-3 items-center flex-wrap`}>
-        <select data-testid="order-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+      <Toolbar>
+        <SearchBox testId="order-search" placeholder="Buscar comprador, evento o referencia…" value={localQuery} onChange={setLocalQuery} />
+        <Select testId="order-status-filter" ariaLabel="Filtrar por estado" value={statusFilter} onChange={setStatusFilter}>
           <option value="">Todos los estados</option>
           <option value="paid">Pagadas</option>
           <option value="pending">Pendientes</option>
           <option value="comp">Comp</option>
           <option value="cancelled">Canceladas</option>
           <option value="expired">Expiradas</option>
-        </select>
-        <input data-testid="order-search" placeholder="Buscar comprador, evento o referencia…" value={query} onChange={(e) => setQuery(e.target.value)} style={searchStyle} />
-      </div>
+        </Select>
+        <Select testId="order-event-filter" ariaLabel="Filtrar por evento" value={eventFilter} onChange={setEventFilter}>
+          <option value="">Todos los eventos</option>
+          {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </Select>
+      </Toolbar>
 
       {error && <Feedback kind="error">{error}</Feedback>}
       {notice && <Feedback kind="ok">{notice}</Feedback>}
 
-      <div className={ui.card} data-testid="orders-list">
-        {orders === null ? (
-          <p className="text-[var(--color-text-muted)]">Cargando órdenes...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay órdenes.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filtered.map((o) => (
-              <div key={o.id} data-testid="order-row" className="py-2.5 border-b border-[var(--color-border)] last:border-0">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <button type="button" className="min-w-0 text-left cursor-pointer flex-1" onClick={() => setExpanded((e) => (e === o.id ? null : o.id))}>
-                    <div className="text-sm">{buyerName(o)}</div>
-                    <div className="text-xs text-[var(--color-text-muted)]">
-                      {o.event_name || '—'} · {o.ticket_count} entrada{o.ticket_count === 1 ? '' : 's'}
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-3 whitespace-nowrap">
-                    <StatusPill status={o.status} />
-                    <span className="font-[Bebas_Neue] text-xl text-[var(--color-gold)]">S/ {o.total}</span>
-                  </div>
-                </div>
-
-                {expanded === o.id && (
-                  <div data-testid="order-detail" className="mt-2 pl-2 border-l-2 border-[var(--color-border)] text-xs text-[var(--color-text-muted)] flex flex-col gap-1">
-                    <div>{o.buyer_email}</div>
-                    <div>{o.paid_at ? `Pagado ${fmtDate(o.paid_at)}` : `Creado ${fmtDate(o.inserted_at)}`}{o.payment_ref ? ` · ${o.payment_ref}` : ''}</div>
-                    <div className="mt-1">
-                      {CANCELLABLE.has(o.status) ? (
-                        <ConfirmAction
-                          testId={`cancel-order-${o.id}`}
-                          label="Cancelar orden"
-                          confirmLabel="Sí, cancelar"
-                          prompt="¿Cancelar esta orden?"
-                          busy={busy === o.id}
-                          onConfirm={() => cancel(o)}
-                        />
-                      ) : (
-                        <span className="text-[var(--color-text-faint)]">Sin acciones disponibles.</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+      <div data-testid="orders-list">
+        <DataTable
+          columns={columns}
+          rows={orders === null ? null : filtered}
+          rowKey={(o) => o.id}
+          rowTestId="order-row"
+          onRowClick={setSelected}
+          empty={<EmptyState icon={<IconReceipt />} title="Sin órdenes"
+            description="No hay órdenes que coincidan con los filtros." />}
+        />
       </div>
 
-      <p className={ui.muted}>
-        ¿Necesitas regalar entradas? Emite una orden comp desde un evento:{' '}
-        <Link href="/band/tickets/evento" className="text-[#00e5ff] underline">elige el evento →</Link>
-      </p>
+      {selected && (
+        <OrderDrawer order={selected} notify={notify} onClose={() => setSelected(null)}
+          onCancelled={(o) => {
+            setOrders((cur) => (cur ? cur.map((x) => (x.id === o.id ? o : x)) : cur));
+            setSelected(o);
+          }} />
+      )}
+
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

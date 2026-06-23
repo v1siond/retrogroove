@@ -1,28 +1,95 @@
 'use client';
 
-// Tickets resource: a GLOBAL list of every ticket across all events. Filter by
-// status, search by buyer/code, and act on a ticket — check in, undo check-in,
-// or void it (each with a confirm). For fast door scanning, the dedicated
-// check-in screen is linked at the top.
+// Entradas resource — a GLOBAL table across every event. Filter by status +
+// event, search by code/buyer/event. Inline row actions for the common door
+// operations (check-in / undo / void); clicking the row opens a drawer with
+// every ticket field and the same actions. The dedicated door-control screen is
+// linked for fast scanning.
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
-import { ui } from '@/lib/ticketing/ui';
-import type { AdminTicket } from '@/lib/ticketing/admin';
-import { StatusPill, fmtDate, Feedback, ConfirmAction, selectStyle, searchStyle } from '../shared';
+import type { AdminTicket, AdminEventSummary } from '@/lib/ticketing/admin';
+import {
+  DataTable, Column, Drawer, Field, FieldList, DrawerSectionTitle, StatusBadge,
+  Toolbar, SearchBox, Select, Button, ConfirmAction, Feedback, EmptyState,
+  ToastStack, useToasts, fmtDate, IconTicket,
+} from '../console/ui';
 
-export default function TicketsPanel() {
+type TicketPatch = { status?: string; checked_in_at?: string | null };
+
+function TicketDrawer({
+  ticket, busy, onClose, onCheckIn, onUndo, onVoid,
+}: {
+  ticket: AdminTicket;
+  busy: boolean;
+  onClose: () => void;
+  onCheckIn: () => void;
+  onUndo: () => void;
+  onVoid: () => void;
+}) {
+  const footer = (
+    <>
+      {ticket.status === 'valid' && (
+        <Button variant="primary" data-testid={`drawer-check-in-${ticket.code}`} disabled={busy} onClick={onCheckIn}>Check-in</Button>
+      )}
+      {ticket.status === 'used' && (
+        <ConfirmAction testId={`drawer-undo-${ticket.code}`} label="Deshacer check-in" confirmLabel="Sí, deshacer"
+          prompt="¿Deshacer el check-in?" busy={busy} onConfirm={onUndo} />
+      )}
+      {ticket.status !== 'void' && (
+        <ConfirmAction testId={`drawer-void-${ticket.code}`} label="Anular" confirmLabel="Sí, anular"
+          prompt="¿Anular esta entrada?" busy={busy} onConfirm={onVoid} />
+      )}
+    </>
+  );
+
+  return (
+    <Drawer open onClose={onClose} testId="ticket-detail" title={ticket.code}
+      subtitle={<><StatusBadge status={ticket.status} /> · {ticket.event_name || '—'}</>} footer={footer}>
+      <FieldList>
+        <Field label="Código" copy={ticket.code} />
+        <Field label="Token" copy={ticket.public_token} />
+        <Field label="Estado"><StatusBadge status={ticket.status} /></Field>
+        <Field label="Evento">{ticket.event_name}</Field>
+        <Field label="Asiento">{ticket.seat_label || 'General'}</Field>
+        <Field label="Comprador">{ticket.buyer_email}</Field>
+        <Field label="Check-in" mono>{fmtDate(ticket.checked_in_at)}</Field>
+      </FieldList>
+
+      <DrawerSectionTitle>Enlace</DrawerSectionTitle>
+      <FieldList>
+        <Field label="Ver entrada">
+          {ticket.public_token ? <Link href={`/t?token=${ticket.public_token}`} className="rg-link">Abrir entrada →</Link> : undefined}
+        </Field>
+      </FieldList>
+    </Drawer>
+  );
+}
+
+export default function TicketsPanel({ query: globalQuery }: { query: string }) {
   const [tickets, setTickets] = useState<AdminTicket[] | null>(null);
+  const [events, setEvents] = useState<AdminEventSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
-  const [query, setQuery] = useState('');
+  const [eventFilter, setEventFilter] = useState('');
+  const [localQuery, setLocalQuery] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminTicket | null>(null);
+  const { toasts, push, dismiss } = useToasts();
 
-  const load = useCallback((status?: string) => {
+  const query = globalQuery || localQuery;
+
+  const notify = useCallback((kind: 'ok' | 'error', msg: string) => {
+    push(kind, msg);
+    if (kind === 'ok') { setNotice(msg); setError(null); }
+    else { setError(msg); setNotice(null); }
+  }, [push]);
+
+  const load = useCallback((filters: { status?: string; event_id?: string }) => {
     setError(null);
-    adminApi.listAllTickets(status ? { status } : {})
+    adminApi.listAllTickets(filters)
       .then((r) => setTickets(r.tickets))
       .catch((err) => {
         const s = (err as ApiError)?.status;
@@ -31,36 +98,39 @@ export default function TicketsPanel() {
       });
   }, []);
 
-  useEffect(() => { load(statusFilter || undefined); }, [load, statusFilter]);
+  useEffect(() => {
+    load({ status: statusFilter || undefined, event_id: eventFilter || undefined });
+  }, [load, statusFilter, eventFilter]);
 
-  // Actions may return the public Ticket or the AdminTicket shape; both carry the
-  // status/checked_in_at we re-render, so merge only the overlapping fields.
-  type TicketPatch = { status?: string; checked_in_at?: string | null };
+  useEffect(() => {
+    adminApi.listAllEvents('all').then((r) => setEvents(r.events)).catch(() => setEvents([]));
+  }, []);
 
   function applyUpdate(token: string, patch: TicketPatch) {
     setTickets((cur) => (cur ? cur.map((t) => (t.public_token === token
       ? { ...t, status: patch.status ?? t.status, checked_in_at: patch.checked_in_at ?? t.checked_in_at }
       : t)) : cur));
+    setSelected((cur) => (cur && cur.public_token === token
+      ? { ...cur, status: patch.status ?? cur.status, checked_in_at: patch.checked_in_at ?? cur.checked_in_at }
+      : cur));
   }
 
-  async function run(token: string, action: () => Promise<{ ticket: TicketPatch }>, msg: string) {
-    setBusy(token);
-    setError(null);
-    setNotice(null);
+  async function run(t: AdminTicket, action: () => Promise<{ ticket: TicketPatch }>, msg: string) {
+    setBusy(t.public_token);
     try {
       const { ticket } = await action();
-      applyUpdate(token, ticket);
-      setNotice(msg);
+      applyUpdate(t.public_token, ticket);
+      notify('ok', msg);
     } catch {
-      setError('No se pudo completar la acción.');
+      notify('error', 'No se pudo completar la acción.');
     } finally {
       setBusy(null);
     }
   }
 
-  const checkIn = (t: AdminTicket) => run(t.public_token, () => adminApi.checkIn(t.public_token), `Entrada ${t.code} registrada.`);
-  const undo = (t: AdminTicket) => run(t.public_token, () => adminApi.undoCheckIn(t.public_token), `Check-in de ${t.code} deshecho.`);
-  const voidIt = (t: AdminTicket) => run(t.public_token, () => adminApi.voidTicket(t.public_token), `Entrada ${t.code} anulada.`);
+  const checkIn = (t: AdminTicket) => run(t, () => adminApi.checkIn(t.public_token), `Entrada ${t.code} registrada.`);
+  const undo = (t: AdminTicket) => run(t, () => adminApi.undoCheckIn(t.public_token), `Check-in de ${t.code} deshecho.`);
+  const voidIt = (t: AdminTicket) => run(t, () => adminApi.voidTicket(t.public_token), `Entrada ${t.code} anulada.`);
 
   const filtered = (tickets || []).filter((t) => {
     if (!query) return true;
@@ -68,65 +138,81 @@ export default function TicketsPanel() {
     return hay.includes(query.toLowerCase());
   });
 
+  const columns: Column<AdminTicket>[] = [
+    { key: 'code', header: 'Código', render: (t) => <span className="rg-mono rg-cell-primary">{t.code}</span> },
+    { key: 'status', header: 'Estado', render: (t) => <StatusBadge status={t.status} /> },
+    { key: 'event', header: 'Evento', render: (t) => t.event_name || '—' },
+    { key: 'seat', header: 'Asiento', render: (t) => t.seat_label || 'General' },
+    { key: 'buyer', header: 'Comprador', render: (t) => <span className="rg-cell-sub">{t.buyer_email}</span> },
+    { key: 'actions', header: '', align: 'right', render: (t) => (
+      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}
+        onClick={(e) => e.stopPropagation()}>
+        {t.status === 'valid' && (
+          <Button variant="primary" small data-testid={`check-in-${t.code}`} disabled={busy === t.public_token}
+            onClick={() => checkIn(t)}>Check-in</Button>
+        )}
+        {t.status === 'used' && (
+          <ConfirmAction testId={`undo-${t.code}`} label="Deshacer" confirmLabel="Sí" prompt="¿Deshacer?"
+            busy={busy === t.public_token} onConfirm={() => undo(t)} />
+        )}
+        {t.status !== 'void' && (
+          <ConfirmAction testId={`void-${t.code}`} label="Anular" confirmLabel="Sí, anular" prompt="¿Anular?"
+            busy={busy === t.public_token} onConfirm={() => voidIt(t)} />
+        )}
+      </div>
+    ) },
+  ];
+
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className={ui.h1}>Entradas</h1>
-        <Link href="/band/tickets/check-in" className="text-[#00e5ff] underline">Control de puerta →</Link>
+      <div className="rg-page-head">
+        <div>
+          <h1>Entradas</h1>
+          <p>Todas las entradas de todos los eventos.</p>
+        </div>
+        <div className="rg-page-head-actions">
+          <Link href="/band/tickets/check-in" className="rg-btn rg-btn-secondary">Control de puerta →</Link>
+        </div>
       </div>
-      <p className={ui.muted}>Todas las entradas de todos los eventos.</p>
 
-      <div className={`${ui.card} flex gap-3 items-center flex-wrap`}>
-        <select data-testid="ticket-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+      <Toolbar>
+        <SearchBox testId="ticket-search" placeholder="Buscar código, comprador o evento…" value={localQuery} onChange={setLocalQuery} />
+        <Select testId="ticket-status-filter" ariaLabel="Filtrar por estado" value={statusFilter} onChange={setStatusFilter}>
           <option value="">Todos los estados</option>
           <option value="valid">Válidas</option>
           <option value="used">Usadas</option>
           <option value="void">Anuladas</option>
-        </select>
-        <input data-testid="ticket-search" placeholder="Buscar código, comprador o evento…" value={query} onChange={(e) => setQuery(e.target.value)} style={searchStyle} />
-      </div>
+        </Select>
+        <Select testId="ticket-event-filter" ariaLabel="Filtrar por evento" value={eventFilter} onChange={setEventFilter}>
+          <option value="">Todos los eventos</option>
+          {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </Select>
+      </Toolbar>
 
       {error && <Feedback kind="error">{error}</Feedback>}
       {notice && <Feedback kind="ok">{notice}</Feedback>}
 
-      <div className={ui.card} data-testid="tickets-list">
-        {tickets === null ? (
-          <p className="text-[var(--color-text-muted)]">Cargando entradas...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-[var(--color-text-muted)]">No hay entradas.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filtered.map((t) => (
-              <div key={t.public_token} data-testid="ticket-row" className="flex items-center justify-between gap-3 py-2.5 border-b border-[var(--color-border)] last:border-0 flex-wrap">
-                <div className="min-w-0">
-                  <div className="text-sm font-mono">{t.code}</div>
-                  <div className="text-xs text-[var(--color-text-muted)]">
-                    {t.event_name ? `${t.event_name} · ` : ''}{t.seat_label || 'General'} · {t.buyer_email}
-                  </div>
-                  {t.checked_in_at && <div className="text-xs text-[var(--color-text-faint)]">Ingresó {fmtDate(t.checked_in_at)}</div>}
-                </div>
-                <div className="flex items-center gap-2 whitespace-nowrap flex-wrap justify-end">
-                  <StatusPill status={t.status} />
-                  {t.status === 'valid' && (
-                    <button type="button" data-testid={`check-in-${t.code}`} className={ui.btn} style={{ marginTop: 0, padding: '5px 14px', fontSize: '0.78rem' }}
-                      onClick={() => checkIn(t)} disabled={busy === t.public_token}>
-                      Check-in
-                    </button>
-                  )}
-                  {t.status === 'used' && (
-                    <ConfirmAction testId={`undo-${t.code}`} label="Deshacer check-in" confirmLabel="Sí, deshacer"
-                      prompt="¿Deshacer el check-in?" busy={busy === t.public_token} onConfirm={() => undo(t)} />
-                  )}
-                  {t.status !== 'void' && (
-                    <ConfirmAction testId={`void-${t.code}`} label="Anular" confirmLabel="Sí, anular"
-                      prompt="¿Anular esta entrada?" busy={busy === t.public_token} onConfirm={() => voidIt(t)} />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <div data-testid="tickets-list">
+        <DataTable
+          columns={columns}
+          rows={tickets === null ? null : filtered}
+          rowKey={(t) => t.public_token}
+          rowTestId="ticket-row"
+          onRowClick={setSelected}
+          empty={<EmptyState icon={<IconTicket />} title="Sin entradas"
+            description="No hay entradas que coincidan con los filtros." />}
+        />
       </div>
+
+      {selected && (
+        <TicketDrawer ticket={selected} busy={busy === selected.public_token}
+          onClose={() => setSelected(null)}
+          onCheckIn={() => checkIn(selected)}
+          onUndo={() => undo(selected)}
+          onVoid={() => voidIt(selected)} />
+      )}
+
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }
