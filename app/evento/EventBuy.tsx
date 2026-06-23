@@ -110,12 +110,30 @@ function SeatMapCanvas({
     if (interactive) onToggle?.(id);
   };
 
-  return (
+  // On a phone the canvas is squeezed to ~340px, which shrinks both table dots
+  // and dense teatro seats below a tappable size. We give the canvas a minimum
+  // width so it can pan horizontally inside .rg-seatmap-scroll instead of
+  // shrinking — the whole map (and the gaps between seats) scales up. On desktop
+  // the container is far wider than this floor, so width:100% wins and nothing
+  // scrolls. Percent-based seat positions are untouched, so left-to-right
+  // ordering — and the e2e bounding-box checks — hold either way.
+  // Tables need room for the ring + dots; dense teatros scale with seat count.
+  const tableCount = isMesas
+    ? seatedSections.reduce((n, s) => n + s.tables.length, 0)
+    : 0;
+  const minCanvasWidth = isMesas
+    ? Math.min(900, Math.max(440, tableCount * 120))
+    : totalSeated > 60 && !showNums
+      ? Math.min(900, Math.max(460, totalSeated * 6))
+      : 0;
+
+  const canvas = (
     <div
       data-testid={interactive ? 'seat-map' : 'seat-map-preview'}
       style={{
         position: 'relative',
         width: '100%',
+        minWidth: minCanvasWidth ? `${minCanvasWidth}px` : undefined,
         borderRadius: '12px',
         border: '1px solid rgba(255,255,255,.1)',
         overflow: 'hidden',
@@ -365,6 +383,18 @@ function SeatMapCanvas({
           </section>
         );
       })}
+    </div>
+  );
+
+  // Dense maps get a horizontal-scroll shell + a "desliza para ver más" hint so
+  // mobile users know the floor plan pans. Sparse maps render the canvas bare.
+  if (!minCanvasWidth) return canvas;
+  return (
+    <div className="rg-seatmap-scroll" style={{ marginTop: '0' }}>
+      {canvas}
+      <p style={{ fontSize: '0.62rem', color: 'var(--color-text-faint)', textAlign: 'center', margin: '8px 0 0', letterSpacing: '0.08em' }}>
+        ↔ Desliza para ver todo el mapa
+      </p>
     </div>
   );
 }
@@ -677,14 +707,37 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
   }
 
   if (loading) return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <p>Cargando...</p>
-    </main>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
+      <Nav />
+      <div className="rg-gutter" style={{ maxWidth: '1120px', margin: '0 auto', paddingTop: '36px', paddingBottom: '80px' }} aria-busy="true" aria-label="Cargando evento">
+        {/* Branded skeleton that mirrors the F1 layout so the page doesn't jump */}
+        <div className="rg-skeleton" style={{ height: 'clamp(220px, 40vw, 360px)', borderRadius: 'var(--radius-frame)', marginBottom: '28px' }} />
+        <div className="rg-skeleton" style={{ height: '38px', width: '70%', marginBottom: '14px' }} />
+        <div className="rg-skeleton" style={{ height: '20px', width: '45%', marginBottom: '28px' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rg-skeleton" style={{ height: '58px' }} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
   if (!event) return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <p>{error || 'Evento no encontrado'}</p>
-    </main>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
+      <Nav />
+      <main className="rg-gutter" style={{ minHeight: 'calc(100vh - 57px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '16px' }}>
+        <div style={{ fontSize: '2.4rem' }}>🎫</div>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.8rem, 6vw, 2.6rem)', letterSpacing: '0.03em', margin: 0 }}>
+          {error || 'Evento no encontrado'}
+        </h1>
+        <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px' }}>
+          Puede que el enlace haya cambiado o el evento ya no esté disponible.
+        </p>
+        <Link href="/" className="rg-cta" style={{ marginTop: '6px', background: 'var(--color-pink)', color: '#fff', padding: '13px 28px', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-display)', letterSpacing: '0.05em', fontSize: '1.1rem', textDecoration: 'none', boxShadow: 'var(--shadow-cta)' }}>
+          Volver al inicio
+        </Link>
+      </main>
+    </div>
   );
 
   const seatedSections = event.sections.filter((s) => s.layout_type !== 'general');
@@ -743,14 +796,15 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
         <main>
           {/* Hero — neon gradient (no flyer background); the flyer renders as a
               contained poster at the top of the content below. */}
-          <section style={{
+          <section className="rg-gutter" style={{
             position: 'relative',
-            minHeight: 'clamp(440px, 62vh, 720px)',
+            minHeight: 'clamp(380px, 58vh, 720px)',
             background: 'radial-gradient(80% 60% at 20% 0%,rgba(191,0,255,.4),transparent 55%), radial-gradient(70% 60% at 85% 5%,rgba(0,229,255,.32),transparent 55%), radial-gradient(120% 90% at 50% 120%,rgba(255,20,147,.5),transparent 55%), linear-gradient(180deg,#1a0626,#08020e)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
-            padding: '40px 28px 48px',
+            paddingTop: 'clamp(28px, 6vw, 40px)',
+            paddingBottom: 'clamp(32px, 6vw, 48px)',
           }}>
             <div style={{ maxWidth: '1120px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 2 }}>
               {/* Badges */}
@@ -796,15 +850,12 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
             </div>
           </section>
 
-          {/* Two-column content */}
-          <div style={{
+          {/* Two-column content — collapses to one column < 920px (.rg-buy-grid) */}
+          <div className="rg-buy-grid rg-gutter" style={{
             maxWidth: '1120px',
             margin: '0 auto',
-            padding: '36px 28px 80px',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 360px',
-            gap: '34px',
-            alignItems: 'start',
+            paddingTop: '36px',
+            paddingBottom: '80px',
           }}>
             {/* Left column */}
             <div>
@@ -839,7 +890,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               {/* Venue card */}
               <div style={{ marginBottom: '34px' }}>
                 <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>El lugar</p>
-                <div style={{
+                <div className="rg-venue-card" style={{
                   background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-frame)',
@@ -929,7 +980,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                   {event.sections.map((section) => {
                     const bundles = [...section.price_bundles].sort((a, b) => a.quantity - b.quantity);
                     return (
-                      <div key={section.id} data-testid="price-section" style={{
+                      <div key={section.id} data-testid="price-section" className="rg-hover-card" style={{
                         background: 'var(--color-surface)',
                         border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-card)',
@@ -988,9 +1039,9 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               )}
             </div>
 
-            {/* Right column — sticky buy box */}
-            <aside>
-              <div style={{ position: 'sticky', top: '84px' }}>
+            {/* Right column — sticky buy box (static + first on mobile) */}
+            <aside className="rg-buy-aside-first">
+              <div className="rg-buy-aside-sticky" style={{ top: '84px' }}>
                 <div style={{
                   background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
@@ -1040,6 +1091,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                   {/* CTA */}
                   <button
                     type="button"
+                    className="rg-cta"
                     onClick={() => setStep('select')}
                     style={{
                       marginTop: '12px',
@@ -1051,8 +1103,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                       border: 'none',
                       borderRadius: 'var(--radius-pill)',
                       fontFamily: 'var(--font-display)',
-                      fontSize: '1.3rem',
-                      letterSpacing: '0.06em',
+                      fontSize: 'clamp(1.1rem, 4.2vw, 1.3rem)',
+                      letterSpacing: '0.05em',
                       cursor: 'pointer',
                       boxShadow: 'var(--shadow-cta)',
                       textAlign: 'center',
@@ -1100,16 +1152,18 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
 
         <main>
           {/* Context bar */}
-          <div style={{
+          <div className="rg-gutter" style={{
             position: 'sticky',
             top: '57px',
             zIndex: 40,
             background: 'rgba(8,2,14,.72)',
             backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
             borderBottom: '1px solid var(--color-border)',
-            padding: '12px 28px',
+            paddingTop: '12px',
+            paddingBottom: '12px',
           }}>
-            <div style={{ maxWidth: '1120px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '1120px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: 'clamp(10px, 3vw, 18px)', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => setStep('detail')}
@@ -1117,8 +1171,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               >
                 ← Volver
               </button>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.45rem', letterSpacing: '0.05em', lineHeight: 1 }}>{event.name}</span>
-              <span style={{ marginLeft: 'auto', fontSize: '0.84rem', color: 'var(--color-text-muted)' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.2rem, 4.5vw, 1.45rem)', letterSpacing: '0.05em', lineHeight: 1, minWidth: 0 }}>{event.name}</span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                 <span style={{ color: 'var(--color-cyan)', fontWeight: 600, letterSpacing: '0.03em' }}>{formatDate(event.starts_at)}</span>
                 {event.venue_name && <span> · {event.venue_name}</span>}
               </span>
@@ -1126,28 +1180,25 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
           </div>
 
           {error && (
-            <div style={{ maxWidth: '1120px', margin: '16px auto 0', padding: '0 28px' }}>
+            <div className="rg-gutter" style={{ maxWidth: '1120px', margin: '16px auto 0' }}>
               <div role="alert" style={{ background: 'rgba(255,90,110,.08)', border: '1px solid rgba(255,90,110,.3)', borderRadius: 'var(--radius-card)', padding: '12px 16px', color: '#ff5a6e', fontSize: '0.88rem' }}>
                 {error}
               </div>
             </div>
           )}
 
-          <div style={{
+          <div className="rg-buy-grid rg-gutter" style={{
             maxWidth: '1120px',
             margin: '0 auto',
-            padding: '28px 28px 80px',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 360px',
-            gap: '34px',
-            alignItems: 'start',
+            paddingTop: '28px',
+            paddingBottom: '80px',
           }}>
             {/* Left: map card */}
             <div style={{
               background: 'var(--color-surface)',
               border: '1px solid var(--color-border)',
               borderRadius: '16px',
-              padding: '18px 20px',
+              padding: 'clamp(14px, 4vw, 18px) clamp(14px, 4vw, 20px)',
             }}>
               {/* Mapa/Lista toggle + scarcity */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '0' }}>
@@ -1295,9 +1346,9 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               />
             </div>
 
-            {/* Right: sticky order summary */}
+            {/* Right: sticky order summary (after the map on mobile) */}
             <aside>
-              <div style={{ position: 'sticky', top: '118px' }}>
+              <div className="rg-buy-aside-sticky" style={{ top: '118px' }}>
                 <div style={{
                   background: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
@@ -1394,6 +1445,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                   {/* CTA */}
                   <button
                     type="button"
+                    className="rg-cta"
                     disabled={selectedCount === 0 || working}
                     onClick={handleBuy}
                     style={{
@@ -1406,8 +1458,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                       border: 'none',
                       borderRadius: 'var(--radius-pill)',
                       fontFamily: 'var(--font-display)',
-                      fontSize: '1.3rem',
-                      letterSpacing: '0.06em',
+                      fontSize: 'clamp(1.1rem, 4.2vw, 1.3rem)',
+                      letterSpacing: '0.05em',
                       cursor: selectedCount > 0 && !working ? 'pointer' : 'not-allowed',
                       boxShadow: selectedCount > 0 ? 'var(--shadow-cta)' : 'none',
                       textAlign: 'center',
@@ -1457,7 +1509,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
         <main>
           {/* Slim event-context header */}
           <header style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-            <div style={{ maxWidth: '760px', margin: '0 auto', padding: '14px 28px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div className="rg-gutter" style={{ maxWidth: '760px', margin: '0 auto', paddingTop: '14px', paddingBottom: '14px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => setStep('select')}
@@ -1475,7 +1527,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
             </div>
           </header>
 
-          <div style={{ maxWidth: '720px', margin: '0 auto', padding: '34px 28px 64px' }}>
+          <div className="rg-gutter" style={{ maxWidth: '720px', margin: '0 auto', paddingTop: 'clamp(24px, 6vw, 34px)', paddingBottom: '64px' }}>
             {error && (
               <div role="alert" style={{ background: 'rgba(255,90,110,.08)', border: '1px solid rgba(255,90,110,.3)', borderRadius: 'var(--radius-card)', padding: '12px 16px', color: '#ff5a6e', fontSize: '0.88rem', marginBottom: '16px' }}>
                 {error}
@@ -1551,6 +1603,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               {/* Pay button */}
               <button
                 type="button"
+                className="rg-cta"
                 disabled={working}
                 onClick={handlePay}
                 style={{
@@ -1563,8 +1616,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                   border: 'none',
                   borderRadius: 'var(--radius-pill)',
                   fontFamily: 'var(--font-display)',
-                  fontSize: '1.3rem',
-                  letterSpacing: '0.06em',
+                  fontSize: 'clamp(1.05rem, 4vw, 1.3rem)',
+                  letterSpacing: '0.05em',
                   cursor: working ? 'not-allowed' : 'pointer',
                   boxShadow: 'var(--shadow-cta)',
                   textAlign: 'center',
@@ -1617,11 +1670,11 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
     // Still waiting for IPN confirmation (async from Izipay)
     if (polling || order.status !== 'paid') {
       return (
-        <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center', maxWidth: '400px', padding: '32px' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '18px' }}>⏳</div>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', letterSpacing: '0.06em', marginBottom: '8px' }}>CONFIRMANDO PAGO</p>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>Estamos confirmando tu pago con Izipay. Esto solo toma unos segundos...</p>
+        <div style={{ minHeight: '100vh', background: 'radial-gradient(80% 50% at 50% 0%,rgba(255,20,147,.12),transparent 60%), var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', maxWidth: '400px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
+            <div className="rg-spinner" aria-hidden="true" />
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.3rem, 5vw, 1.5rem)', letterSpacing: '0.06em', margin: 0 }}>CONFIRMANDO PAGO</p>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem', margin: 0 }}>Estamos confirmando tu pago con Izipay. Esto solo toma unos segundos...</p>
           </div>
         </div>
       );
@@ -1635,10 +1688,11 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
         {/* Nav */}
         <Nav />
 
-        <main style={{
+        <main className="rg-gutter" style={{
           position: 'relative',
           minHeight: 'calc(100vh - 56px)',
-          padding: '56px 24px 90px',
+          paddingTop: 'clamp(40px, 9vw, 56px)',
+          paddingBottom: '90px',
           background: 'radial-gradient(70% 50% at 50% -5%,rgba(34,197,94,.22),transparent 60%), radial-gradient(80% 70% at 50% 0%,rgba(255,20,147,.12),transparent 55%), linear-gradient(180deg,#0d0418,#08020e)',
         }}>
           <div style={{ maxWidth: '640px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
@@ -1699,6 +1753,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               {order.tickets.map((t) => (
                 <Link
                   key={t.id}
+                  className="rg-ticket-link"
                   href={`/t?token=${t.public_token}`}
                   data-testid="ticket-link"
                   style={{
@@ -1706,6 +1761,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: '12px',
+                    minHeight: '52px',
                     padding: '13px 14px',
                     borderRadius: '10px',
                     border: '1px solid rgba(0,229,255,.28)',
@@ -1735,6 +1791,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
             <div style={{ marginTop: '26px' }}>
               {firstToken && (
                 <Link
+                  className="rg-cta"
                   href={`/t?token=${firstToken}`}
                   style={{
                     display: 'block',
@@ -1744,8 +1801,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                     padding: '15px',
                     borderRadius: 'var(--radius-pill)',
                     fontFamily: 'var(--font-display)',
-                    letterSpacing: '0.06em',
-                    fontSize: '1.3rem',
+                    letterSpacing: '0.05em',
+                    fontSize: 'clamp(1.1rem, 4.2vw, 1.3rem)',
                     boxShadow: 'var(--shadow-cta)',
                     textDecoration: 'none',
                     marginBottom: '12px',
@@ -1758,6 +1815,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               {firstToken && (
                 <button
                   type="button"
+                  className="rg-ghost-btn"
                   data-testid="download-pdf"
                   onClick={handleDownloadPdf}
                   disabled={pdfBusy}

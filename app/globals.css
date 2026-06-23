@@ -39,11 +39,26 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Prevent iOS auto-inflating text on rotate; keep our fluid scale honest */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Nothing on the public side should ever scroll sideways */
+  overflow-x: hidden;
+}
+
+/* Keyboard users get a visible neon focus ring; mouse users don't. */
+:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* QR SVG rendered via dangerouslySetInnerHTML — force it to fill its container */
@@ -51,4 +66,190 @@ body {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* ─── Responsive buy-flow layout ───
+   The buy flow renders a content column + a sticky aside. On a phone the two
+   stack and the aside drops below the content; the sticky offset is removed so
+   the order box doesn't float over the map. Class-driven (not inline) so the
+   media query can actually take effect on static export. */
+.rg-buy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 34px;
+  align-items: start;
+}
+.rg-buy-aside-sticky {
+  position: sticky;
+}
+@media (max-width: 920px) {
+  .rg-buy-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+  /* Sticky asides stop being sticky in a single column (they'd just sit there
+     stealing vertical space). */
+  .rg-buy-aside-sticky {
+    position: static;
+    top: auto !important;
+  }
+  /* On the event-detail step the price+CTA box jumps above the long flyer/copy
+     so the buy action is reachable without scrolling. On the seat-select step
+     the summary stays AFTER the map (you pick seats first), so that aside does
+     NOT get this class. */
+  .rg-buy-aside-first {
+    order: -1;
+  }
+}
+
+/* Fluid horizontal gutters: tight on phones, roomy on desktop. */
+.rg-gutter {
+  padding-left: clamp(16px, 5vw, 28px);
+  padding-right: clamp(16px, 5vw, 28px);
+}
+
+/* Venue card: photo beside info on desktop, stacked on phones. */
+@media (max-width: 540px) {
+  .rg-venue-card {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── Seat-map mobile affordance ───
+   The map is a percent-positioned canvas with an aspect-ratio box, so it always
+   scales to its container width — it never overflows. The hard part on a phone
+   is tap accuracy: each seat button carries an invisible, larger hit target via
+   a ::before so fingers land reliably without changing the visual dot size or
+   the layout math the e2e relies on. */
+.rg-seatmap-scroll {
+  /* Let very dense rows (teatro) be panned horizontally if they'd cram seats
+     below a tappable size; tables/typical events fit and never scroll. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+[data-seat-id] {
+  position: relative;
+  touch-action: manipulation;
+}
+@media (hover: none), (max-width: 720px) {
+  /* Coarse pointers: gently grow each seat's clickable area without resizing the
+     visible dot. Kept small (≈±5px) on purpose — a larger halo overlaps adjacent
+     seats on tight table rings and steals their taps. The real "make small seats
+     tappable" lever is the canvas min-width below, which scales the whole map up
+     so the dots (and the gaps between them) are physically larger. */
+  [data-seat-id]:not(:disabled)::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+  }
+}
+
+/* ─── Interaction polish (hover/active/focus) ───
+   Inline styles can't express pseudo-states, so the buy flow opts into these
+   classes. Subtle by design — a slight lift + glow on hover, a press on active —
+   no bouncy, over-animated "AI" feel. */
+.rg-cta {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+@media (hover: hover) {
+  .rg-cta:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 0 30px rgba(255, 20, 147, 0.6);
+    filter: brightness(1.04);
+  }
+}
+.rg-cta:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Outline / ghost actions: gentle surface fill on hover. */
+.rg-ghost-btn {
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+@media (hover: hover) {
+  .rg-ghost-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Ticket-link rows (success page): lift the cyan tint on hover. */
+.rg-ticket-link {
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+@media (hover: hover) {
+  .rg-ticket-link:hover {
+    background: rgba(0, 229, 255, 0.1);
+    border-color: rgba(0, 229, 255, 0.5);
+    transform: translateY(-1px);
+  }
+}
+
+/* Section/price cards: barely-there hover so the page feels alive, not jumpy. */
+.rg-hover-card {
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+@media (hover: hover) {
+  .rg-hover-card:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.035);
+  }
+}
+
+/* Neon ring spinner for the async payment-confirmation interstitial. */
+.rg-spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--color-pink);
+  animation: rg-spin 0.9s linear infinite;
+}
+@keyframes rg-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Loading skeleton ─── */
+.rg-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+}
+.rg-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+  animation: rg-shimmer 1.4s infinite;
+}
+@keyframes rg-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Respect users who asked for less motion: kill all the ambient/hover animation
+   on the public site (disco ball, twinkle, brand glow, hover lifts, etc.). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

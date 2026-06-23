@@ -62,20 +62,25 @@ export default function TicketView({ token }: { token: string }) {
   }
 
   if (loading) return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <p>Cargando...</p>
+    <main className="rg-gutter" style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }} aria-busy="true" aria-label="Cargando entrada">
+      <div style={{ maxWidth: '480px', margin: '0 auto', paddingTop: 'clamp(32px, 9vw, 56px)' }}>
+        <div className="rg-skeleton" style={{ height: '24px', width: '50%', marginBottom: '28px' }} />
+        <div className="rg-skeleton" style={{ height: '420px', borderRadius: 'var(--radius-frame)' }} />
+      </div>
     </main>
   );
 
   if (!ticket) return (
-    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <p>Entrada no encontrada</p>
+    <main className="rg-gutter" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '14px', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
+      <div style={{ fontSize: '2.2rem' }}>🎫</div>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.6rem, 6vw, 2.2rem)', letterSpacing: '0.03em', margin: 0 }}>Entrada no encontrada</h1>
+      <p style={{ color: 'var(--color-text-muted)', maxWidth: '320px' }}>Verifica el enlace o vuelve a abrir el correo con tus entradas.</p>
     </main>
   );
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '40px 28px 80px' }}>
+      <div className="rg-gutter" style={{ maxWidth: '1120px', margin: '0 auto', paddingTop: 'clamp(28px, 7vw, 40px)', paddingBottom: '80px' }}>
         {/* Page head */}
         <div style={{ marginBottom: '32px' }}>
           <p style={{ fontSize: '0.62rem', letterSpacing: '0.14em', color: 'var(--color-text-faint)', textTransform: 'uppercase', margin: '0 0 8px' }}>
@@ -171,17 +176,18 @@ export default function TicketView({ token }: { token: string }) {
             </div>
           </div>
 
-          {/* Action buttons — outside the card */}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          {/* Action buttons — outside the card. Wrap on narrow screens so each
+              stays a comfortable ≥44px tap target instead of three slivers. */}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
-              style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em' }}
+              style={{ flex: '1 1 130px', minHeight: '44px', padding: '11px', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em' }}
             >
               Agregar a Wallet
             </button>
             <button
               type="button"
-              style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em' }}
+              style={{ flex: '1 1 130px', minHeight: '44px', padding: '11px', background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-pill)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em' }}
             >
               Compartir
             </button>
@@ -190,7 +196,7 @@ export default function TicketView({ token }: { token: string }) {
               data-testid="pdf-link"
               onClick={handleDownloadPdf}
               disabled={generating}
-              style={{ flex: 1, padding: '10px', background: 'var(--color-pink)', color: 'var(--color-text)', border: 'none', borderRadius: 'var(--radius-pill)', cursor: generating ? 'wait' : 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.85rem', letterSpacing: '0.04em', textAlign: 'center', display: 'inline-block', boxShadow: 'var(--shadow-cta)', opacity: generating ? 0.7 : 1 }}
+              style={{ flex: '1 1 130px', minHeight: '44px', padding: '11px', background: 'var(--color-pink)', color: '#fff', border: 'none', borderRadius: 'var(--radius-pill)', cursor: generating ? 'wait' : 'pointer', fontFamily: 'var(--font-display)', fontSize: '0.9rem', letterSpacing: '0.04em', textAlign: 'center', display: 'inline-block', boxShadow: 'var(--shadow-cta)', opacity: generating ? 0.7 : 1 }}
             >
               {generating ? 'Generando...' : 'Descargar PDF'}
             </button>
