@@ -177,6 +177,11 @@ export const adminApi = {
     return authed(`/orders/${id}/cancel`, { method: 'POST' });
   },
 
+  // Confirm a pending order paid out-of-band (Yape/Plin/transfer) — issues the tickets.
+  confirmOrder(id: string): Promise<{ order: AdminGlobalOrder }> {
+    return authed(`/orders/${id}/confirm`, { method: 'POST' });
+  },
+
   // ── Global tickets ───────────────────────────────────────────────────────
   listAllTickets(filters: { status?: string; event_id?: string } = {}): Promise<{ tickets: AdminTicket[] }> {
     return authed(`/admin/tickets${queryString(filters)}`);

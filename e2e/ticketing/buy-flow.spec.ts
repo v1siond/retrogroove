@@ -25,7 +25,7 @@ test.describe('Fan ticket purchase flow', () => {
     await expect(page.getByTestId('order-total-value')).toContainText('70');
 
     // Advance to pay
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
 
     // Pay step shows the authoritative total
     await expect(page.getByTestId('order-total')).toContainText('70');
@@ -57,7 +57,7 @@ test.describe('Fan ticket purchase flow', () => {
     // advance to seat selection
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
 
     await expect(page.getByText(/no están disponibles/i)).toBeVisible();
   });
@@ -125,7 +125,7 @@ test.describe('Fan ticket purchase flow', () => {
     // reach F3
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
 
     // no buyer form
     await expect(page.getByLabel(/nombre/i)).not.toBeVisible();
@@ -146,7 +146,7 @@ test.describe('Fan ticket purchase flow', () => {
     await page.goto('/evento?slug=gala-2026');
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
     await page.getByRole('button', { name: /pagar con izipay/i }).click();
     await expect(page.getByTestId('ask-name-card')).toBeVisible();
   });
@@ -158,7 +158,7 @@ test.describe('Fan ticket purchase flow', () => {
     await page.goto('/evento?slug=gala-2026');
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
     await page.getByRole('button', { name: /pagar con izipay/i }).click();
     await expect(page.getByTestId('ask-name-card')).not.toBeVisible();
   });
@@ -187,7 +187,7 @@ test.describe('Fan ticket purchase flow', () => {
     await page.getByRole('button', { name: /comprar entradas/i }).click();
     await page.locator('[data-seat-id="s1"]').click();
     await page.locator('[data-seat-id="s2"]').click();
-    await page.getByRole('button', { name: /ir a pagar/i }).click();
+    await page.getByTestId('pay-card').click();
     // F3 should show TU ORDEN and the total
     await expect(page.getByTestId('order-total')).toContainText('70');
     // Subtotal row visible

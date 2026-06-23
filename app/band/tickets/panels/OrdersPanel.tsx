@@ -48,11 +48,36 @@ function OrderDrawer({
     }
   }
 
-  const footer = CANCELLABLE.has(order.status) ? (
-    <ConfirmAction testId={`cancel-order-${order.id}`} label="Cancelar orden" confirmLabel="Sí, cancelar"
-      prompt="¿Cancelar esta orden?" busy={busy} onConfirm={cancel} />
-  ) : (
-    <span className="rg-cell-sub">Sin acciones disponibles para una orden {order.status}.</span>
+  // Manual/Yape orders arrive as "pending"; the band verifies the Yapeo, then marks paid
+  // here — which issues the tickets and emails the buyer (backend POST /orders/:id/confirm).
+  async function confirm() {
+    setBusy(true);
+    try {
+      const { order: updated } = await adminApi.confirmOrder(order.id);
+      onCancelled({ ...order, ...updated });
+      notify('ok', `Pago de ${buyerName(order)} confirmado — entradas emitidas.`);
+    } catch {
+      notify('error', 'No se pudo confirmar el pago.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const footer = (
+    <>
+      {order.status === 'pending' && (
+        <Button variant="primary" data-testid={`confirm-order-${order.id}`} disabled={busy} onClick={confirm}>
+          {busy ? 'Confirmando…' : 'Marcar como pagada'}
+        </Button>
+      )}
+      {CANCELLABLE.has(order.status) && (
+        <ConfirmAction testId={`cancel-order-${order.id}`} label="Cancelar orden" confirmLabel="Sí, cancelar"
+          prompt="¿Cancelar esta orden?" busy={busy} onConfirm={cancel} />
+      )}
+      {!CANCELLABLE.has(order.status) && order.status !== 'pending' && (
+        <span className="rg-cell-sub">Sin acciones disponibles para una orden {order.status}.</span>
+      )}
+    </>
   );
 
   return (

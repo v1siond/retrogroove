@@ -74,7 +74,13 @@ function seatsAroundTable(count: number): { x: number; y: number }[] {
   });
 }
 
-type Step = 'detail' | 'select' | 'pay' | 'done';
+type Step = 'detail' | 'select' | 'pay' | 'coordinate' | 'done';
+
+// Manual-pay coordination: the band's Yape/Plin number (= their phone) + WhatsApp.
+// Yape is keyed to a phone number; Plin pays the same number via Peru's QR interoperability,
+// so one number covers both. Set NEXT_PUBLIC_BAND_PHONE in the env (DEPLOY.md: the Yape/Plin number).
+const BAND_PHONE = process.env.NEXT_PUBLIC_BAND_PHONE || '969 622 293';
+const WHATSAPP_DIGITS = '51' + BAND_PHONE.replace(/\D/g, '');
 type MapView = 'map' | 'list';
 
 interface SeatMapCanvasProps {
@@ -620,6 +626,32 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
             : data?.error === 'invalid_promo'
               ? 'El código de descuento no es válido.'
               : 'No se pudo crear la orden.'
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  // Manual / coordinated pay: create the order tagged "manual" (held 24h, not 15min)
+  // and show the coordina screen. The band confirms it in the admin once they see the Yapeo.
+  async function handleManual() {
+    if (!event || selectedCount === 0) return;
+    if (Object.values(gaQty).some((q) => q > 0)) {
+      setError('El pago coordinado por Yape/Plin aún no está disponible para entradas generales.');
+      return;
+    }
+    setWorking(true);
+    setError(null);
+    try {
+      const { order } = await ticketingApi.createOrder(event.id, selected, {}, promo.trim() || undefined, 'manual');
+      setOrder(order);
+      setStep('coordinate');
+    } catch (err) {
+      const data = (err as ApiError)?.data as { error?: string } | undefined;
+      setError(
+        data?.error === 'seats_unavailable'
+          ? 'Algunos asientos ya no están disponibles. Elige otros.'
+          : 'No se pudo crear la reserva.'
       );
     } finally {
       setWorking(false);
@@ -1468,10 +1500,11 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                     />
                   </div>
 
-                  {/* CTA */}
+                  {/* CTA — two ways to pay: card (Izipay, instant) or Yape/Plin (coordinated) */}
                   <button
                     type="button"
                     className="rg-cta"
+                    data-testid="pay-card"
                     disabled={selectedCount === 0 || working}
                     onClick={handleBuy}
                     style={{
@@ -1492,10 +1525,34 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                       opacity: working ? 0.6 : 1,
                     }}
                   >
-                    {working ? 'PROCESANDO...' : 'IR A PAGAR'}
+                    {working ? 'PROCESANDO...' : 'PAGAR CON TARJETA'}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="pay-yape"
+                    disabled={selectedCount === 0 || working}
+                    onClick={handleManual}
+                    style={{
+                      marginTop: '10px',
+                      display: 'block',
+                      width: '100%',
+                      padding: '14px',
+                      background: 'transparent',
+                      color: selectedCount > 0 ? 'var(--color-text)' : 'var(--color-text-faint)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-pill)',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'clamp(1rem, 4vw, 1.2rem)',
+                      letterSpacing: '0.05em',
+                      cursor: selectedCount > 0 && !working ? 'pointer' : 'not-allowed',
+                      textAlign: 'center',
+                      opacity: working ? 0.6 : 1,
+                    }}
+                  >
+                    YAPE / PLIN · COORDINAR
                   </button>
                   <div style={{ marginTop: '10px', fontSize: '0.64rem', color: 'var(--color-text-faint)', textAlign: 'center' }}>
-                    Precio final, sin cargos sorpresa · Yape · PLIN · tarjeta
+                    Tarjeta: pago al instante con Izipay · Yape / Plin: coordinas por WhatsApp
                   </div>
                 </div>
               </div>
@@ -1503,6 +1560,62 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
           </div>
         </main>
 
+        <Footer />
+      </div>
+    );
+  }
+
+  // ─── Coordina tu pago (Yape / Plin / transferencia · confirmación manual) ───
+  if (step === 'coordinate' && order) {
+    const ref = order.id.slice(0, 8).toUpperCase();
+    const entradas = order.tickets?.length || selectedCount;
+    const waText = encodeURIComponent(
+      `¡Hola RetroGroove! Reservé ${entradas} entrada(s) para "${event.name}". ` +
+        `Total S/ ${order.total}. Referencia ${ref}. Les envío mi comprobante de Yape/Plin.`
+    );
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
+        <Nav />
+        <main className="rg-gutter" style={{ maxWidth: '560px', margin: '0 auto', padding: '28px 0 80px' }}>
+          <button type="button" className="rg-link" onClick={() => setStep('select')} style={{ marginBottom: '14px' }}>
+            ← Volver a los asientos
+          </button>
+
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.8rem,6vw,2.4rem)', letterSpacing: '0.03em', margin: '0 0 6px' }}>
+            Coordina tu pago 🪩
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: '20px', lineHeight: 1.6 }}>
+            Tus asientos están <strong style={{ color: 'var(--color-text)' }}>apartados por 24 horas</strong>. Paga con Yape o Plin y envíanos el comprobante por WhatsApp — apenas lo confirmemos te llegan tus entradas por correo.
+          </p>
+
+          <div data-testid="coordinate-card" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-frame)', padding: '20px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px' }}>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem' }}>{entradas} entrada(s)</span>
+              <span data-testid="coordinate-total" style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--color-gold)' }}>S/ {order.total}</span>
+            </div>
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '14px' }}>
+              <div style={{ fontSize: '0.66rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-cyan)', marginBottom: '6px' }}>Yapea o Plinea a este número</div>
+              <div data-testid="yape-number" style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', letterSpacing: '0.08em', color: 'var(--color-text)' }}>{BAND_PHONE}</div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', marginTop: '8px' }}>
+                Pon <strong style={{ color: 'var(--color-text)' }}>tu nombre</strong> y la referencia <strong style={{ color: 'var(--color-gold)' }}>{ref}</strong> en el mensaje del Yapeo.
+              </div>
+            </div>
+          </div>
+
+          <a
+            href={`https://wa.me/${WHATSAPP_DIGITS}?text=${waText}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="whatsapp-cta"
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '15px', background: '#25D366', color: '#04210f', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-display)', fontSize: 'clamp(1.05rem,4vw,1.25rem)', letterSpacing: '0.04em', textAlign: 'center', textDecoration: 'none' }}
+          >
+            Enviar comprobante por WhatsApp →
+          </a>
+
+          <div style={{ marginTop: '16px', fontSize: '0.74rem', color: 'var(--color-text-muted)', lineHeight: 1.6, background: 'rgba(255,255,255,.04)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '13px 15px' }}>
+            <strong style={{ color: 'var(--color-text)' }}>¿Cómo sigue?</strong> Validamos tu pago y te enviamos las entradas con QR a tu correo. Si no alcanzas a pagar, los asientos se liberan en 24 h y quedan libres para otra persona.
+          </div>
+        </main>
         <Footer />
       </div>
     );
@@ -1654,17 +1767,15 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               </button>
 
               <div style={{ marginTop: '10px', fontSize: '0.66rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-                🔒 Serás redirigido a la pasarela segura de <strong style={{ color: 'var(--color-text)' }}>Izipay</strong> — paga con <strong style={{ color: 'var(--color-text)' }}>tarjeta</strong>, <strong style={{ color: 'var(--color-text)' }}>Yape</strong> o <strong style={{ color: 'var(--color-text)' }}>Plin</strong>
+                🔒 Serás redirigido a la pasarela segura de <strong style={{ color: 'var(--color-text)' }}>Izipay</strong> — paga con <strong style={{ color: 'var(--color-text)' }}>tarjeta de crédito o débito</strong>. ¿Prefieres Yape o Plin? Vuelve y elige “Yape / Plin · coordinar”.
               </div>
 
               {/* Payment methods */}
               <div style={{ marginTop: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', opacity: 0.7, userSelect: 'none', pointerEvents: 'none' }}>
-                <span style={{ fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-faint)' }}>Pagos vía Izipay</span>
+                <span style={{ fontSize: '0.56rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-faint)' }}>Tarjeta vía Izipay</span>
                 {['VISA', 'Mastercard'].map((m) => (
                   <span key={m} style={{ padding: '3px 9px', border: '1px solid rgba(255,255,255,.18)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem' }}>{m}</span>
                 ))}
-                <span style={{ padding: '3px 9px', border: '1px solid rgba(160,80,255,.4)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem', color: '#a050ff' }}>Yape</span>
-                <span style={{ padding: '3px 9px', border: '1px solid rgba(0,229,255,.4)', borderRadius: '5px', letterSpacing: '0.04em', fontSize: '0.62rem', color: 'var(--color-cyan)' }}>Plin</span>
               </div>
 
               {/* Note */}
@@ -1679,7 +1790,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               <span style={{ fontWeight: 600, fontSize: '0.58rem', letterSpacing: '0.14em', color: 'var(--color-text-faint)', textTransform: 'uppercase', width: '100%' }}>Cómo funciona</span>
               <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(255,20,147,.12)', border: '1px solid rgba(255,20,147,.4)', color: 'var(--color-text)' }}>1 · Pagar con Izipay</span>
               <span style={{ opacity: 0.5 }}>→</span>
-              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>2 · Pasarela Izipay (tarjeta / Yape / Plin)</span>
+              <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>2 · Pasarela Izipay (tarjeta)</span>
               <span style={{ opacity: 0.5 }}>→</span>
               <span style={{ padding: '6px 11px', borderRadius: 'var(--radius-pill)', background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.4)', color: '#22c55e' }}>3 · ✓ Vuelves aquí, compra confirmada</span>
             </div>
