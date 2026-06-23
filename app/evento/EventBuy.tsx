@@ -746,6 +746,18 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
   const showNums = totalSeated <= 120;
   const isMesas = seatedSections.some((s) => s.layout_type === 'tables');
 
+  // Venue map: build a keyless Google Maps embed (output=embed) from the address.
+  // Short links like maps.app.goo.gl can't be iframed — Google blocks them via
+  // X-Frame-Options, only the output=embed form is embeddable without an API key.
+  // "Cómo llegar" still uses the event's own map_url when set, since that opens
+  // the real pinned place in the Maps app; otherwise it falls back to the query.
+  const mapQuery = [event.venue_name, event.venue_address].filter(Boolean).join(', ');
+  const mapEmbedSrc = mapQuery
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&hl=es&output=embed`
+    : null;
+  const directionsHref =
+    event.map_url || (mapQuery ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}` : null);
+
   // Stage positioning from event data (C1)
   const cw = event.canvas_width || 1600;
   const ch = event.canvas_height || 900;
@@ -883,7 +895,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
               {event.description && (
                 <div style={{ marginBottom: '34px' }}>
                   <p style={{ fontSize: '0.6rem', letterSpacing: '0.18em', color: 'var(--color-cyan)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>Acerca del evento</p>
-                  <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.7 }}>{event.description}</p>
+                  <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{event.description}</p>
                 </div>
               )}
 
@@ -930,8 +942,38 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                         {event.venue_address}
                       </p>
                     )}
-                    {/* Map */}
-                    {event.map_url && (
+                    {/* Map — real embedded Google map (keyless output=embed); built
+                        from the address since short links can't be iframed. map_url
+                        stays as the "Cómo llegar" deep link. */}
+                    {mapEmbedSrc ? (
+                      <div style={{
+                        marginTop: '14px',
+                        height: '150px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--color-border)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}>
+                        <iframe
+                          title={`Mapa de ${event.venue_name || event.venue_address}`}
+                          src={mapEmbedSrc}
+                          style={{ border: 0, width: '100%', height: '100%', display: 'block' }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          allowFullScreen
+                        />
+                        {directionsHref && (
+                          <a
+                            href={directionsHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ position: 'absolute', right: '10px', bottom: '10px', fontSize: '0.72rem', background: 'var(--color-pink)', color: '#fff', padding: '6px 12px', borderRadius: 'var(--radius-pill)', textDecoration: 'none', boxShadow: '0 2px 8px rgba(0,0,0,.45)' }}
+                          >
+                            Cómo llegar →
+                          </a>
+                        )}
+                      </div>
+                    ) : directionsHref ? (
                       <div style={{
                         marginTop: '14px',
                         height: '120px',
@@ -943,7 +985,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                       }}>
                         <span style={{ position: 'absolute', left: '46%', top: '42%', color: 'var(--color-pink)', fontSize: '1.5rem', filter: 'drop-shadow(0 0 8px rgba(255,20,147,.7))' }}>📍</span>
                         <a
-                          href={event.map_url}
+                          href={directionsHref}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ position: 'absolute', right: '10px', bottom: '10px', fontSize: '0.72rem', background: 'var(--color-pink)', color: '#fff', padding: '6px 12px', borderRadius: 'var(--radius-pill)', textDecoration: 'none' }}
@@ -951,23 +993,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
                           Cómo llegar →
                         </a>
                       </div>
-                    )}
-                    {!event.map_url && event.venue_address && (
-                      <div style={{
-                        marginTop: '14px',
-                        height: '120px',
-                        borderRadius: '12px',
-                        border: '1px solid var(--color-border)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        background: 'repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.03) 1px,transparent 1px,transparent 40px), repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.03) 1px,transparent 1px,transparent 40px),#0d0016',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <span style={{ fontSize: '1.5rem' }}>📍</span>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>

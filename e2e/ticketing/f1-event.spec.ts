@@ -8,7 +8,11 @@ test('F1 renders title, venue address, Cómo llegar link, price, and CTA', async
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Gala 2026');
   // venue address
   await expect(page.getByText('Av. La Rosa Toro 1234')).toBeVisible();
-  // Cómo llegar link
+  // embedded Google map — real iframe (keyless output=embed), built from the venue
+  const mapFrame = page.locator('iframe[title^="Mapa de"]');
+  await expect(mapFrame).toBeVisible();
+  await expect(mapFrame).toHaveAttribute('src', /google\.com\/maps\?q=.+&.*output=embed/);
+  // Cómo llegar link still deep-links to the event's own map_url
   const mapLink = page.getByRole('link', { name: /cómo llegar/i });
   await expect(mapLink).toBeVisible();
   await expect(mapLink).toHaveAttribute('href', 'https://maps.google.com/?q=Arena+1');
