@@ -920,6 +920,9 @@ export default function Home() {
         }
 
         @media (max-width: 640px) {
+          /* keep the one-word wordmark inside the screen — the desktop
+             clamp floor (4rem) + 0.15em spacing overflows narrow phones */
+          .brand { font-size: clamp(3rem, 16vw, 6rem); letter-spacing: 0.06em; }
           .about-image { width: 200px; height: 200px; font-size: 3.5rem; }
           .about-stats { gap: 1.5rem; }
           .stat-value { font-size: 2rem; }
