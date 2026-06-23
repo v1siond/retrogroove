@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { AdminGate } from '@/components/admin2/AdminGate'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
 
@@ -562,7 +561,7 @@ function SetlistBuilder() {
                   </button>
                   <button
                     className="btn secondary"
-                    onClick={() => window.open(`/band/setlist/imprimir?songs=${mySetlist.join(',')}`, '_blank')}
+                    onClick={() => window.open(`/setlist/imprimir?songs=${mySetlist.join(',')}`, '_blank')}
                     disabled={mySetlist.length === 0}
                   >
                     🖨️ Imprimir
@@ -589,9 +588,6 @@ function SetlistBuilder() {
 }
 
 export default function SetlistPage() {
-  return (
-    <AdminGate>
-      <SetlistBuilder />
-    </AdminGate>
-  )
+  // Public — clients browse the band's songs and build their own setlist to print.
+  return <SetlistBuilder />
 }

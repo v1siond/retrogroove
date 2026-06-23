@@ -45,7 +45,7 @@ function EditLoader() {
         <h1 style={{ fontFamily: 'var(--font-display)', letterSpacing: '.03em', margin: 0 }}>
           {error}
         </h1>
-        <Link href="/band/tickets" style={{ color: 'var(--color-cyan)', textDecoration: 'underline' }}>
+        <Link href="/admin" style={{ color: 'var(--color-cyan)', textDecoration: 'underline' }}>
           Volver al panel
         </Link>
       </div>

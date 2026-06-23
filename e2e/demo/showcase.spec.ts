@@ -150,7 +150,7 @@ test('RetroGroove lifecycle showcase v3', async ({ page }: { page: Page }) => {
   // ────────────────────────────────────────────────────────────────────────────
   console.log('[ACT 1] Admin builds the Basilica event');
 
-  await page.goto(`${BASE}/band/tickets/nuevo`, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto(`${BASE}/admin/nuevo`, { waitUntil: 'networkidle', timeout: 30000 });
   await ensureAdmin(page);
   await expect(page.getByTestId('builder-title')).toBeVisible({ timeout: 15000 });
   await see(page);
@@ -476,7 +476,7 @@ test('RetroGroove lifecycle showcase v3', async ({ page }: { page: Page }) => {
   // ────────────────────────────────────────────────────────────────────────────
   console.log('[ACT 3] Admin validates at the door');
 
-  await page.goto(`${BASE}/band/tickets/check-in`, { waitUntil: 'networkidle', timeout: 20000 });
+  await page.goto(`${BASE}/admin/check-in`, { waitUntil: 'networkidle', timeout: 20000 });
   await ensureAdmin(page);
   await expect(page.getByTestId('checkin-title')).toBeVisible({ timeout: 15000 });
   await see(page);

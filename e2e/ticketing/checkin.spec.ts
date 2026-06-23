@@ -18,7 +18,7 @@ async function mockAdminLogin(page: Page) {
 }
 
 async function login(page: Page) {
-  await page.goto('/band/tickets/check-in');
+  await page.goto('/admin/check-in');
   await page.getByLabel('Email').fill('admin@rg.com');
   await page.getByLabel('Contraseña').fill('password123');
   await page.getByRole('button', { name: 'Entrar' }).click();
@@ -205,7 +205,7 @@ test.describe('Task 2 — VÁLIDA / YA USADA / NO ENCONTRADA result states', () 
     );
 
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/check-in?token=ABCD1234');
+    await page.goto('/admin/check-in?token=ABCD1234');
     await page.getByLabel('Email').fill('admin@rg.com');
     await page.getByLabel('Contraseña').fill('password123');
     await page.getByRole('button', { name: 'Entrar' }).click();

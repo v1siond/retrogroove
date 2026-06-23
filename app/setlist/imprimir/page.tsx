@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { AdminGate } from '@/components/admin2/AdminGate'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
 
@@ -419,7 +418,7 @@ function SetlistPrintInner() {
 
       <div className="toolbar">
         <div className="toolbar-left">
-          <a href="/band/setlist">&#8592; Volver al repertorio</a>
+          <a href="/setlist">&#8592; Volver al repertorio</a>
         </div>
         <div className="toolbar-btns">
           {!isCustomSetlist && (
@@ -484,12 +483,12 @@ function SetlistPrintInner() {
 
 export default function SetlistPrint() {
   return (
-    <AdminGate>
+    <>
       <title>Repertorio Imprimible — RetroGroove</title>
       <style>{STYLES}</style>
       <Suspense fallback={<div className="print-page loading">Cargando...</div>}>
         <SetlistPrintInner />
       </Suspense>
-    </AdminGate>
+    </>
   )
 }

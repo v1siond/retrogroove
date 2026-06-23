@@ -99,24 +99,17 @@ test.describe('Admin dashboard shell', () => {
     await expect(page.getByTestId('feedback-ok')).toContainText(/eliminada/i);
   });
 
-  test('/band redirects to the new admin (/band/tickets)', async ({ page }) => {
-    // The old song-request dashboard is gone; /band is now just a redirect to the
-    // single admin. Logged out, that lands on the admin login gate.
-    await page.goto('/band');
-    await expect(page).toHaveURL(/\/band\/tickets$/);
+  test('/admin shows the admin login gate when logged out', async ({ page }) => {
+    await page.goto('/admin');
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Contraseña')).toBeVisible();
   });
 
-  test('/band/setlist still reachable behind the shared admin gate', async ({ page }) => {
-    await page.goto('/band/setlist');
-    await expect(page.getByLabel('Email')).toBeVisible();
-    await expect(page.getByLabel('Contraseña')).toBeVisible();
-
-    await page.getByLabel('Email').fill('admin@retrogroove.com');
-    await page.getByLabel('Contraseña').fill('password123');
-    await page.getByRole('button', { name: 'Entrar' }).click();
-    await expect(page.getByText('RETROGROOVE')).toBeVisible();
+  test('/setlist is public (no admin gate) so clients can build a setlist', async ({ page }) => {
+    await page.goto('/setlist');
+    // Client-facing tool — must NOT be behind the admin login gate.
+    await expect(page.getByLabel('Contraseña')).toHaveCount(0);
+    await expect(page.getByText('Armar Mi Setlist')).toBeVisible();
   });
 
   test('Events: defaults to Activos, toggles to Pasados and Todos', async ({ page }) => {

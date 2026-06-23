@@ -957,7 +957,7 @@ export default function Home() {
             Clásicos del disco, rock y pop que hacen bailar a todos.
           </p>
           <div className="hero-ctas">
-            <a href="/band/setlist" className="cta">Ver Repertorio</a>
+            <a href="/setlist" className="cta">Ver Repertorio</a>
             <a href="#contacto" className="cta secondary">Solicitar Cotización</a>
           </div>
           <div className="scroll-indicator">

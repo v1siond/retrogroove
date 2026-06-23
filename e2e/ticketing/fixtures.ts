@@ -269,7 +269,7 @@ export async function setupAdminLogin(page: Page) {
 }
 
 export async function adminLogin(page: Page) {
-  await page.goto('/band/tickets');
+  await page.goto('/admin');
   await page.getByLabel('Email').fill('admin@retrogroove.com');
   await page.getByLabel('Contraseña').fill('password123');
   await page.getByRole('button', { name: 'Entrar' }).click();

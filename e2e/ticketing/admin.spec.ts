@@ -23,7 +23,7 @@ test.describe('Admin', () => {
   });
 
   test('requires login before showing the check-in tool', async ({ page }) => {
-    await page.goto('/band/tickets/check-in');
+    await page.goto('/admin/check-in');
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
   });
 
@@ -34,7 +34,7 @@ test.describe('Admin', () => {
       r.fulfill({ status: 200, json: { ticket: { ...valid, status: 'used', checked_in_at: '2026-12-31T22:00:00Z' } } })
     );
 
-    await login(page, '/band/tickets/check-in');
+    await login(page, '/admin/check-in');
     await expect(page.getByTestId('checkin-title')).toContainText('CONTROL DE PUERTA');
     await expect(page.getByTestId('ingress-count')).toContainText('0');
 
@@ -70,7 +70,7 @@ test.describe('Admin', () => {
       })
     );
 
-    await login(page, '/band/tickets/evento?slug=gala-2026');
+    await login(page, '/admin/evento?slug=gala-2026');
     await expect(page.getByRole('heading', { name: 'Gala 2026' })).toBeVisible();
 
     await page.locator('[data-seat-id="s1"]').click();
@@ -92,7 +92,7 @@ test.describe('Admin', () => {
 
     // Staff scans the ticket QR -> the deep link opens check-in pre-loaded with the
     // token -> after login it auto-verifies (no typing). Then they register the entry.
-    await login(page, '/band/tickets/check-in?token=ABCD1234');
+    await login(page, '/admin/check-in?token=ABCD1234');
     await expect(page.getByTestId('result-panel')).toContainText('VÁLIDA');
     await page.getByTestId('btn-registrar').click();
     await expect(page.getByTestId('result-panel')).toContainText('ENTRADA REGISTRADA');

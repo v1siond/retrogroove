@@ -117,7 +117,7 @@ async function login(page: Page) {
 test.describe('Task 1 — Neon-Editorial shell + inputs', () => {
   test('renders NUEVO EVENTO header + event/venue/description/map fields in Neon-Editorial style', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Top bar / header with "NUEVO EVENTO"
@@ -147,7 +147,7 @@ test.describe('Task 1 — Neon-Editorial shell + inputs', () => {
 
   test('section tabs show + Agregar adds a new section', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // At least one default section tab
@@ -166,7 +166,7 @@ test.describe('Task 1 — Neon-Editorial shell + inputs', () => {
 test.describe('Task 2 — Positionable stage + geometry', () => {
   test('stage geometry inputs exist and update the readout', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Canvas exists
@@ -185,7 +185,7 @@ test.describe('Task 2 — Positionable stage + geometry', () => {
 
   test('canvas visual shows the stage block at the right position', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // The stage element inside the canvas
@@ -198,7 +198,7 @@ test.describe('Task 2 — Positionable stage + geometry', () => {
 test.describe('Task 3 — Table placement + live preview', () => {
   test('can place a table on the canvas and it appears in the preview', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Choose a round table tool
@@ -217,7 +217,7 @@ test.describe('Task 3 — Table placement + live preview', () => {
 
   test('snap grid checkbox is visible', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     await expect(page.getByTestId('snap-grid-toggle')).toBeVisible();
@@ -225,7 +225,7 @@ test.describe('Task 3 — Table placement + live preview', () => {
 
   test('table properties popover shows when a table is selected', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Place a table
@@ -245,7 +245,7 @@ test.describe('Task 3 — Table placement + live preview', () => {
 
   test('wysiwyg label is visible', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     await expect(page.getByTestId('wysiwyg-label')).toContainText('Lo que ves es lo que compran');
@@ -257,7 +257,7 @@ test.describe('Task 3 — Table placement + live preview', () => {
 test.describe('Task 4 — Multi-tier tarifa/bundle editor', () => {
   test('shows 2 default tarifa rows (1 entrada, combo) + Agregar tarifa link', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     const rows = page.getByTestId('tarifa-row');
@@ -268,7 +268,7 @@ test.describe('Task 4 — Multi-tier tarifa/bundle editor', () => {
 
   test('Agregar tarifa adds a third row', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     await page.getByTestId('btn-add-tarifa').click();
@@ -277,7 +277,7 @@ test.describe('Task 4 — Multi-tier tarifa/bundle editor', () => {
 
   test('tarifa rows can have quantity and price edited', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     const firstRow = page.getByTestId('tarifa-row').first();
@@ -288,7 +288,7 @@ test.describe('Task 4 — Multi-tier tarifa/bundle editor', () => {
 
   test('tarifa rows beyond 2 have a remove button', async ({ page }) => {
     await mockAdminLogin(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Add a third row
@@ -305,7 +305,7 @@ test.describe('Task 5 — Publish + buyer-preview parity', () => {
   test('full flow: fill event, set stage, place table, set tarifas, publish — success page with public link', async ({ page }) => {
     await mockAdminLogin(page);
     await mockAdminApi(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Fill event details
@@ -353,7 +353,7 @@ test.describe('Task 5 — Publish + buyer-preview parity', () => {
   test('admin canvas and buyer seat-map use the SAME stage geometry (parity)', async ({ page }) => {
     await mockAdminLogin(page);
     await mockAdminApi(page);
-    await page.goto('/band/tickets/nuevo');
+    await page.goto('/admin/nuevo');
     await login(page);
 
     // Read the stage position from the admin canvas

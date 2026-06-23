@@ -132,7 +132,7 @@ function CreateEventDrawer({ onCreated, onClose }: { onCreated: () => void; onCl
         </div>
         <p className="rg-cell-sub" style={{ marginTop: 14 }}>
           Para secciones, mesas y precios usa el constructor visual:{' '}
-          <Link href="/band/tickets/nuevo" className="rg-link">abrir constructor →</Link>
+          <Link href="/admin/nuevo" className="rg-link">abrir constructor →</Link>
         </p>
       </form>
     </Drawer>
@@ -290,8 +290,8 @@ function EventDrawer({
       {/* Per-event flows */}
       <DrawerSectionTitle>Acciones por evento</DrawerSectionTitle>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <Link href={`/band/tickets/evento?slug=${summary.slug}`} className="rg-link">Emitir comps / asientos →</Link>
-        <Link href={`/band/tickets/editar?slug=${summary.slug}`} className="rg-link">Editar en el constructor →</Link>
+        <Link href={`/admin/evento?slug=${summary.slug}`} className="rg-link">Emitir comps / asientos →</Link>
+        <Link href={`/admin/editar?slug=${summary.slug}`} className="rg-link">Editar en el constructor →</Link>
       </div>
 
       <DrawerSectionTitle>Órdenes ({orders?.length ?? '…'})</DrawerSectionTitle>

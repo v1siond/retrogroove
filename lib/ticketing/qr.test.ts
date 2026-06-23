@@ -5,14 +5,14 @@ import { extractToken } from './qr';
 
 test('extractToken: full check-in URL → token query param', () => {
   assert.equal(
-    extractToken('https://retrogroove.pe/band/tickets/check-in?token=tok-valid'),
+    extractToken('https://retrogroove.pe/admin/check-in?token=tok-valid'),
     'tok-valid'
   );
 });
 
 test('extractToken: URL with extra params still isolates token', () => {
   assert.equal(
-    extractToken('https://retrogroove.pe/band/tickets/check-in?token=ABCD1234&utm=qr'),
+    extractToken('https://retrogroove.pe/admin/check-in?token=ABCD1234&utm=qr'),
     'ABCD1234'
   );
 });
@@ -23,7 +23,7 @@ test('extractToken: bare token → returned as-is (trimmed)', () => {
 
 test('extractToken: malformed / unusable value → null', () => {
   assert.equal(extractToken('http://[bad-url'), null);
-  assert.equal(extractToken('https://retrogroove.pe/band/tickets/check-in'), null);
+  assert.equal(extractToken('https://retrogroove.pe/admin/check-in'), null);
   assert.equal(extractToken(''), null);
   assert.equal(extractToken('   '), null);
   assert.equal(extractToken(null), null);

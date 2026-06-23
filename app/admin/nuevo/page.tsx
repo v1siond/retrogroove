@@ -870,7 +870,7 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
           </li>
           <li>
             <Link
-              href={`/band/tickets/evento?slug=${publishedSlug}`}
+              href={`/admin/evento?slug=${publishedSlug}`}
               style={{ color: 'var(--color-cyan)', textDecoration: 'underline' }}
             >
               Administrar entradas →

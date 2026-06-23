@@ -1,5 +1,5 @@
 /**
- * Admin event EDIT flow — /band/tickets/editar?slug=… loads an existing event
+ * Admin event EDIT flow — /admin/editar?slug=… loads an existing event
  * into the shared builder and saves by rebuilding the layout (mocked adminApi).
  */
 import { test, expect, Page } from '@playwright/test';
@@ -92,7 +92,7 @@ async function login(page: Page) {
 
 test('editar hydrates the event into the builder', async ({ page }) => {
   await setup(page);
-  await page.goto('/band/tickets/editar?slug=disco-night');
+  await page.goto('/admin/editar?slug=disco-night');
   await login(page);
 
   await expect(page.getByTestId('builder-title')).toHaveText('EDITAR EVENTO');
@@ -106,7 +106,7 @@ test('editar hydrates the event into the builder', async ({ page }) => {
 
 test('saving an edit rebuilds the layout (update + tear-down + recreate + publish)', async ({ page }) => {
   const calls = await setup(page);
-  await page.goto('/band/tickets/editar?slug=disco-night');
+  await page.goto('/admin/editar?slug=disco-night');
   await login(page);
   await expect(page.getByTestId('input-event-name')).toHaveValue('Disco Night');
 
@@ -129,7 +129,7 @@ test('saving an edit rebuilds the layout (update + tear-down + recreate + publis
 
 test('toggling to Borrador saves the event as draft, no publish call', async ({ page }) => {
   const calls = await setup(page);
-  await page.goto('/band/tickets/editar?slug=disco-night');
+  await page.goto('/admin/editar?slug=disco-night');
   await login(page);
   await expect(page.getByTestId('input-event-name')).toHaveValue('Disco Night');
 

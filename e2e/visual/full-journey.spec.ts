@@ -147,7 +147,7 @@ test('full journey: fan buys two seats, then staff checks one in', async ({ page
 
   // --- The door ---
   await test.step('Staff logs into the admin', async () => {
-    await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
+    await page.goto('/admin/check-in', { waitUntil: 'commit' });
     await narrate(page, 'En la puerta, el staff inicia sesión');
     await page.getByLabel('Email').pressSequentially('staff@retrogroove.com', { delay: 40 });
     await page.getByLabel('Contraseña').pressSequentially('password123', { delay: 40 });

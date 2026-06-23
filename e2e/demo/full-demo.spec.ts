@@ -67,7 +67,7 @@ interface EventCfg {
 }
 
 async function createEvent(page: Page, cfg: EventCfg) {
-  await page.goto('/band/tickets/nuevo', { waitUntil: 'commit' });
+  await page.goto('/admin/nuevo', { waitUntil: 'commit' });
   await ensureAdmin(page);
 
   await narrate(page, `Crea el evento: ${cfg.name}`);
@@ -171,7 +171,7 @@ async function buyFromHome(page: Page, eventName: string, picks: SeatPick[], exp
 
 // Staff validates a ticket at the door: scan -> "Válida" -> register entry.
 async function checkIn(page: Page, token: string) {
-  await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
+  await page.goto('/admin/check-in', { waitUntil: 'commit' });
   await ensureAdmin(page);
   await narrate(page, 'En la puerta, el staff valida la entrada');
   await page.getByPlaceholder(/código|token/i).pressSequentially(token, { delay: 15 });
@@ -190,7 +190,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Negativos — login inválido, asiento ocupado, doble check-in', async ({ page }) => {
   // (1) invalid admin login
-  await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
+  await page.goto('/admin/check-in', { waitUntil: 'commit' });
   await narrate(page, 'Contraseña incorrecta → error');
   await page.getByLabel('Email').pressSequentially(ADMIN.email, { delay: 25 });
   await page.getByLabel('Contraseña').pressSequentially('malísima', { delay: 25 });
@@ -215,7 +215,7 @@ test('Negativos — login inválido, asiento ocupado, doble check-in', async ({ 
   await beat(page);
 
   // (3) check in the ticket, then a second scan is rejected
-  await page.goto('/band/tickets/check-in', { waitUntil: 'commit' });
+  await page.goto('/admin/check-in', { waitUntil: 'commit' });
   await ensureAdmin(page);
   await narrate(page, 'Staff registra la entrada en la puerta');
   await page.getByPlaceholder(/código|token/i).pressSequentially(token, { delay: 15 });
@@ -495,7 +495,7 @@ test('Ticket + QR — el fan ve su entrada y el staff la valida escaneando el QR
 
   // Staff "scans" the QR — the deep link opens check-in pre-loaded with the token and
   // it auto-verifies (a single POST registers entry). No manual typing needed.
-  await page.goto(`/band/tickets/check-in?token=${token}`, { waitUntil: 'commit' });
+  await page.goto(`/admin/check-in?token=${token}`, { waitUntil: 'commit' });
   await ensureAdmin(page);
   await narrate(page, 'El staff escanea el QR: se valida automáticamente');
   await expect(page.getByTestId('result')).toContainText('Válida');

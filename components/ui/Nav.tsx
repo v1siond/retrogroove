@@ -37,7 +37,7 @@ export function Nav({ brand = 'RETROGROOVE' }: NavProps) {
       </span>
       <div style={{ display: 'flex', gap: 'clamp(16px, 5vw, 22px)', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
         <Link href="/" style={{ color: 'inherit', textDecoration: 'none', padding: '6px 0' }}>Inicio</Link>
-        <Link href="/band/tickets/nuevo" style={{ color: 'inherit', textDecoration: 'none', padding: '6px 0' }}>Admin</Link>
+        <Link href="/admin" style={{ color: 'inherit', textDecoration: 'none', padding: '6px 0' }}>Admin</Link>
       </div>
     </nav>
   )

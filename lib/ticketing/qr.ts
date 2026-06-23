@@ -1,7 +1,7 @@
 // QR check-in helpers — pure, framework-free, unit-testable.
 //
 // A ticket QR encodes the door check-in URL:
-//   <frontend>/band/tickets/check-in?token=<public_token>
+//   <frontend>/admin/check-in?token=<public_token>
 // …but hardware scanners or older QRs may carry a bare code/token. We accept
 // both: pull `token` out of a URL, otherwise treat the value as the token.
 

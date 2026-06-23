@@ -15,7 +15,7 @@ async function mockLogin(page: Page) {
 }
 
 async function login(page: Page) {
-  await page.goto('/band/tickets');
+  await page.goto('/admin');
   await page.getByLabel('Email').fill('admin@retrogroove.com');
   await page.getByLabel('Contraseña').fill('password123');
   await page.getByRole('button', { name: 'Entrar' }).click();
@@ -80,7 +80,7 @@ test.describe('Admin dashboard', () => {
   });
 
   test('requires login before showing the dashboard', async ({ page }) => {
-    await page.goto('/band/tickets');
+    await page.goto('/admin');
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
   });
 

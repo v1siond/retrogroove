@@ -184,7 +184,7 @@ export default function OrdersPanel({ query: globalQuery }: { query: string }) {
           <p>Todas las órdenes de todos los eventos.</p>
         </div>
         <div className="rg-page-head-actions">
-          <Link href="/band/tickets/evento" className="rg-btn rg-btn-primary">Crear comp →</Link>
+          <Link href="/admin/evento" className="rg-btn rg-btn-primary">Crear comp →</Link>
         </div>
       </div>
 

@@ -64,8 +64,8 @@ export default function EventAdmin({ slug }: { slug: string }) {
       <h1 className={ui.h1}>{event.name}</h1>
       <div className={`${ui.card} flex gap-4 items-center flex-wrap`}>
         <button type="button" className={ui.btn} onClick={downloadCsv}>Descargar CSV de compradores</button>
-        <Link href="/band/tickets" className="text-[#00e5ff] underline">Todos los eventos</Link>
-        <Link href="/band/tickets/check-in" className="text-[#00e5ff] underline">Check-in</Link>
+        <Link href="/admin" className="text-[#00e5ff] underline">Todos los eventos</Link>
+        <Link href="/admin/check-in" className="text-[#00e5ff] underline">Check-in</Link>
       </div>
 
       {error && <p className={ui.error}>{error}</p>}

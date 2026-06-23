@@ -171,7 +171,7 @@ export default function TicketsPanel({ query: globalQuery }: { query: string }) 
           <p>Todas las entradas de todos los eventos.</p>
         </div>
         <div className="rg-page-head-actions">
-          <Link href="/band/tickets/check-in" className="rg-btn rg-btn-secondary">Control de puerta →</Link>
+          <Link href="/admin/check-in" className="rg-btn rg-btn-secondary">Control de puerta →</Link>
         </div>
       </div>
 
