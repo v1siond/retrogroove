@@ -1,6 +1,6 @@
 import React from 'react'
 
-interface SeatLegendProps extends React.HTMLAttributes<HTMLDivElement> {}
+type SeatLegendProps = React.HTMLAttributes<HTMLDivElement>
 
 export function SeatLegend({ style, ...props }: SeatLegendProps) {
   const entries = [

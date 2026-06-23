@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useMemo, useEffect } from 'react'
 import { getAllSongs } from '@/lib/songs'
 import { Song } from '@/lib/types'
@@ -135,7 +136,7 @@ export default function PedirPage() {
               <div className="guide-step"><div className="guide-num">2</div><div className="guide-text">Guarda el <strong>número de operación</strong></div></div>
               <div className="guide-step"><div className="guide-num">3</div><div className="guide-text">Elige tu canción y envía el pedido</div></div>
               <button className="btn" onClick={() => setStep('select')}>Ya yapié, quiero pedir</button>
-              <a href="/" className="back">Volver al inicio</a>
+              <Link href="/" className="back">Volver al inicio</Link>
             </div>
           )}
 
@@ -196,7 +197,7 @@ export default function PedirPage() {
                 <p>Gracias por tu aporte. La banda revisará tu pedido.</p>
               </div>
               <button className="btn" onClick={handleReset}>Pedir otra canción</button>
-              <a href="/" className="back">Volver al inicio</a>
+              <Link href="/" className="back">Volver al inicio</Link>
             </div>
           )}
         </div>

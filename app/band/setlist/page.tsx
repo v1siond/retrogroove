@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { AdminGate } from '@/components/admin2/AdminGate'
 import { getAllSongs } from '@/lib/songs'
@@ -422,7 +423,7 @@ function SetlistBuilder() {
       <div className="page">
         <div className="header">
           <div className="header-top">
-            <a href="/">← Volver al inicio</a>
+            <Link href="/">← Volver al inicio</Link>
             <span className="header-title">RETROGROOVE</span>
             <span className="song-count">{allSongs.length} canciones</span>
           </div>
@@ -462,7 +463,7 @@ function SetlistBuilder() {
                 </div>
               ) : filteredSongs.length === 0 ? (
                 <div className="no-results">
-                  <p>No se encontraron canciones para "{searchQuery}"</p>
+                  <p>No se encontraron canciones para &quot;{searchQuery}&quot;</p>
                 </div>
               ) : (
                 <div className="songs-grid">

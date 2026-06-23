@@ -12,6 +12,8 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Hydrate auth state from localStorage after mount — a static export has no server,
+    // so we render nothing until ready to avoid an SSR/client mismatch.
     setAuthed(!!getToken());
     setReady(true);
   }, []);

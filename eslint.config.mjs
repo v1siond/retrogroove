@@ -13,6 +13,31 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // The "fetch data in useEffect → setState" pattern is used throughout the
+    // client-rendered admin panels + public pages (this is a static export — there's no
+    // server to fetch on). This newer perf-advisory rule flags every one of them; the
+    // pattern is correct here, so turn it off project-wide.
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  {
+    // Playwright e2e/demo helpers aren't React/Next app code: `use` is a Playwright
+    // fixture (not a React hook), and unused test scaffolding is fine.
+    files: ["e2e/**"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    // Netlify serverless functions run outside Next.
+    files: ["netlify/**"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

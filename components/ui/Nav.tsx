@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 interface NavProps {
   brand?: string
 }
@@ -31,8 +33,8 @@ export function Nav({ brand = 'RETROGROOVE' }: NavProps) {
         {brand}
       </span>
       <div style={{ display: 'flex', gap: '22px', fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
-        <a href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Inicio</a>
-        <a href="/band/tickets/nuevo" style={{ color: 'inherit', textDecoration: 'none' }}>Admin</a>
+        <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>Inicio</Link>
+        <Link href="/band/tickets/nuevo" style={{ color: 'inherit', textDecoration: 'none' }}>Admin</Link>
       </div>
     </nav>
   )
