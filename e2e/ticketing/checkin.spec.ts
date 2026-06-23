@@ -218,26 +218,68 @@ test.describe('Task 2 — VÁLIDA / YA USADA / NO ENCONTRADA result states', () 
   });
 });
 
-// ── Task 3: Camera-scan seam ─────────────────────────────────────────────────
+// ── Task 3: Live camera QR scanner ───────────────────────────────────────────
+//
+// A real camera can't run in headless Playwright, so we don't try to decode a
+// QR here — that's covered by the extractToken unit test (lib/ticketing/qr.test.ts).
+// These tests guard that the page renders, the scanner opens/closes (releasing
+// the camera), graceful no-camera/denied messaging shows, and that the manual +
+// URL flows still work alongside it.
 
-test.describe('Task 3 — Camera-scan seam (Phase-2 stub)', () => {
+test.describe('Task 3 — Live camera QR scanner', () => {
   test.beforeEach(async ({ page }) => {
     await mockAdminLogin(page);
   });
 
-  test('shows a visible but disabled camera-scan affordance with "próximamente" label', async ({ page }) => {
+  test('shows an enabled "Escanear con cámara" button (no more "próximamente")', async ({ page }) => {
     await login(page);
 
     const seam = page.getByTestId('camera-scan-seam');
     await expect(seam).toBeVisible();
-    await expect(seam).toContainText(/próximamente/i);
-  });
-
-  test('camera-scan control is disabled (not interactive)', async ({ page }) => {
-    await login(page);
+    await expect(seam).not.toContainText(/próximamente/i);
 
     const btn = page.getByTestId('camera-scan-btn');
     await expect(btn).toBeVisible();
-    await expect(btn).toBeDisabled();
+    await expect(btn).toContainText('Escanear con cámara');
+    await expect(btn).toBeEnabled();
+  });
+
+  test('clicking the camera button opens the live scanner panel', async ({ page }) => {
+    await login(page);
+    await page.getByTestId('camera-scan-btn').click();
+
+    // Scanner mounts. With no real camera it surfaces a graceful error state,
+    // but either way the scanner panel and a Detener/Cerrar control are present.
+    await expect(page.getByTestId('qr-scanner')).toBeVisible();
+    await expect(page.getByTestId('qr-scanner-close')).toBeVisible();
+  });
+
+  test('Detener/Cerrar closes the scanner and returns to the seam (camera released)', async ({ page }) => {
+    await login(page);
+    await page.getByTestId('camera-scan-btn').click();
+    await expect(page.getByTestId('qr-scanner')).toBeVisible();
+
+    await page.getByTestId('qr-scanner-close').click();
+
+    await expect(page.getByTestId('qr-scanner')).not.toBeVisible();
+    await expect(page.getByTestId('camera-scan-seam')).toBeVisible();
+  });
+
+  test('manual entry still works while the scanner is open', async ({ page }) => {
+    await page.route('**/api/tickets/tok-used', (r) =>
+      r.fulfill({ status: 200, json: { ticket: USED_TICKET } })
+    );
+
+    await login(page);
+    await page.getByTestId('camera-scan-btn').click();
+    await expect(page.getByTestId('qr-scanner')).toBeVisible();
+
+    // Manual input + VALIDAR remain usable alongside the open scanner.
+    await page.getByTestId('token-input').fill('tok-used');
+    await page.getByTestId('btn-validar').click();
+
+    const panel = page.getByTestId('result-panel');
+    await expect(panel).toBeVisible({ timeout: 8000 });
+    await expect(panel).toContainText('YA USADA');
   });
 });

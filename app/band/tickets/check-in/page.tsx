@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import type { Ticket } from '@/lib/ticketing/types';
+import { QrScanner, cameraScanSupported } from './QrScanner';
 
 // ─── result state type ──────────────────────────────────────────────────────
 
@@ -306,10 +307,13 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
   const [result, setResult] = useState<ResultState>(null);
   const [count, setCount] = useState(0);
   const [working, setWorking] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [canScan, setCanScan] = useState(false);
 
-  // Focus input on mount
+  // Focus input on mount; decide whether the camera scanner is even offerable.
   useEffect(() => {
     inputRef.current?.focus();
+    setCanScan(cameraScanSupported());
   }, []);
 
   async function runLookup(raw: string) {
@@ -340,13 +344,19 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     void runLookup(token);
   }
 
+  // Camera decoded a QR → show the token in the input and look it up. The
+  // scanner pauses itself while a result is showing (we never auto-check-in).
+  function handleScannedToken(tok: string) {
+    setTokenValue(tok);
+    void runLookup(tok);
+  }
+
   // Auto-verify when ?token= is present
   useEffect(() => {
     if (scannedToken) {
       setTokenValue(scannedToken);
       void runLookup(scannedToken);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedToken]);
 
   async function doCheckIn() {
@@ -373,7 +383,9 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
     setTokenValue('');
     setTicket(null);
     setResult(null);
-    inputRef.current?.focus();
+    // With the scanner open, "Siguiente" just resumes scanning; otherwise put
+    // focus back on the manual input for the next hardware scan / keystroke.
+    if (!scannerOpen) inputRef.current?.focus();
   }
 
   return (
@@ -416,53 +428,64 @@ function CheckIn({ scannedToken }: { scannedToken: string }) {
           </span>
         </div>
 
-        {/* ── Phase-2 camera seam ── */}
-        <div
-          data-testid="camera-scan-seam"
-          style={{
-            border: '1.5px dashed rgba(255,20,147,.3)',
-            borderRadius: 14,
-            padding: 20,
-            textAlign: 'center',
-            background: 'rgba(255,20,147,.03)',
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ fontSize: '1.6rem', marginBottom: 4, opacity: 0.3 }}>⃝</div>
+        {/* ── Camera scanner ── */}
+        {scannerOpen ? (
+          <QrScanner
+            onToken={handleScannedToken}
+            paused={result !== null || working}
+            onClose={() => setScannerOpen(false)}
+          />
+        ) : (
           <div
+            data-testid="camera-scan-seam"
             style={{
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '.05em',
-              fontSize: '.95rem',
-              color: 'rgba(236,230,240,.35)',
-              marginBottom: 3,
+              border: '1px solid rgba(124,58,237,.4)',
+              borderRadius: 14,
+              padding: 18,
+              textAlign: 'center',
+              background: 'rgba(124,58,237,.06)',
+              marginBottom: 12,
             }}
           >
-            ESCANEAR QR
+            <div
+              style={{
+                fontFamily: 'var(--font-display)',
+                letterSpacing: '.05em',
+                fontSize: '.95rem',
+                color: 'rgba(236,230,240,.9)',
+                marginBottom: 3,
+              }}
+            >
+              ESCANEAR QR
+            </div>
+            <div style={{ fontSize: '.6rem', color: 'rgba(236,230,240,.5)', marginBottom: 10 }}>
+              {canScan
+                ? 'Abre la cámara y valida un ticket tras otro'
+                : 'Cámara no disponible — ingresa el código abajo'}
+            </div>
+            <button
+              data-testid="camera-scan-btn"
+              type="button"
+              disabled={!canScan}
+              onClick={() => canScan && setScannerOpen(true)}
+              aria-label="Escanear con cámara"
+              style={{
+                display: 'inline-block',
+                padding: '8px 20px',
+                borderRadius: 'var(--radius-pill)',
+                border: canScan ? '1px solid rgba(124,58,237,.6)' : '1px solid rgba(255,255,255,.12)',
+                background: canScan ? 'rgba(124,58,237,.22)' : 'rgba(255,255,255,.03)',
+                color: canScan ? '#fff' : 'rgba(236,230,240,.3)',
+                fontSize: '.74rem',
+                fontWeight: 600,
+                fontFamily: 'var(--font-body)',
+                cursor: canScan ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Escanear con cámara
+            </button>
           </div>
-          <div style={{ fontSize: '.6rem', color: 'rgba(236,230,240,.3)', marginBottom: 10 }}>
-            Apunta la cámara al código del fan
-          </div>
-          <button
-            data-testid="camera-scan-btn"
-            type="button"
-            disabled
-            aria-label="Escanear con cámara — próximamente"
-            style={{
-              display: 'inline-block',
-              padding: '7px 18px',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid rgba(255,255,255,.12)',
-              background: 'rgba(255,255,255,.03)',
-              color: 'rgba(236,230,240,.3)',
-              fontSize: '.7rem',
-              fontFamily: 'var(--font-body)',
-              cursor: 'not-allowed',
-            }}
-          >
-            Escanear con cámara — próximamente
-          </button>
-        </div>
+        )}
 
         {/* ── Divider ── */}
         <div

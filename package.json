@@ -13,6 +13,8 @@
     "demo": "bash e2e/demo/run.sh"
   },
   "dependencies": {
+    "@zxing/browser": "^0.2.0",
+    "@zxing/library": "^0.22.0",
     "geist": "^1.7.2",
     "nanoid": "^3.3.7",
     "next": "16.1.6",
