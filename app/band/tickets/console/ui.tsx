@@ -235,7 +235,9 @@ export function DataTable<Row>({
               } : undefined}
             >
               {columns.map((c) => (
-                <td key={c.key} style={{ textAlign: c.align ?? 'left' }}>{c.render(row)}</td>
+                <td key={c.key} data-label={c.header || undefined}
+                  data-empty-header={c.header ? undefined : 'true'}
+                  style={{ textAlign: c.align ?? 'left' }}>{c.render(row)}</td>
               ))}
             </tr>
           ))}
@@ -258,12 +260,17 @@ export function Drawer({
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  // Esc closes; lock body scroll while open.
+  // Esc closes; lock body scroll while open so the page behind doesn't move.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open, onClose]);
 
   if (!open) return null;

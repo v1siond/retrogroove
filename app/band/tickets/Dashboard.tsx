@@ -6,7 +6,7 @@
 // active resource, the global search term (passed to the active panel), and the
 // chrome. Login is handled by AdminGate wrapping the page.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
@@ -73,6 +73,15 @@ export default function Dashboard() {
   const entry = ALL.find((e) => e.key === active)!;
   const Panel = entry.Panel;
 
+  // Lock body scroll while the off-canvas sidebar is open so the page behind
+  // stays put; always restore on close/unmount (no stuck scroll lock).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
+
   function go(key: Resource) {
     setActive(key);
     setQuery('');
@@ -92,6 +101,10 @@ export default function Dashboard() {
 
         {/* Sidebar */}
         <nav className="rg-sidebar" data-open={mobileOpen} data-testid="admin-nav" aria-label="Recursos">
+          <button type="button" className="rg-sidebar-close" aria-label="Cerrar menú"
+            onClick={() => setMobileOpen(false)}>
+            <IconX />
+          </button>
           <Link href="/" className="rg-wordmark">
             <span className="rg-wordmark-dot">R</span>
             RetroGroove
