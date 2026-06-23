@@ -4,6 +4,20 @@ import { useState, FormEvent, MouseEvent, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { AdminGate } from '@/components/admin2/AdminGate';
 import { adminApi } from '@/lib/ticketing/admin';
+import type { TicketEvent } from '@/lib/ticketing/types';
+
+export interface EventBuilderProps {
+  mode?: 'create' | 'edit';
+  /** Required in edit mode — the event to load into the builder. */
+  initialEvent?: TicketEvent;
+}
+
+/** ISO instant → value for a <input type="datetime-local"> in the admin's local tz. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -427,7 +441,14 @@ const S = {
 
 type ActiveTool = 'round-table' | 'rect-table' | 'rows' | 'general' | null;
 
-function NewEvent() {
+export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProps) {
+  const isEdit = mode === 'edit' && !!initialEvent;
+  // In edit mode we keep the event id + which sections/tables existed at load,
+  // so save can rebuild the layout (delete the old, recreate from builder state).
+  const [editId] = useState<string | null>(isEdit ? initialEvent!.id : null);
+  const initialSectionsRef = useRef(initialEvent?.sections ?? []);
+  const [isPublished, setIsPublished] = useState(isEdit ? initialEvent!.status === 'published' : true);
+
   // Event fields
   const [eventName, setEventName] = useState('');
   const [dateTime, setDateTime] = useState('');
@@ -486,6 +507,47 @@ function NewEvent() {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Edit mode: load the existing event into the builder once on mount.
+  useEffect(() => {
+    if (!isEdit || !initialEvent) return;
+    const ev = initialEvent;
+    setEventName(ev.name);
+    setDateTime(toLocalInput(ev.starts_at));
+    setVenueName(ev.venue_name ?? '');
+    setVenueAddress(ev.venue_address ?? '');
+    setDescription(ev.description ?? '');
+    setMapUrl(ev.map_url ?? '');
+    setCanvasW(ev.canvas_width || 1000);
+    setCanvasH(ev.canvas_height || 700);
+    if (ev.stage_x != null) setStageX(ev.stage_x);
+    if (ev.stage_y != null) setStageY(ev.stage_y);
+    if (ev.stage_w != null) setStageW(ev.stage_w);
+    if (ev.stage_h != null) setStageH(ev.stage_h);
+    setSections(
+      ev.sections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        layout_type: s.layout_type === 'general' ? 'general' : 'tables',
+        capacity: s.capacity ?? 100,
+        tarifas: [...s.price_bundles]
+          .sort((a, b) => a.quantity - b.quantity)
+          .map((b) => ({ quantity: b.quantity, price: String(b.price) })),
+        tables: s.tables.map((t) => ({
+          id: t.id,
+          label: t.label,
+          pos_x: t.pos_x,
+          pos_y: t.pos_y,
+          size: t.size ?? 64,
+          shape: t.shape === 'rect' ? 'rect' : 'round',
+          seat_count: t.seat_count,
+          seating: t.seating === 'rows' ? 'rows' : 'around',
+        })),
+      }))
+    );
+    setActiveSection(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sec = sections[activeSection];
@@ -640,75 +702,144 @@ function NewEvent() {
   const hasInventory =
     totalTables > 0 || sections.some((s) => s.layout_type === 'general' && s.capacity > 0);
 
-  async function publish(e: FormEvent) {
+  function eventAttrs() {
+    return {
+      name: eventName,
+      starts_at: new Date(dateTime).toISOString(),
+      venue_name: venueName,
+      venue_address: venueAddress,
+      map_url: mapUrl,
+      description,
+      canvas_width: canvasW,
+      canvas_height: canvasH,
+      stage_x: stageX,
+      stage_y: stageY,
+      stage_w: stageW,
+      stage_h: stageH,
+    };
+  }
+
+  // Recreate a section's price bundles + tables from builder state.
+  // pos_x/pos_y are float % locally; the API schema expects integers (0–100).
+  async function fillSection(sectionId: string, section: SectionDef, phaseId: string) {
+    for (const tarifa of section.tarifas) {
+      if (tarifa.price) {
+        await adminApi.createBundle(sectionId, {
+          phase_id: phaseId,
+          quantity: tarifa.quantity,
+          price: tarifa.price,
+        });
+      }
+    }
+    if (section.layout_type === 'tables') {
+      for (const t of section.tables) {
+        await adminApi.createTable(sectionId, {
+          label: t.label,
+          seat_count: t.seat_count,
+          pos_x: Math.round(t.pos_x),
+          pos_y: Math.round(t.pos_y),
+          size: t.size,
+          shape: t.shape,
+          seating: t.seating,
+        });
+      }
+    }
+  }
+
+  async function saveCreate(): Promise<string> {
+    const { event } = await adminApi.createEvent({ ...eventAttrs(), venue_photo_url: '' });
+    const { data: phase } = await adminApi.createPhase(event.id, {
+      name: 'Preventa',
+      starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
+      ends_at: new Date(dateTime).toISOString(),
+    });
+    for (const section of sections) {
+      const { data } = await adminApi.createSection(event.id, {
+        name: section.name,
+        layout_type: section.layout_type,
+        capacity: section.layout_type === 'general' ? section.capacity : null,
+      });
+      await fillSection(data.id, section, phase.id);
+    }
+    await adminApi.publishEvent(event.id);
+    return event.slug;
+  }
+
+  // Edit: update fields, then rebuild the layout from scratch. Simple + correct
+  // because nothing is sold yet (the API also refuses destructive deletes once
+  // live tickets exist, so this stays safe later).
+  async function saveEdit(id: string): Promise<string> {
+    await adminApi.updateEvent(id, eventAttrs());
+
+    // Tear down the old layout: every original table, then every existing bundle.
+    for (const s of initialSectionsRef.current) {
+      for (const t of s.tables) await adminApi.deleteTable(t.id);
+    }
+    const { price_bundles } = await adminApi.listBundles(id);
+    for (const b of price_bundles) await adminApi.deleteBundle(b.id);
+
+    // Reuse the existing phase (or make one) so bundles have a phase to hang on.
+    const { phases } = await adminApi.listPhases(id);
+    const phaseId =
+      phases[0]?.id ??
+      (
+        await adminApi.createPhase(id, {
+          name: 'Preventa',
+          starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
+          ends_at: new Date(dateTime).toISOString(),
+        })
+      ).data.id;
+
+    // Recreate from builder state: update sections that still exist, create new ones.
+    const keptIds = new Set<string>();
+    for (const section of sections) {
+      const existing = initialSectionsRef.current.find((s) => s.id === section.id);
+      let sectionId: string;
+      if (existing) {
+        await adminApi.updateSection(existing.id, {
+          name: section.name,
+          layout_type: section.layout_type,
+          capacity: section.layout_type === 'general' ? section.capacity : null,
+        });
+        sectionId = existing.id;
+        keptIds.add(existing.id);
+      } else {
+        const { data } = await adminApi.createSection(id, {
+          name: section.name,
+          layout_type: section.layout_type,
+          capacity: section.layout_type === 'general' ? section.capacity : null,
+        });
+        sectionId = data.id;
+      }
+      await fillSection(sectionId, section, phaseId);
+    }
+
+    // Drop sections the user removed in the builder.
+    for (const s of initialSectionsRef.current) {
+      if (!keptIds.has(s.id)) await adminApi.deleteSection(s.id);
+    }
+
+    // Apply the publish/draft toggle.
+    if (isPublished) await adminApi.publishEvent(id);
+    else await adminApi.updateEvent(id, { status: 'draft' });
+
+    return initialEvent!.slug;
+  }
+
+  async function save(e: FormEvent) {
     e.preventDefault();
     if (!hasInventory) return;
     setPublishing(true);
     setError(null);
     try {
-      const { event } = await adminApi.createEvent({
-        name: eventName,
-        starts_at: new Date(dateTime).toISOString(),
-        venue_name: venueName,
-        venue_address: venueAddress,
-        venue_photo_url: '',
-        map_url: mapUrl,
-        description,
-        canvas_width: canvasW,
-        canvas_height: canvasH,
-        stage_x: stageX,
-        stage_y: stageY,
-        stage_w: stageW,
-        stage_h: stageH,
-      });
-
-      // One shared phase for the whole event
-      const { data: phase } = await adminApi.createPhase(event.id, {
-        name: 'Preventa',
-        starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
-        ends_at: new Date(dateTime).toISOString(),
-      });
-
-      for (const sec of sections) {
-        const { data: section } = await adminApi.createSection(event.id, {
-          name: sec.name,
-          layout_type: sec.layout_type,
-          capacity: sec.layout_type === 'general' ? sec.capacity : null,
-        });
-
-        // Create price bundles from tarifa rows
-        for (const tarifa of sec.tarifas) {
-          if (tarifa.price) {
-            await adminApi.createBundle(section.id, {
-              phase_id: phase.id,
-              quantity: tarifa.quantity,
-              price: tarifa.price,
-            });
-          }
-        }
-
-        // Place tables (seated sections only)
-        // pos_x/pos_y are stored as float % in local state but the API schema
-        // expects integers (0–100) — round before sending.
-        if (sec.layout_type === 'tables') {
-          for (const t of sec.tables) {
-            await adminApi.createTable(section.id, {
-              label: t.label,
-              seat_count: t.seat_count,
-              pos_x: Math.round(t.pos_x),
-              pos_y: Math.round(t.pos_y),
-              size: t.size,
-              shape: t.shape,
-              seating: t.seating,
-            });
-          }
-        }
-      }
-
-      await adminApi.publishEvent(event.id);
-      setPublishedSlug(event.slug);
+      const slug = isEdit && editId ? await saveEdit(editId) : await saveCreate();
+      setPublishedSlug(slug);
     } catch {
-      setError('No se pudo crear el evento. Intenta de nuevo.');
+      setError(
+        isEdit
+          ? 'No se pudieron guardar los cambios. Intenta de nuevo.'
+          : 'No se pudo crear el evento. Intenta de nuevo.'
+      );
     } finally {
       setPublishing(false);
     }
@@ -719,9 +850,13 @@ function NewEvent() {
   if (publishedSlug) {
     return (
       <div style={S.successWrap}>
-        <h1 style={S.successTitle}>Evento publicado</h1>
+        <h1 style={S.successTitle}>{isEdit ? 'Cambios guardados' : 'Evento publicado'}</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px' }}>
-          Ya está en la home y listo para vender.
+          {isEdit
+            ? isPublished
+              ? 'Tu evento se actualizó y sigue publicado.'
+              : 'Tu evento se actualizó y quedó en borrador.'
+            : 'Ya está en la home y listo para vender.'}
         </p>
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <li>
@@ -749,24 +884,51 @@ function NewEvent() {
   // ── Builder UI ────────────────────────────────────────────────────────────
 
   return (
-    <form onSubmit={publish} style={S.wrap}>
+    <form onSubmit={save} style={S.wrap}>
       {/* ── Top bar ── */}
       <div style={S.topBar}>
         <span data-testid="builder-title" style={S.topTitle}>
-          NUEVO EVENTO
+          {isEdit ? 'EDITAR EVENTO' : 'NUEVO EVENTO'}
         </span>
-        <button
-          type="submit"
-          data-testid="btn-publish"
-          disabled={publishing || !hasInventory}
-          style={{
-            ...S.publishBtn,
-            opacity: publishing || !hasInventory ? 0.4 : 1,
-            cursor: publishing || !hasInventory ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {publishing ? 'PUBLICANDO...' : 'CREAR Y PUBLICAR'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isEdit && (
+            <button
+              type="button"
+              data-testid="btn-toggle-publish"
+              onClick={() => setIsPublished((p) => !p)}
+              title="Cambia entre publicado y borrador (se aplica al guardar)"
+              style={{
+                background: 'none',
+                border: '1px solid rgba(255,255,255,.18)',
+                borderRadius: '999px',
+                padding: '8px 14px',
+                fontSize: '.78rem',
+                color: isPublished ? 'var(--color-cyan)' : 'rgba(236,230,240,.6)',
+                cursor: 'pointer',
+              }}
+            >
+              {isPublished ? '● Publicado' : '○ Borrador'}
+            </button>
+          )}
+          <button
+            type="submit"
+            data-testid="btn-publish"
+            disabled={publishing || !hasInventory}
+            style={{
+              ...S.publishBtn,
+              opacity: publishing || !hasInventory ? 0.4 : 1,
+              cursor: publishing || !hasInventory ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isEdit
+              ? publishing
+                ? 'GUARDANDO...'
+                : 'GUARDAR CAMBIOS'
+              : publishing
+                ? 'PUBLICANDO...'
+                : 'CREAR Y PUBLICAR'}
+          </button>
+        </div>
       </div>
 
       {error && <div style={S.errorBox}>{error}</div>}
@@ -1296,7 +1458,7 @@ function NewEvent() {
 export default function NewEventPage() {
   return (
     <AdminGate>
-      <NewEvent />
+      <EventBuilder mode="create" />
     </AdminGate>
   );
 }

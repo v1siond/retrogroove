@@ -259,7 +259,7 @@ function EventDrawer({
       <DrawerSectionTitle>Acciones por evento</DrawerSectionTitle>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link href={`/band/tickets/evento?slug=${summary.slug}`} className="rg-link">Emitir comps / asientos →</Link>
-        <Link href={`/band/tickets/nuevo?slug=${summary.slug}`} className="rg-link">Constructor visual →</Link>
+        <Link href={`/band/tickets/editar?slug=${summary.slug}`} className="rg-link">Editar en el constructor →</Link>
       </div>
 
       <DrawerSectionTitle>Órdenes ({orders?.length ?? '…'})</DrawerSectionTitle>

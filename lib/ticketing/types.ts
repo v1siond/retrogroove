@@ -20,6 +20,9 @@ export interface VenueTable {
   pos_x: number;
   pos_y: number;
   size?: number;
+  shape?: 'round' | 'rect';
+  seating?: 'around' | 'rows';
+  seats_per_row?: number | null;
 }
 
 export interface PriceBundle {
