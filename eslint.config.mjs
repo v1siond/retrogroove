@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated test artifacts (gitignored, but eslint doesn't read .gitignore):
+    // the Playwright HTML report bundles minified vendor JS that trips a flood of
+    // rule errors. Never our code, never linted.
+    "playwright-report/**",
+    "test-results/**",
   ]),
   {
     // The "fetch data in useEffect → setState" pattern is used throughout the
