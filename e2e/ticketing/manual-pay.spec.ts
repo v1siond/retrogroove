@@ -60,3 +60,54 @@ test('admin: "Marcar como pagada" confirms a pending order (issues tickets)', as
   await expect.poll(() => confirmed).toBe(true);
   await expect(page.getByTestId('feedback-ok')).toContainText(/confirmado/i);
 });
+
+test('buyer: "Reportar pago" records the report and shows the pending ticket', async ({ page }) => {
+  let reportBody: { operation_number?: string; buyer?: { email?: string } } | null = null;
+
+  await setupTicketingMocks(page);
+  await page.route('**/api/orders', (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    return route.fulfill({
+      status: 201,
+      json: { order: { id: 'ordM', status: 'pending', total: '70', payment_provider: 'manual', buyer_email: '', tickets: [{}, {}] } },
+    });
+  });
+  await page.route('**/api/orders/ordM/report-payment', (route) => {
+    reportBody = route.request().postDataJSON();
+    return route.fulfill({
+      status: 200,
+      json: { order: { id: 'ordM', status: 'pending', total: '70', payment_provider: 'manual', payment_ref: 'YP-999', buyer_email: 'ana@x.com', tickets: [{}, {}] } },
+    });
+  });
+
+  await page.goto('/evento?slug=gala-2026');
+  await page.getByRole('button', { name: /comprar entradas/i }).click();
+  await page.locator('[data-seat-id="s1"]').click();
+  await page.locator('[data-seat-id="s2"]').click();
+  await page.getByTestId('pay-yape').click();
+
+  await page.getByTestId('report-name').fill('Ana');
+  await page.getByTestId('report-email').fill('ana@x.com');
+  await page.getByTestId('report-op').fill('YP-999');
+  await page.getByTestId('report-submit').click();
+
+  await expect(page.getByTestId('pending-title')).toBeVisible();
+  await expect(page.getByTestId('pending-qr-note')).toBeVisible();
+  await expect(page.getByText('YP-999')).toBeVisible();
+
+  expect(reportBody?.operation_number).toBe('YP-999');
+  expect(reportBody?.buyer?.email).toBe('ana@x.com');
+});
+
+test('resume: revisiting a pending manual order shows the pending view, not the poll', async ({ page }) => {
+  await setupTicketingMocks(page);
+  await page.route('**/api/orders/ordM', (route) =>
+    route.fulfill({
+      status: 200,
+      json: { order: { id: 'ordM', status: 'pending', total: '70', payment_provider: 'manual', payment_ref: 'YP-1', event_slug: 'gala-2026', tickets: [{}] } },
+    })
+  );
+
+  await page.goto('/evento?order=ordM');
+  await expect(page.getByTestId('pending-title')).toBeVisible();
+});

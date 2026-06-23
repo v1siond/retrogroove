@@ -74,7 +74,7 @@ function seatsAroundTable(count: number): { x: number; y: number }[] {
   });
 }
 
-type Step = 'detail' | 'select' | 'pay' | 'coordinate' | 'done';
+type Step = 'detail' | 'select' | 'pay' | 'coordinate' | 'pending' | 'done';
 
 // Manual-pay coordination: the band's Yape/Plin number (= their phone) + WhatsApp.
 // Yape is keyed to a phone number; Plin pays the same number via Peru's QR interoperability,
@@ -414,6 +414,10 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
   const [promo, setPromo] = useState('');
   const [step, setStep] = useState<Step>('detail');
   const [order, setOrder] = useState<Order | null>(null);
+  // "Ya pagué" report form (manual Yape/Plin flow)
+  const [repName, setRepName] = useState('');
+  const [repEmail, setRepEmail] = useState('');
+  const [repOp, setRepOp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [mapView, setMapView] = useState<MapView>('map');
@@ -457,7 +461,9 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
         setEvent(ev);
         setResolvedSlug(orderSlug);
         setOrder(o);
-        setStep('done');
+        // A still-pending manual order resumes to the "Pendiente de validación" view;
+        // paid (or Izipay) orders go to 'done' (ticket / CONFIRMANDO PAGO poll).
+        setStep(o.status !== 'paid' && o.payment_provider === 'manual' ? 'pending' : 'done');
       })
       .catch(() => setError('No se pudo cargar el evento'))
       .finally(() => setLoading(false));
@@ -653,6 +659,27 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
           ? 'Algunos asientos ya no están disponibles. Elige otros.'
           : 'No se pudo crear la reserva.'
       );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  // "Ya pagué": record the buyer's report (name/email + operation #) and alert the band,
+  // then show their pending ticket. Does NOT mark paid — the band confirms in the admin.
+  async function handleReport() {
+    if (!order || !repEmail.trim()) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const { order: updated } = await ticketingApi.reportPayment(
+        order.id,
+        { first_name: repName.trim() || undefined, email: repEmail.trim() || undefined },
+        repOp.trim()
+      );
+      setOrder(updated);
+      setStep('pending');
+    } catch {
+      setError('No se pudo registrar tu reporte. Intenta de nuevo o escríbenos por WhatsApp.');
     } finally {
       setWorking(false);
     }
@@ -1573,6 +1600,11 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
       `¡Hola RetroGroove! Reservé ${entradas} entrada(s) para "${event.name}". ` +
         `Total S/ ${order.total}. Referencia ${ref}. Les envío mi comprobante de Yape/Plin.`
     );
+    const repInput: React.CSSProperties = {
+      width: '100%', boxSizing: 'border-box', padding: '11px 13px', background: 'var(--color-bg)',
+      border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)',
+      color: 'var(--color-text)', fontSize: '0.9rem', outline: 'none',
+    };
     return (
       <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
         <Nav />
@@ -1602,19 +1634,85 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
             </div>
           </div>
 
+          {/* Primary: report the payment — flags the order in admin + alerts the band */}
+          <div data-testid="report-form" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-frame)', padding: '18px', marginBottom: '12px' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', letterSpacing: '0.03em', marginBottom: '4px' }}>Ya pagué</div>
+            <p style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', margin: '0 0 12px' }}>
+              Déjanos tus datos y validamos tu pago para enviarte las entradas.
+            </p>
+            <input data-testid="report-name" placeholder="Tu nombre" value={repName} onChange={(e) => setRepName(e.target.value)} style={repInput} />
+            <input data-testid="report-email" type="email" placeholder="Tu correo (te enviamos las entradas)" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} style={{ ...repInput, marginTop: '8px' }} />
+            <input data-testid="report-op" placeholder="N.° de operación Yape/Plin" value={repOp} onChange={(e) => setRepOp(e.target.value)} style={{ ...repInput, marginTop: '8px' }} />
+            <button
+              type="button"
+              data-testid="report-submit"
+              disabled={working || !repEmail.trim()}
+              onClick={handleReport}
+              style={{ marginTop: '12px', width: '100%', padding: '14px', background: 'var(--color-pink)', color: '#fff', border: 'none', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-display)', fontSize: '1.1rem', letterSpacing: '0.04em', cursor: working || !repEmail.trim() ? 'not-allowed' : 'pointer', opacity: working || !repEmail.trim() ? 0.5 : 1 }}
+            >
+              {working ? 'Enviando…' : 'Reportar pago'}
+            </button>
+          </div>
+
+          {/* Secondary: or just message us */}
           <a
             href={`https://wa.me/${WHATSAPP_DIGITS}?text=${waText}`}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="whatsapp-cta"
-            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '15px', background: '#25D366', color: '#04210f', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-display)', fontSize: 'clamp(1.05rem,4vw,1.25rem)', letterSpacing: '0.04em', textAlign: 'center', textDecoration: 'none' }}
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '13px', background: 'transparent', color: '#25D366', border: '1px solid rgba(37,211,102,.5)', borderRadius: 'var(--radius-pill)', fontFamily: 'var(--font-display)', fontSize: '1rem', letterSpacing: '0.04em', textAlign: 'center', textDecoration: 'none' }}
           >
-            Enviar comprobante por WhatsApp →
+            O envíanos el comprobante por WhatsApp →
           </a>
 
           <div style={{ marginTop: '16px', fontSize: '0.74rem', color: 'var(--color-text-muted)', lineHeight: 1.6, background: 'rgba(255,255,255,.04)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '13px 15px' }}>
             <strong style={{ color: 'var(--color-text)' }}>¿Cómo sigue?</strong> Validamos tu pago y te enviamos las entradas con QR a tu correo. Si no alcanzas a pagar, los asientos se liberan en 24 h y quedan libres para otra persona.
           </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // ─── Pendiente de validación (manual order, buyer reported payment) ───
+  if (step === 'pending' && order) {
+    const ref = order.id.slice(0, 8).toUpperCase();
+    const entradas = order.tickets?.length || selectedCount;
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
+        <Nav />
+        <main className="rg-gutter" style={{ maxWidth: '560px', margin: '0 auto', padding: '36px 0 80px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.6rem', marginBottom: '8px' }}>⏳</div>
+          <h1 data-testid="pending-title" style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.8rem,6vw,2.4rem)', letterSpacing: '0.03em', margin: '0 0 8px' }}>
+            Pendiente de validación
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)', maxWidth: '420px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+            Recibimos tu reporte. Estamos validando tu pago — apenas lo confirmemos, tu entrada con QR queda lista y te llega por correo.
+          </p>
+
+          <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-frame)', padding: '20px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', marginBottom: '8px' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>Entradas</span><span>{entradas}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', marginBottom: '8px' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>Total</span><span style={{ color: 'var(--color-gold)' }}>S/ {order.total}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem', marginBottom: '8px' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>Referencia</span><span className="rg-mono">{ref}</span>
+            </div>
+            {order.payment_ref && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>N.° de operación</span><span className="rg-mono">{order.payment_ref}</span>
+              </div>
+            )}
+            <div data-testid="pending-qr-note" style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', textAlign: 'center', color: 'var(--color-cyan)', fontSize: '0.82rem' }}>
+              ⏳ Tu QR aparece cuando confirmemos el pago
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.72rem', color: 'var(--color-text-faint)', marginTop: '16px' }}>
+            Guarda este enlace para ver el estado de tu entrada.
+          </p>
         </main>
         <Footer />
       </div>

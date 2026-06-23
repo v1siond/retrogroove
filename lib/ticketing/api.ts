@@ -65,6 +65,19 @@ export const ticketingApi = {
     return request(`/orders/${orderId}`);
   },
 
+  // Buyer self-reports an out-of-band payment (Yape/Plin): records their contact info +
+  // the operation number and alerts the band. Does not mark the order paid.
+  reportPayment(
+    orderId: string,
+    buyer: { first_name?: string; last_name?: string; email?: string },
+    operationNumber: string,
+  ): Promise<{ order: Order }> {
+    return request(`/orders/${orderId}/report-payment`, {
+      method: 'POST',
+      body: JSON.stringify({ buyer, operation_number: operationNumber }),
+    });
+  },
+
   getTicket(token: string): Promise<{ ticket: Ticket }> {
     return request(`/tickets/${token}`);
   },
