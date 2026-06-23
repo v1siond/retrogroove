@@ -24,6 +24,18 @@ const EVENT_FILTERS: { key: EventFilter; label: string }[] = [
   { key: 'all', label: 'Todos' },
 ];
 
+// The four event statuses the API accepts (Event @statuses). updateEvent({status})
+// drives every transition — publish, unpublish (→draft), cancel, complete.
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'draft', label: 'Borrador' },
+  { value: 'published', label: 'Publicado' },
+  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'completed', label: 'Completado' },
+];
+const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  STATUS_OPTIONS.map((o) => [o.value, o.label])
+);
+
 const EMPTY_BY_FILTER: Record<EventFilter, string> = {
   active: 'No hay eventos activos ni próximos.',
   past: 'No hay eventos pasados.',
@@ -144,8 +156,8 @@ function EventDrawer({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [publishing, setPublishing] = useState(false);
-  const [published, setPublished] = useState(summary.status === 'published');
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [status, setStatus] = useState<string>(summary.status);
 
   useEffect(() => {
     let on = true;
@@ -184,17 +196,22 @@ function EventDrawer({
     }
   }
 
-  async function publish() {
-    setPublishing(true);
+  // Any status transition — publish, unpublish, cancel, complete — via updateEvent.
+  // Optimistic: flip the UI, revert if the request fails.
+  async function changeStatus(next: string) {
+    if (next === status || statusBusy) return;
+    const prev = status;
+    setStatus(next);
+    setStatusBusy(true);
     try {
-      await adminApi.publishEvent(summary.id);
-      setPublished(true);
-      notify('ok', `“${summary.name}” publicado.`);
+      await adminApi.updateEvent(summary.id, { status: next });
+      notify('ok', `Estado: ${STATUS_LABELS[next] ?? next}.`);
       onChanged();
     } catch {
-      notify('error', 'No se pudo publicar el evento.');
+      setStatus(prev);
+      notify('error', 'No se pudo cambiar el estado.');
     } finally {
-      setPublishing(false);
+      setStatusBusy(false);
     }
   }
 
@@ -209,18 +226,11 @@ function EventDrawer({
     }
   }
 
-  const status = published ? 'published' : summary.status;
-
   const footer = (
     <>
       <Button variant="primary" type="submit" form="event-edit-form" disabled={saving}>
         {saving ? 'Guardando…' : 'Guardar cambios'}
       </Button>
-      {!published && (
-        <Button variant="secondary" data-testid="publish-event" onClick={publish} disabled={publishing}>
-          {publishing ? 'Publicando…' : 'Publicar'}
-        </Button>
-      )}
       <ConfirmAction testId="delete-event" label="Eliminar evento" confirmLabel="Sí, eliminar"
         prompt={`¿Eliminar “${summary.name}”?`} onConfirm={doDelete} />
     </>
@@ -245,6 +255,28 @@ function EventDrawer({
         {full && <Field label="Escenario" mono>x{full.stage_x ?? 0} y{full.stage_y ?? 0} · {full.stage_w ?? 0}×{full.stage_h ?? 0}</Field>}
         {full && <Field label="Secciones" mono>{full.sections?.length ?? 0}</Field>}
       </FieldList>
+
+      {/* Status control — publish, unpublish (→ borrador), cancel, complete. One
+          select drives every transition through updateEvent({ status }). */}
+      <DrawerSectionTitle>Estado</DrawerSectionTitle>
+      <div className="rg-field">
+        <label className="rg-label" htmlFor="ev-status">Estado del evento</label>
+        <select
+          id="ev-status"
+          data-testid="event-status"
+          className="rg-input"
+          value={status}
+          disabled={statusBusy}
+          onChange={(e) => changeStatus(e.target.value)}
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="rg-cell-sub" style={{ marginTop: 6 }}>
+          Cámbialo al instante: publica, regresa a borrador, cancela o marca como completado.
+        </p>
+      </div>
 
       {/* Editable fields — every event field, labelled. Saving on submit. */}
       <DrawerSectionTitle>Detalles del evento</DrawerSectionTitle>
