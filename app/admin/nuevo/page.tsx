@@ -446,7 +446,6 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
   // In edit mode we keep the event id + which sections/tables existed at load,
   // so save can rebuild the layout (delete the old, recreate from builder state).
   const [editId] = useState<string | null>(isEdit ? initialEvent!.id : null);
-  const initialSectionsRef = useRef(initialEvent?.sections ?? []);
   const [isPublished, setIsPublished] = useState(isEdit ? initialEvent!.status === 'published' : true);
 
   // Event fields
@@ -721,164 +720,52 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
     };
   }
 
-  // Table fields the API's UPDATE accepts without regenerating seats (everything but
-  // seat_count). pos_x/pos_y are float % locally; the schema expects integers (0–100).
-  const tableAttrs = (t: TableDef) => ({
-    label: t.label,
-    pos_x: Math.round(t.pos_x),
-    pos_y: Math.round(t.pos_y),
-    size: t.size,
-    shape: t.shape,
-    seating: t.seating,
-  });
-
-  // Price bundles aren't seat-coupled, so on edit they're torn down + rebuilt safely.
-  async function createBundles(sectionId: string, section: SectionDef, phaseId: string) {
-    for (const tarifa of section.tarifas) {
-      if (tarifa.price) {
-        await adminApi.createBundle(sectionId, {
-          phase_id: phaseId,
-          quantity: tarifa.quantity,
-          price: tarifa.price,
-        });
-      }
-    }
-  }
-
-  // Recreate a section's bundles + tables from scratch (used when CREATING an event).
-  async function fillSection(sectionId: string, section: SectionDef, phaseId: string) {
-    await createBundles(sectionId, section, phaseId);
-    if (section.layout_type === 'tables') {
-      for (const t of section.tables) {
-        await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
-      }
-    }
-  }
-
-  async function saveCreate(): Promise<string> {
-    const { event } = await adminApi.createEvent({ ...eventAttrs(), venue_photo_url: '' });
-    const { data: phase } = await adminApi.createPhase(event.id, {
-      name: 'Preventa',
-      starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
-      ends_at: new Date(dateTime).toISOString(),
-    });
-    for (const section of sections) {
-      const { data } = await adminApi.createSection(event.id, {
+  // The whole layout as ONE payload — sent in a single transactional request. The server
+  // diffs by id (update in place / create new / delete removed) and guards sold inventory,
+  // so the client no longer orchestrates a request-per-table. pos_x/pos_y are float %
+  // locally; the schema expects integers (0–100).
+  function layoutPayload() {
+    return {
+      event: { ...eventAttrs(), status: isPublished ? 'published' : 'draft' },
+      sections: sections.map((section) => ({
+        id: section.id,
         name: section.name,
         layout_type: section.layout_type,
         capacity: section.layout_type === 'general' ? section.capacity : null,
-      });
-      await fillSection(data.id, section, phase.id);
-    }
-    await adminApi.publishEvent(event.id);
-    return event.slug;
+        price_bundles: section.tarifas
+          .filter((t) => t.price)
+          .map((t) => ({ quantity: t.quantity, price: t.price })),
+        tables:
+          section.layout_type === 'tables'
+            ? section.tables.map((t) => ({
+                id: t.id,
+                label: t.label,
+                pos_x: Math.round(t.pos_x),
+                pos_y: Math.round(t.pos_y),
+                size: t.size,
+                shape: t.shape,
+                seating: t.seating,
+                seat_count: t.seat_count,
+              }))
+            : [],
+      })),
+    };
   }
 
-  // Edit: surgically diff the layout instead of nuking it. Existing tables are UPDATED
-  // in place (rename/move/resize never touch their seats), only genuinely new tables are
-  // created and only removed ones deleted. The API refuses to delete a table/section that
-  // has a live ticket, so anything sold is left intact and reported back as a warning —
-  // a save with sold inventory no longer fails outright.
+  // Create: one POST for the event row, then one transactional layout save.
+  async function saveCreate(): Promise<string> {
+    const { event } = await adminApi.createEvent({ ...eventAttrs(), venue_photo_url: '' });
+    const res = await adminApi.saveEventLayout(event.id, layoutPayload());
+    setEditWarnings(res.warnings ?? []);
+    return res.slug || event.slug;
+  }
+
+  // Edit: a SINGLE transactional request — the server diffs the layout in place, keeps any
+  // sold table/section and reports it in `warnings`. No more 1-request-per-table.
   async function saveEdit(id: string): Promise<string> {
-    await adminApi.updateEvent(id, eventAttrs());
-
-    // Bundles aren't seat-coupled — tear down + rebuild is safe.
-    const { price_bundles } = await adminApi.listBundles(id);
-    for (const b of price_bundles) await adminApi.deleteBundle(b.id);
-
-    const { phases } = await adminApi.listPhases(id);
-    const phaseId =
-      phases[0]?.id ??
-      (
-        await adminApi.createPhase(id, {
-          name: 'Preventa',
-          starts_at: new Date('2020-01-01T00:00:00Z').toISOString(),
-          ends_at: new Date(dateTime).toISOString(),
-        })
-      ).data.id;
-
-    // Index every original table's seat_count by id so we can tell renamed/moved (update in
-    // place) from added (create), removed (delete), or resized (needs seat regeneration).
-    const originalSeatCountById = new Map<string, number>();
-    for (const s of initialSectionsRef.current) {
-      for (const t of s.tables) originalSeatCountById.set(t.id, t.seat_count);
-    }
-    const keptTableIds = new Set<string>();
-    const keptSectionIds = new Set<string>();
-    const warnings: string[] = [];
-
-    for (const section of sections) {
-      const existing = initialSectionsRef.current.find((s) => s.id === section.id);
-      let sectionId: string;
-      if (existing) {
-        await adminApi.updateSection(existing.id, {
-          name: section.name,
-          layout_type: section.layout_type,
-          capacity: section.layout_type === 'general' ? section.capacity : null,
-        });
-        sectionId = existing.id;
-        keptSectionIds.add(existing.id);
-      } else {
-        const { data } = await adminApi.createSection(id, {
-          name: section.name,
-          layout_type: section.layout_type,
-          capacity: section.layout_type === 'general' ? section.capacity : null,
-        });
-        sectionId = data.id;
-      }
-
-      await createBundles(sectionId, section, phaseId);
-
-      if (section.layout_type !== 'tables') continue;
-      for (const t of section.tables) {
-        const origSeatCount = originalSeatCountById.get(t.id);
-        if (origSeatCount === undefined) {
-          await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
-          continue;
-        }
-        keptTableIds.add(t.id);
-        if (origSeatCount === t.seat_count) {
-          // Rename / move / resize — in place, never touches the seats (sale-safe).
-          await adminApi.updateTable(t.id, tableAttrs(t));
-        } else {
-          // Seat count changed → seats must be regenerated, which means recreate. The API
-          // blocks deleting a table with a live ticket, so degrade: keep it, warn.
-          try {
-            await adminApi.deleteTable(t.id);
-            await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
-          } catch {
-            await adminApi.updateTable(t.id, tableAttrs(t));
-            warnings.push(`No se pudo cambiar el número de asientos de "${t.label}" (tiene entradas vendidas).`);
-          }
-        }
-      }
-    }
-
-    // Delete tables the user removed in the builder — best-effort; a sold table is kept.
-    for (const tid of originalSeatCountById.keys()) {
-      if (keptTableIds.has(tid)) continue;
-      try {
-        await adminApi.deleteTable(tid);
-      } catch {
-        warnings.push('Una mesa con entradas vendidas no se pudo eliminar.');
-      }
-    }
-
-    // Drop sections the user removed — best-effort for the same reason.
-    for (const s of initialSectionsRef.current) {
-      if (keptSectionIds.has(s.id)) continue;
-      try {
-        await adminApi.deleteSection(s.id);
-      } catch {
-        warnings.push('Una sección con entradas vendidas no se pudo eliminar.');
-      }
-    }
-
-    if (isPublished) await adminApi.publishEvent(id);
-    else await adminApi.updateEvent(id, { status: 'draft' });
-
-    setEditWarnings(warnings);
-    return initialEvent!.slug;
+    const res = await adminApi.saveEventLayout(id, layoutPayload());
+    setEditWarnings(res.warnings ?? []);
+    return res.slug || initialEvent!.slug;
   }
 
   async function save(e: FormEvent) {
@@ -936,19 +823,20 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <li>
             <Link
-              href={`/evento?slug=${publishedSlug}`}
-              data-testid="public-link"
-              style={{ color: 'var(--color-cyan)', textDecoration: 'underline' }}
+              href="/admin"
+              data-testid="back-to-admin"
+              style={{ color: 'var(--color-cyan)', textDecoration: 'underline', fontWeight: 600 }}
             >
-              Página pública de venta →
+              ← Volver al panel
             </Link>
           </li>
           <li>
             <Link
-              href={`/admin/evento?slug=${publishedSlug}`}
-              style={{ color: 'var(--color-cyan)', textDecoration: 'underline' }}
+              href={`/evento?slug=${publishedSlug}`}
+              data-testid="public-link"
+              style={{ color: 'var(--color-text-muted)', textDecoration: 'underline' }}
             >
-              Administrar entradas →
+              Ver página pública de venta →
             </Link>
           </li>
         </ul>

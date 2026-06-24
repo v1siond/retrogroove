@@ -314,6 +314,15 @@ export const adminApi = {
     return authed('/events', { method: 'POST', body: JSON.stringify({ event: attrs }) });
   },
 
+  // One transactional layout save — the body is the raw { event, sections } payload; the
+  // server diffs sections/tables/bundles by id and returns any sold-inventory warnings.
+  saveEventLayout(
+    id: string,
+    payload: { event: Record<string, unknown>; sections: unknown[] },
+  ): Promise<{ ok: boolean; slug: string; warnings: string[] }> {
+    return authed(`/events/${id}/layout`, { method: 'PUT', body: JSON.stringify(payload) });
+  },
+
   publishEvent(id: string): Promise<{ event: TicketEvent }> {
     return authed(`/events/${id}/publish`, { method: 'POST' });
   },

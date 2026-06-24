@@ -44,29 +44,9 @@ async function mockAdminApi(page: Page) {
     return r.continue();
   });
 
-  // createSection
-  await page.route('**/api/events/ev-new/sections', (r) =>
-    r.fulfill({ status: 201, json: { data: { id: 'sec-vip' } } })
-  );
-
-  // createTable
-  await page.route('**/api/sections/sec-vip/tables', (r) =>
-    r.fulfill({ status: 201, json: { data: { id: 'tbl-1' } } })
-  );
-
-  // createPhase
-  await page.route('**/api/events/ev-new/phases', (r) =>
-    r.fulfill({ status: 201, json: { data: { id: 'ph-1' } } })
-  );
-
-  // createBundle
-  await page.route('**/api/sections/sec-vip/price-bundles', (r) =>
-    r.fulfill({ status: 201, json: { data: { id: 'bnd-1' } } })
-  );
-
-  // publishEvent
-  await page.route('**/api/events/ev-new/publish', (r) =>
-    r.fulfill({ status: 200, json: { event: { ...CREATED_EVENT, status: 'published' } } })
+  // saveEventLayout — the single transactional save endpoint (replaces the per-resource fan-out).
+  await page.route('**/api/events/ev-new/layout', (r) =>
+    r.fulfill({ status: 200, json: { ok: true, slug: 'mi-fiesta-2026', warnings: [] } })
   );
 
   // buyer view of the event (for preview parity)

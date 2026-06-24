@@ -55,31 +55,20 @@ interface Call {
 
 async function setup(page: Page): Promise<Call[]> {
   const calls: Call[] = [];
-  const record = (r: import('@playwright/test').Route, json: unknown) => {
-    const req = r.request();
-    calls.push({ method: req.method(), path: new URL(req.url()).pathname, body: req.postData() ?? '' });
-    return r.fulfill({ status: 200, json: json as object });
-  };
 
   await page.route('**/api/auth/login', (r) =>
     r.fulfill({ status: 200, json: { token: 'jwt_test', user: { id: 'u1', email: 'a@b.com', name: 'A', role: 'admin' } } })
   );
 
-  // Load the event (by slug). Keep this BEFORE the id-based routes; specific paths don't collide.
-  await page.route('**/api/events/disco-night', (r) => record(r, { event: EVENT }));
+  // Hydration: load the event by slug.
+  await page.route('**/api/events/disco-night', (r) => r.fulfill({ status: 200, json: { event: EVENT } }));
 
-  // Save-path endpoints (edit rebuild).
-  await page.route('**/api/events/ev-basilica', (r) => record(r, { event: { ...EVENT, status: 'draft' } }));
-  await page.route('**/api/events/ev-basilica/publish', (r) => record(r, { event: EVENT }));
-  await page.route('**/api/events/ev-basilica/price-bundles', (r) =>
-    record(r, { price_bundles: [{ id: 'b1', quantity: 1, price: '40' }, { id: 'b2', quantity: 2, price: '70' }] })
-  );
-  await page.route('**/api/events/ev-basilica/phases', (r) => record(r, { phases: [{ id: 'ph-1', name: 'Preventa' }] }));
-  await page.route('**/api/tables/*', (r) => record(r, { data: { id: 'ok' } }));
-  await page.route('**/api/price-bundles/*', (r) => record(r, {}));
-  await page.route('**/api/sections/sec-mesas', (r) => record(r, { data: { id: 'sec-mesas' } }));
-  await page.route('**/api/sections/sec-mesas/tables', (r) => record(r, { data: { id: 'new-tbl' } }));
-  await page.route('**/api/sections/sec-mesas/price-bundles', (r) => record(r, { data: { id: 'new-bnd' } }));
+  // The ONE transactional save endpoint — capture the payload, return ok + no warnings.
+  await page.route('**/api/events/ev-basilica/layout', (r) => {
+    const req = r.request();
+    calls.push({ method: req.method(), path: new URL(req.url()).pathname, body: req.postData() ?? '' });
+    return r.fulfill({ status: 200, json: { ok: true, slug: 'disco-night', warnings: [] } });
+  });
 
   return calls;
 }
@@ -104,7 +93,7 @@ test('editar hydrates the event into the builder', async ({ page }) => {
   await expect(page.getByText('S/ 40').first()).toBeVisible();
 });
 
-test('saving an edit updates tables IN PLACE (no destructive delete) + rebuilds bundles + publish', async ({ page }) => {
+test('saving an edit sends ONE transactional layout request with the whole layout', async ({ page }) => {
   const calls = await setup(page);
   await page.goto('/admin/editar?slug=disco-night');
   await login(page);
@@ -113,23 +102,22 @@ test('saving an edit updates tables IN PLACE (no destructive delete) + rebuilds 
   await page.getByTestId('btn-publish').click();
   await expect(page.getByText('Cambios guardados')).toBeVisible();
 
-  const by = (m: string, re: RegExp) => calls.filter((c) => c.method === m && re.test(c.path));
-  // event fields updated
-  expect(by('PUT', /\/events\/ev-basilica$/).length).toBeGreaterThanOrEqual(1);
-  // tables are UPDATED in place (matched by id, seat_count unchanged) — nothing deleted or
-  // recreated. This is the fix: a rename no longer deletes tables, so a sold seat can't block it.
-  expect(by('PUT', /\/tables\//).length).toBe(2);
-  expect(by('DELETE', /\/tables\//).length).toBe(0);
-  expect(by('POST', /\/sections\/sec-mesas\/tables$/).length).toBe(0);
-  // bundles aren't seat-coupled, so they're still torn down + rebuilt
-  expect(by('DELETE', /\/price-bundles\//).length).toBe(2);
-  expect(by('POST', /\/sections\/sec-mesas\/price-bundles$/).length).toBe(2);
-  // kept section updated, and event published (toggle left on "Publicado")
-  expect(by('PUT', /\/sections\/sec-mesas$/).length).toBe(1);
-  expect(by('POST', /\/events\/ev-basilica\/publish$/).length).toBe(1);
+  // EXACTLY ONE request — no per-table fan-out, no 18-request client orchestration.
+  expect(calls).toHaveLength(1);
+  expect(calls[0].method).toBe('PUT');
+  expect(calls[0].path).toBe('/api/events/ev-basilica/layout');
+
+  const body = JSON.parse(calls[0].body);
+  expect(body.event.name).toBe('Disco Night');
+  expect(body.event.status).toBe('published'); // toggle left on "Publicado"
+  // the section + its two tables + bundles all travel in the single payload, keyed by id
+  expect(body.sections).toHaveLength(1);
+  expect(body.sections[0].id).toBe('sec-mesas');
+  expect(body.sections[0].tables.map((t: { id: string }) => t.id).sort()).toEqual(['t1', 't2']);
+  expect(body.sections[0].price_bundles).toHaveLength(2);
 });
 
-test('toggling to Borrador saves the event as draft, no publish call', async ({ page }) => {
+test('toggling to Borrador sends the same single request with status draft', async ({ page }) => {
   const calls = await setup(page);
   await page.goto('/admin/editar?slug=disco-night');
   await login(page);
@@ -140,7 +128,6 @@ test('toggling to Borrador saves the event as draft, no publish call', async ({ 
   await page.getByTestId('btn-publish').click();
   await expect(page.getByText('Cambios guardados')).toBeVisible();
 
-  // no publish call; instead a PUT carrying status: draft
-  expect(calls.filter((c) => c.method === 'POST' && /\/publish$/.test(c.path)).length).toBe(0);
-  expect(calls.some((c) => c.method === 'PUT' && /\/events\/ev-basilica$/.test(c.path) && c.body.includes('draft'))).toBe(true);
+  expect(calls).toHaveLength(1);
+  expect(JSON.parse(calls[0].body).event.status).toBe('draft');
 });
