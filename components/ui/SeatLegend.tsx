@@ -11,8 +11,8 @@ export function SeatLegend({ style, ...props }: SeatLegendProps) {
         width: 14,
         height: 14,
         borderRadius: '50%',
-        background: 'rgba(0,229,255,0.12)',
-        border: '2px solid var(--color-cyan)',
+        background: 'rgba(34,197,94,0.18)',
+        border: '2px solid var(--color-green)',
       },
     },
     {

@@ -163,9 +163,7 @@ function SeatMapCanvas({
       {/* Stage — positioned from event data or fallback band */}
       <div data-testid="buyer-stage" style={stageStyle}>ESCENARIO</div>
 
-      {seatedSections.map((section, si) => {
-        const color = SECTION_COLORS[si % SECTION_COLORS.length];
-
+      {seatedSections.map((section) => {
         if (isMesas && section.layout_type === 'tables') {
           // Group seats by table, render table rings
           const tableMap = new Map<string, Seat[]>();
@@ -243,7 +241,6 @@ function SeatMapCanvas({
                       const pos = seatPositions[idx] || { x: 50, y: 50 };
                       const isSel = interactive && selected.includes(seat.id);
                       const available = seat.status === 'available';
-                      const seatColor = isVip ? 'var(--color-pink)' : color;
                       return (
                         <button
                           key={seat.id}
@@ -273,7 +270,7 @@ function SeatMapCanvas({
                               ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
                               : !available
                                 ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
-                                : { background: isVip ? 'rgba(255,20,147,.18)' : `rgba(0,229,255,.15)`, borderColor: seatColor }),
+                                : { background: 'rgba(34,197,94,.18)', borderColor: 'var(--color-green)' }),
                           }}
                         />
                       );
@@ -314,7 +311,7 @@ function SeatMapCanvas({
                         ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', boxShadow: '0 0 8px var(--color-pink)' }
                         : !available
                           ? { background: 'rgba(255,255,255,.08)', borderColor: 'rgba(255,255,255,.18)' }
-                          : { background: `${color}26`, borderColor: color }),
+                          : { background: 'rgba(34,197,94,.18)', borderColor: 'var(--color-green)' }),
                     }}
                   />
                 );
@@ -380,7 +377,7 @@ function SeatMapCanvas({
                       ? { background: 'var(--color-pink)', borderColor: 'var(--color-pink)', color: '#fff', boxShadow: '0 0 8px var(--color-pink)' }
                       : !available
                         ? { background: 'rgba(255,255,255,.05)', borderColor: 'rgba(255,255,255,.15)', color: 'rgba(255,255,255,.25)' }
-                        : { background: `${color}26`, borderColor: color, color }),
+                        : { background: 'rgba(34,197,94,.18)', borderColor: 'var(--color-green)', color: 'var(--color-green)' }),
                   }}
                 >
                   {showNums ? seat.number : ''}
