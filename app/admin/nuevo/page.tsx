@@ -494,6 +494,8 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
   const [publishing, setPublishing] = useState(false);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Changes the edit-save couldn't apply because a table/section already has sold tickets.
+  const [editWarnings, setEditWarnings] = useState<string[]>([]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   // Always-current ref so event handlers never read stale sections state
@@ -719,9 +721,19 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
     };
   }
 
-  // Recreate a section's price bundles + tables from builder state.
-  // pos_x/pos_y are float % locally; the API schema expects integers (0–100).
-  async function fillSection(sectionId: string, section: SectionDef, phaseId: string) {
+  // Table fields the API's UPDATE accepts without regenerating seats (everything but
+  // seat_count). pos_x/pos_y are float % locally; the schema expects integers (0–100).
+  const tableAttrs = (t: TableDef) => ({
+    label: t.label,
+    pos_x: Math.round(t.pos_x),
+    pos_y: Math.round(t.pos_y),
+    size: t.size,
+    shape: t.shape,
+    seating: t.seating,
+  });
+
+  // Price bundles aren't seat-coupled, so on edit they're torn down + rebuilt safely.
+  async function createBundles(sectionId: string, section: SectionDef, phaseId: string) {
     for (const tarifa of section.tarifas) {
       if (tarifa.price) {
         await adminApi.createBundle(sectionId, {
@@ -731,17 +743,14 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
         });
       }
     }
+  }
+
+  // Recreate a section's bundles + tables from scratch (used when CREATING an event).
+  async function fillSection(sectionId: string, section: SectionDef, phaseId: string) {
+    await createBundles(sectionId, section, phaseId);
     if (section.layout_type === 'tables') {
       for (const t of section.tables) {
-        await adminApi.createTable(sectionId, {
-          label: t.label,
-          seat_count: t.seat_count,
-          pos_x: Math.round(t.pos_x),
-          pos_y: Math.round(t.pos_y),
-          size: t.size,
-          shape: t.shape,
-          seating: t.seating,
-        });
+        await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
       }
     }
   }
@@ -765,20 +774,18 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
     return event.slug;
   }
 
-  // Edit: update fields, then rebuild the layout from scratch. Simple + correct
-  // because nothing is sold yet (the API also refuses destructive deletes once
-  // live tickets exist, so this stays safe later).
+  // Edit: surgically diff the layout instead of nuking it. Existing tables are UPDATED
+  // in place (rename/move/resize never touch their seats), only genuinely new tables are
+  // created and only removed ones deleted. The API refuses to delete a table/section that
+  // has a live ticket, so anything sold is left intact and reported back as a warning —
+  // a save with sold inventory no longer fails outright.
   async function saveEdit(id: string): Promise<string> {
     await adminApi.updateEvent(id, eventAttrs());
 
-    // Tear down the old layout: every original table, then every existing bundle.
-    for (const s of initialSectionsRef.current) {
-      for (const t of s.tables) await adminApi.deleteTable(t.id);
-    }
+    // Bundles aren't seat-coupled — tear down + rebuild is safe.
     const { price_bundles } = await adminApi.listBundles(id);
     for (const b of price_bundles) await adminApi.deleteBundle(b.id);
 
-    // Reuse the existing phase (or make one) so bundles have a phase to hang on.
     const { phases } = await adminApi.listPhases(id);
     const phaseId =
       phases[0]?.id ??
@@ -790,8 +797,16 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
         })
       ).data.id;
 
-    // Recreate from builder state: update sections that still exist, create new ones.
-    const keptIds = new Set<string>();
+    // Index every original table's seat_count by id so we can tell renamed/moved (update in
+    // place) from added (create), removed (delete), or resized (needs seat regeneration).
+    const originalSeatCountById = new Map<string, number>();
+    for (const s of initialSectionsRef.current) {
+      for (const t of s.tables) originalSeatCountById.set(t.id, t.seat_count);
+    }
+    const keptTableIds = new Set<string>();
+    const keptSectionIds = new Set<string>();
+    const warnings: string[] = [];
+
     for (const section of sections) {
       const existing = initialSectionsRef.current.find((s) => s.id === section.id);
       let sectionId: string;
@@ -802,7 +817,7 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
           capacity: section.layout_type === 'general' ? section.capacity : null,
         });
         sectionId = existing.id;
-        keptIds.add(existing.id);
+        keptSectionIds.add(existing.id);
       } else {
         const { data } = await adminApi.createSection(id, {
           name: section.name,
@@ -811,18 +826,58 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
         });
         sectionId = data.id;
       }
-      await fillSection(sectionId, section, phaseId);
+
+      await createBundles(sectionId, section, phaseId);
+
+      if (section.layout_type !== 'tables') continue;
+      for (const t of section.tables) {
+        const origSeatCount = originalSeatCountById.get(t.id);
+        if (origSeatCount === undefined) {
+          await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
+          continue;
+        }
+        keptTableIds.add(t.id);
+        if (origSeatCount === t.seat_count) {
+          // Rename / move / resize — in place, never touches the seats (sale-safe).
+          await adminApi.updateTable(t.id, tableAttrs(t));
+        } else {
+          // Seat count changed → seats must be regenerated, which means recreate. The API
+          // blocks deleting a table with a live ticket, so degrade: keep it, warn.
+          try {
+            await adminApi.deleteTable(t.id);
+            await adminApi.createTable(sectionId, { ...tableAttrs(t), seat_count: t.seat_count });
+          } catch {
+            await adminApi.updateTable(t.id, tableAttrs(t));
+            warnings.push(`No se pudo cambiar el número de asientos de "${t.label}" (tiene entradas vendidas).`);
+          }
+        }
+      }
     }
 
-    // Drop sections the user removed in the builder.
+    // Delete tables the user removed in the builder — best-effort; a sold table is kept.
+    for (const tid of originalSeatCountById.keys()) {
+      if (keptTableIds.has(tid)) continue;
+      try {
+        await adminApi.deleteTable(tid);
+      } catch {
+        warnings.push('Una mesa con entradas vendidas no se pudo eliminar.');
+      }
+    }
+
+    // Drop sections the user removed — best-effort for the same reason.
     for (const s of initialSectionsRef.current) {
-      if (!keptIds.has(s.id)) await adminApi.deleteSection(s.id);
+      if (keptSectionIds.has(s.id)) continue;
+      try {
+        await adminApi.deleteSection(s.id);
+      } catch {
+        warnings.push('Una sección con entradas vendidas no se pudo eliminar.');
+      }
     }
 
-    // Apply the publish/draft toggle.
     if (isPublished) await adminApi.publishEvent(id);
     else await adminApi.updateEvent(id, { status: 'draft' });
 
+    setEditWarnings(warnings);
     return initialEvent!.slug;
   }
 
@@ -858,6 +913,26 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
               : 'Tu evento se actualizó y quedó en borrador.'
             : 'Ya está en la home y listo para vender.'}
         </p>
+        {editWarnings.length > 0 && (
+          <div
+            data-testid="edit-warnings"
+            style={{
+              maxWidth: 460,
+              margin: '0 auto 20px',
+              padding: '12px 16px',
+              borderRadius: 10,
+              border: '1px solid rgba(255,193,87,.5)',
+              background: 'rgba(255,193,87,.08)',
+              color: 'var(--color-text-muted)',
+              fontSize: '0.82rem',
+              textAlign: 'left',
+            }}
+          >
+            {editWarnings.map((w, i) => (
+              <p key={i} style={{ margin: '4px 0' }}>⚠ {w}</p>
+            ))}
+          </div>
+        )}
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <li>
             <Link

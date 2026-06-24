@@ -104,7 +104,7 @@ test('editar hydrates the event into the builder', async ({ page }) => {
   await expect(page.getByText('S/ 40').first()).toBeVisible();
 });
 
-test('saving an edit rebuilds the layout (update + tear-down + recreate + publish)', async ({ page }) => {
+test('saving an edit updates tables IN PLACE (no destructive delete) + rebuilds bundles + publish', async ({ page }) => {
   const calls = await setup(page);
   await page.goto('/admin/editar?slug=disco-night');
   await login(page);
@@ -116,11 +116,13 @@ test('saving an edit rebuilds the layout (update + tear-down + recreate + publis
   const by = (m: string, re: RegExp) => calls.filter((c) => c.method === m && re.test(c.path));
   // event fields updated
   expect(by('PUT', /\/events\/ev-basilica$/).length).toBeGreaterThanOrEqual(1);
-  // old layout torn down: both original tables + both original bundles deleted
-  expect(by('DELETE', /\/tables\//).length).toBe(2);
+  // tables are UPDATED in place (matched by id, seat_count unchanged) — nothing deleted or
+  // recreated. This is the fix: a rename no longer deletes tables, so a sold seat can't block it.
+  expect(by('PUT', /\/tables\//).length).toBe(2);
+  expect(by('DELETE', /\/tables\//).length).toBe(0);
+  expect(by('POST', /\/sections\/sec-mesas\/tables$/).length).toBe(0);
+  // bundles aren't seat-coupled, so they're still torn down + rebuilt
   expect(by('DELETE', /\/price-bundles\//).length).toBe(2);
-  // recreated from builder state: 2 tables + 2 bundles
-  expect(by('POST', /\/sections\/sec-mesas\/tables$/).length).toBe(2);
   expect(by('POST', /\/sections\/sec-mesas\/price-bundles$/).length).toBe(2);
   // kept section updated, and event published (toggle left on "Publicado")
   expect(by('PUT', /\/sections\/sec-mesas$/).length).toBe(1);
