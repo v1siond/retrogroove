@@ -1336,7 +1336,7 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {tbl.label}·{tbl.seat_count}
+                      {tbl.label}
                     </div>
                   </div>
                 );
@@ -1346,7 +1346,13 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
             {/* Properties popover for selected table */}
             {selectedTable && (
               <div data-testid="table-props" style={S.propsBox(true)} onClick={(e) => e.stopPropagation()}>
-                <p style={S.propsTitle}>{selectedTable.label}</p>
+                <label style={{ ...S.propsLabel, marginTop: 0 }}>Nombre de la mesa</label>
+                <input
+                  data-testid="table-name"
+                  style={{ ...S.xyInput, width: '100%', boxSizing: 'border-box' }}
+                  value={selectedTable.label}
+                  onChange={(e) => patchSelectedTable({ label: e.target.value })}
+                />
 
                 <label style={S.propsLabel}>Forma</label>
                 <div style={S.seg}>

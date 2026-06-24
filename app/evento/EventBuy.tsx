@@ -222,30 +222,19 @@ function SeatMapCanvas({
                       background: surfaceBg,
                     }} />
                     {/* Table label */}
+                    {/* Table name in the center (e.g. "M1") */}
                     <div style={{
                       position: 'absolute',
                       left: '50%',
                       top: '50%',
                       transform: 'translate(-50%, -50%)',
-                      fontSize: '0.55rem',
-                      color: isVip ? '#ff8fce' : 'rgba(236,230,240,.5)',
+                      fontSize: '0.62rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.04em',
+                      color: isVip ? '#ff8fce' : 'rgba(236,230,240,.78)',
                       pointerEvents: 'none',
                       whiteSpace: 'nowrap',
                       textAlign: 'center',
-                    }}>
-                      {sortedSeats.length}
-                    </div>
-                    {/* Table name below */}
-                    <div style={{
-                      position: 'absolute',
-                      left: '50%',
-                      bottom: '-14%',
-                      transform: 'translateX(-50%)',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.52rem',
-                      letterSpacing: '0.06em',
-                      color: isVip ? '#ff8fce' : 'rgba(236,230,240,.55)',
-                      pointerEvents: 'none',
                     }}>
                       {tbl.label}
                     </div>
