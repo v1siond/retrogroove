@@ -84,6 +84,15 @@ const WHATSAPP_DIGITS = '51' + BAND_PHONE.replace(/\D/g, '');
 // Max seats per order — keep in sync with the backend @max_per_order (6). Stops one
 // buyer grabbing/holding a big chunk of the room (esp. manual orders, 24h hold).
 const MAX_SEATS_PER_ORDER = 6;
+
+// The order id doubles as a reusable ticket link (/evento?order=<id>). Resume to the view
+// that matches its status: manual + not reported → coordina; manual + reported → pendiente;
+// paid → the live ticket (download). Izipay-pending falls to 'done' (CONFIRMANDO PAGO poll).
+function stepForOrder(o: Order): Step {
+  if (o.status === 'paid') return 'done';
+  if (o.payment_provider === 'manual') return o.payment_ref ? 'pending' : 'coordinate';
+  return 'done';
+}
 type MapView = 'map' | 'list';
 
 interface SeatMapCanvasProps {
@@ -464,9 +473,9 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
         setEvent(ev);
         setResolvedSlug(orderSlug);
         setOrder(o);
-        // A still-pending manual order resumes to the "Pendiente de validación" view;
-        // paid (or Izipay) orders go to 'done' (ticket / CONFIRMANDO PAGO poll).
-        setStep(o.status !== 'paid' && o.payment_provider === 'manual' ? 'pending' : 'done');
+        // The order id is the reusable ticket link: it resumes to the right view by status —
+        // not-yet-reported manual → coordina (pay + report); reported → pendiente; paid → ticket.
+        setStep(stepForOrder(o));
       })
       .catch(() => setError('No se pudo cargar el evento'))
       .finally(() => setLoading(false));
@@ -667,6 +676,8 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
       const { order } = await ticketingApi.createOrder(event.id, selected, {}, promo.trim() || undefined, 'manual');
       setOrder(order);
       setStep('coordinate');
+      // Put them on the reusable ticket link right away — bookmark/refresh resumes here.
+      if (typeof window !== 'undefined') window.history.replaceState(null, '', `/evento?order=${order.id}`);
     } catch (err) {
       const data = (err as ApiError)?.data as { error?: string } | undefined;
       setError(
@@ -695,6 +706,7 @@ export default function EventBuy({ slug, orderId }: { slug: string; orderId?: st
       );
       setOrder(updated);
       setStep('pending');
+      if (typeof window !== 'undefined') window.history.replaceState(null, '', `/evento?order=${order.id}`);
     } catch {
       setError('No se pudo registrar tu reporte. Intenta de nuevo o escríbenos por WhatsApp.');
     } finally {

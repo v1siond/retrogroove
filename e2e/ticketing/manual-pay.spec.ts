@@ -111,3 +111,17 @@ test('resume: revisiting a pending manual order shows the pending view, not the 
   await page.goto('/evento?order=ordM');
   await expect(page.getByTestId('pending-title')).toBeVisible();
 });
+
+test('resume: a manual order not yet reported resumes to the coordina screen', async ({ page }) => {
+  await setupTicketingMocks(page);
+  await page.route('**/api/orders/ordN', (r) =>
+    route_json(r, { order: { id: 'ordN', status: 'pending', total: '70', payment_provider: 'manual', payment_ref: null, event_slug: 'gala-2026', tickets: [{}, {}] } })
+  );
+  await page.goto('/evento?order=ordN');
+  await expect(page.getByTestId('coordinate-card')).toBeVisible();
+  await expect(page.getByTestId('yape-number')).toBeVisible();
+});
+
+function route_json(r: import('@playwright/test').Route, json: object) {
+  return r.fulfill({ status: 200, json });
+}

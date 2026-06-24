@@ -54,6 +54,7 @@ function TicketDrawer({
         <Field label="Evento">{ticket.event_name}</Field>
         <Field label="Asiento">{ticket.seat_label || 'General'}</Field>
         <Field label="Comprador">{ticket.buyer_email}</Field>
+        <Field label="ID orden" copy={ticket.order_id ?? undefined} />
         <Field label="Check-in" mono>{fmtDate(ticket.checked_in_at)}</Field>
       </FieldList>
 

@@ -96,6 +96,7 @@ export interface AdminTicket {
   buyer_email: string;
   seat_label: string | null;
   event_name?: string | null;
+  order_id?: string | null;
 }
 
 // Global orders list (GET /admin/orders) carries the event so the admin can act
@@ -180,6 +181,11 @@ export const adminApi = {
   // Confirm a pending order paid out-of-band (Yape/Plin/transfer) — issues the tickets.
   confirmOrder(id: string): Promise<{ order: AdminGlobalOrder }> {
     return authed(`/orders/${id}/confirm`, { method: 'POST' });
+  },
+
+  // Re-send the ticket email (the buyer's link again) for a paid/comp order.
+  resendOrder(id: string): Promise<{ ok: boolean }> {
+    return authed(`/orders/${id}/resend`, { method: 'POST' });
   },
 
   // ── Global tickets ───────────────────────────────────────────────────────

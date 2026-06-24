@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import type { AdminGlobalOrder, AdminEventSummary } from '@/lib/ticketing/admin';
 import type { Ticket } from '@/lib/ticketing/types';
+import { ticketingApi } from '@/lib/ticketing/api';
 import {
   DataTable, Column, Drawer, Field, FieldList, DrawerSectionTitle, StatusBadge,
   Toolbar, SearchBox, Select, Button, ConfirmAction, Feedback, EmptyState,
@@ -34,6 +35,17 @@ function OrderDrawer({
   notify: (kind: 'ok' | 'error', msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[] | null>(null);
+
+  useEffect(() => {
+    let on = true;
+    // The order's tickets come from the public order endpoint (it returns them by id).
+    ticketingApi
+      .getOrder(order.id)
+      .then((r) => { if (on) setTickets(r.order.tickets || []); })
+      .catch(() => { if (on) setTickets([]); });
+    return () => { on = false; };
+  }, [order.id]);
 
   async function cancel() {
     setBusy(true);
@@ -63,11 +75,29 @@ function OrderDrawer({
     }
   }
 
+  // Re-send the ticket email (the buyer's link again) for a paid/comp order.
+  async function resend() {
+    setBusy(true);
+    try {
+      await adminApi.resendOrder(order.id);
+      notify('ok', `Entradas reenviadas a ${order.buyer_email || buyerName(order)}.`);
+    } catch {
+      notify('error', 'No se pudo reenviar el correo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const footer = (
     <>
       {order.status === 'pending' && (
         <Button variant="primary" data-testid={`confirm-order-${order.id}`} disabled={busy} onClick={confirm}>
           {busy ? 'Confirmando…' : 'Marcar como pagada'}
+        </Button>
+      )}
+      {(order.status === 'paid' || order.status === 'comp') && (
+        <Button variant="secondary" data-testid={`resend-order-${order.id}`} disabled={busy} onClick={resend}>
+          {busy ? 'Enviando…' : 'Reenviar entradas'}
         </Button>
       )}
       {CANCELLABLE.has(order.status) && (
@@ -109,6 +139,32 @@ function OrderDrawer({
           Verifica el Yapeo (monto, nombre y N.° de operación) en tu app antes de marcar como pagada.
         </Feedback>
       )}
+
+      <DrawerSectionTitle>Entradas ({tickets?.length ?? order.ticket_count})</DrawerSectionTitle>
+      <div data-testid="order-tickets">
+        {tickets === null ? (
+          <p className="rg-cell-sub">Cargando…</p>
+        ) : tickets.length === 0 ? (
+          <p className="rg-cell-sub">Sin entradas emitidas todavía.</p>
+        ) : (
+          <FieldList>
+            {tickets.map((t) => (
+              <div key={t.id} data-testid="order-ticket-row" className="rg-fieldrow">
+                <dt style={{ textTransform: 'none', letterSpacing: 0 }}>
+                  <span className="rg-mono">{t.code || '—'}</span>
+                  <div className="rg-cell-sub">{t.seat_label || t.section_name || 'General'}</div>
+                </dt>
+                <dd style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <StatusBadge status={t.status} />
+                  {t.public_token && (
+                    <a href={`/t?token=${t.public_token}`} target="_blank" rel="noopener noreferrer" className="rg-link">ver →</a>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </FieldList>
+        )}
+      </div>
     </Drawer>
   );
 }

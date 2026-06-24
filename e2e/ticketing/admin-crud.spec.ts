@@ -130,4 +130,31 @@ test.describe('Admin CRUD reachability', () => {
     await page.getByTestId('delete-setlist-bloque-1-confirm').click();
     await expect.poll(() => deleted).toBe(true);
   });
+
+  test('Orders: detail lists the order tickets and "Reenviar entradas" re-sends them', async ({ page }) => {
+    let resent = false;
+    // ord1 is the paid order in the fixture; the drawer fetches its tickets via GET /orders/ord1.
+    await page.route('**/api/orders/ord1', (r) => {
+      if (r.request().method() !== 'GET') return r.fallback();
+      return r.fulfill({
+        status: 200,
+        json: { order: { id: 'ord1', status: 'paid', total: '70', tickets: [{ id: 't1', code: 'ABC123', public_token: 'tok1', status: 'valid', seat_label: 'Mesa 1' }] } },
+      });
+    });
+    await page.route('**/api/orders/ord1/resend', (r) => { resent = true; return r.fulfill({ status: 200, json: { ok: true } }); });
+
+    await adminLogin(page);
+    await page.getByTestId('nav-orders').click();
+    await page.getByTestId('order-row').filter({ hasText: 'Juan Pérez' }).click();
+    await expect(page.getByTestId('order-detail')).toBeVisible();
+
+    // The order shows its tickets (with a link to each).
+    await expect(page.getByTestId('order-ticket-row')).toHaveCount(1);
+    await expect(page.getByText('ABC123')).toBeVisible();
+
+    // Re-send the ticket email.
+    await page.getByTestId('resend-order-ord1').click();
+    await expect.poll(() => resent).toBe(true);
+    await expect(page.getByTestId('feedback-ok')).toContainText(/reenviadas/i);
+  });
 });
