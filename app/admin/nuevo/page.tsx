@@ -53,10 +53,6 @@ const SECTION_COLORS = ['#ff1493', '#00e5ff', '#ffd700', '#bf00ff', '#22c55e', '
 
 const SNAP = 28; // grid cell px — matches the CSS repeating-linear-gradient pitch
 
-function snapVal(v: number): number {
-  return Math.round(v / SNAP) * SNAP;
-}
-
 // ── CSS helpers (Neon-Editorial tokens; all inline styles) ───────────────────
 
 const S = {
@@ -1243,7 +1239,6 @@ export function EventBuilder({ mode = 'create', initialEvent }: EventBuilderProp
             {/* Tables for all sections */}
             {sections.flatMap((sec, si) =>
               sec.tables.map((tbl, ti) => {
-                const color = SECTION_COLORS[si % SECTION_COLORS.length];
                 const key = `${si}-${ti}`;
                 const isSelected = selectedTableKey === key;
                 const sizePct = (tbl.size / canvasW) * 100;

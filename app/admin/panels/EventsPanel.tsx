@@ -256,6 +256,19 @@ function EventDrawer({
         {full && <Field label="Secciones" mono>{full.sections?.length ?? 0}</Field>}
       </FieldList>
 
+      {/* Aforo — the same figures as the list column, from the summary already in hand. */}
+      <DrawerSectionTitle>Aforo</DrawerSectionTitle>
+      <FieldList>
+        <Field label="Aforo total" mono>{summary.capacity}</Field>
+        <Field label="Vendidas" mono>{summary.sold}</Field>
+        <Field label="Cortesía" mono>{summary.comp}</Field>
+        <Field label="Quedan" mono>
+          <span data-testid="event-available">
+            {summary.capacity > 0 && summary.available === 0 ? 'Agotado' : summary.available}
+          </span>
+        </Field>
+      </FieldList>
+
       {/* Status control — publish, unpublish (→ borrador), cancel, complete. One
           select drives every transition through updateEvent({ status }). */}
       <DrawerSectionTitle>Estado</DrawerSectionTitle>
@@ -339,6 +352,27 @@ function EventDrawer({
             )}
           </div>
     </Drawer>
+  );
+}
+
+// How full an event is, at a glance. "Vendidas" is paid only; comps are shown apart
+// because they aren't revenue — but they do take a seat, so `available` already has them
+// subtracted (see the API's sales_counts). Seats mid-checkout still read as available.
+function SalesCell({ event }: { event: AdminEventSummary }) {
+  const soldOut = event.capacity > 0 && event.available === 0;
+
+  return (
+    <div data-testid="event-sales">
+      <div className="rg-cell-primary rg-mono">
+        {event.sold}<span style={{ color: 'var(--color-text-faint)' }}> / {event.capacity}</span>
+      </div>
+      <div className="rg-cell-sub">
+        {soldOut
+          ? <span style={{ color: 'var(--color-gold)' }}>Agotado</span>
+          : <>{event.available} quedan</>}
+        {event.comp > 0 && <> · {event.comp} cortesía</>}
+      </div>
+    </div>
   );
 }
 
@@ -430,6 +464,7 @@ export default function EventsPanel({ query: globalQuery }: { query: string }) {
       </div>
     ) },
     { key: 'status', header: 'Estado', render: (e) => <StatusBadge status={e.status} /> },
+    { key: 'sales', header: 'Entradas', align: 'right', render: (e) => <SalesCell event={e} /> },
     { key: 'date', header: 'Fecha', render: (e) => <span className="rg-mono">{fmtDate(e.starts_at)}</span> },
     { key: 'venue', header: 'Lugar', render: (e) => e.venue_name || '—' },
   ];

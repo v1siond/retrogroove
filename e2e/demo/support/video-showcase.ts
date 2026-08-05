@@ -34,7 +34,7 @@ const VIEWPORT = { width: 2560, height: 1440 };
 export const test = (base as any).extend({
   recordingName: ['showcase', { option: true, scope: 'worker' }],
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   context: async ({ browser, recordingName }: { browser: import('@playwright/test').Browser; recordingName: string }, use: (ctx: import('@playwright/test').BrowserContext) => Promise<void>) => {
     const tmpDir = fs.mkdtempSync(
       path.join(os.tmpdir(), `pw-showcase-${recordingName}-`),
