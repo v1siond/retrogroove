@@ -12,10 +12,10 @@ import { clearToken } from '@/lib/ticketing/admin';
 import './console.css';
 import {
   IconCalendar, IconReceipt, IconTicket, IconMusic, IconList, IconTag,
-  IconSend, IconLogout, IconMenu, IconX,
+  IconSend, IconLogout, IconMenu, IconX, IconCase,
 } from './console/ui';
 
-export type Resource = 'events' | 'orders' | 'tickets' | 'songs' | 'setlists' | 'promos' | 'issue';
+export type Resource = 'events' | 'orders' | 'tickets' | 'songs' | 'setlists' | 'promos' | 'issue' | 'equipment';
 
 interface NavEntry {
   key: Resource;
@@ -31,6 +31,7 @@ const PRIMARY: NavEntry[] = [
   { key: 'songs', label: 'Canciones', href: '/admin/songs', icon: IconMusic },
   { key: 'setlists', label: 'Setlists', href: '/admin/setlists', icon: IconList },
   { key: 'promos', label: 'Códigos', href: '/admin/promos', icon: IconTag },
+  { key: 'equipment', label: 'Equipo', href: '/admin/equipo', icon: IconCase },
 ];
 
 const SECONDARY: NavEntry[] = [
@@ -40,6 +41,7 @@ const SECONDARY: NavEntry[] = [
 const TITLES: Record<Resource, string> = {
   events: 'Eventos', orders: 'Órdenes', tickets: 'Entradas', songs: 'Canciones',
   setlists: 'Setlists', promos: 'Códigos promocionales', issue: 'Emitir entradas',
+  equipment: 'Equipo',
 };
 
 function NavLink({ entry, active }: { entry: NavEntry; active: boolean }) {

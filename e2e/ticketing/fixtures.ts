@@ -109,6 +109,7 @@ function ticket(id: string, token: string, seat: string) {
     event_starts_at: '2026-12-31T21:00:00Z',
     seat_label: seat === 's1' ? 'Mesa 1 · Asiento 1' : 'Mesa 1 · Asiento 2',
     section_name: 'VIP',
+    table_label: 'M1',
   };
 }
 
@@ -279,18 +280,21 @@ export const adminGlobalOrders = [
   {
     id: 'ord1', event_id: 'ev1', event_name: 'Gala 2026', status: 'paid', total: '70',
     buyer_email: 'fan@example.com', buyer_first_name: 'Juan', buyer_last_name: 'Pérez',
+    buyer_phone: '+51999111222',
     ticket_count: 2, payment_ref: 'IZP-123', paid_at: '2026-12-01T10:00:00Z', inserted_at: '2026-12-01T09:55:00Z',
   },
   {
+    // The Yape case: confirmed before the buyer sent their details, so no name/phone yet.
     id: 'ord2', event_id: 'ev2', event_name: 'Verano 2027', status: 'pending', total: '40',
     buyer_email: 'maria@example.com', buyer_first_name: null, buyer_last_name: null,
+    buyer_phone: null,
     ticket_count: 1, payment_ref: null, paid_at: null, inserted_at: '2026-12-02T11:00:00Z',
   },
 ];
 
 export const adminGlobalTickets = [
-  { code: 'RG-AAA', public_token: 'tokA', status: 'valid', checked_in_at: null, event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 1' },
-  { code: 'RG-BBB', public_token: 'tokB', status: 'used', checked_in_at: '2026-12-31T22:10:00Z', event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 2' },
+  { code: 'RG-AAA', public_token: 'tokA', status: 'valid', checked_in_at: null, event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 1', table_label: 'M1' },
+  { code: 'RG-BBB', public_token: 'tokB', status: 'used', checked_in_at: '2026-12-31T22:10:00Z', event_name: 'Gala 2026', buyer_email: 'fan@example.com', seat_label: 'Mesa 1 · Asiento 2', table_label: 'M1' },
 ];
 
 export const adminSongsCrud = [
@@ -305,12 +309,12 @@ export const adminSetlistsCrud = [
 // Admin events split by the backend filter: active = upcoming soonest-first,
 // past = most-recent-first, all = active first then past.
 export const adminEventsActive = [
-  { id: 'ev1', slug: 'gala-2026', name: 'Gala 2026', status: 'published', starts_at: '2026-12-31T21:00:00Z', venue_name: 'Teatro Municipal' },
-  { id: 'ev2', slug: 'verano-2027', name: 'Verano 2027', status: 'draft', starts_at: '2027-02-14T22:00:00Z', venue_name: 'La Basílica' },
+  { id: 'ev1', slug: 'gala-2026', name: 'Gala 2026', status: 'published', starts_at: '2026-12-31T21:00:00Z', venue_name: 'Teatro Municipal', capacity: 120, sold: 38, comp: 4, available: 78 },
+  { id: 'ev2', slug: 'verano-2027', name: 'Verano 2027', status: 'draft', starts_at: '2027-02-14T22:00:00Z', venue_name: 'La Basílica', capacity: 60, sold: 0, comp: 0, available: 60 },
 ];
 
 export const adminEventsPast = [
-  { id: 'ev3', slug: 'retro-2025', name: 'Retro 2025', status: 'published', starts_at: '2025-08-10T21:00:00Z', venue_name: 'Centro de Convenciones' },
+  { id: 'ev3', slug: 'retro-2025', name: 'Retro 2025', status: 'published', starts_at: '2025-08-10T21:00:00Z', venue_name: 'Centro de Convenciones', capacity: 80, sold: 80, comp: 0, available: 0 },
 ];
 
 // Resolve the events list the backend would return for a given ?filter=.

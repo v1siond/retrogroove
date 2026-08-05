@@ -144,6 +144,7 @@ interface TicketPdfData {
   venue?: string | null;
   date?: string | null;
   sectionName?: string | null;
+  tableLabel?: string | null;
   seatLabel?: string | null;
   buyerName?: string | null;
   code?: string | null;
@@ -181,6 +182,11 @@ async function drawTicketPage(doc: PDFDocument, t: TicketPdfData): Promise<void>
   if (t.sectionName) {
     y = line(page, 'SECCIÓN', MARGIN, y, reg, 7.5, FAINT, 1.2) - 2;
     y = line(page, t.sectionName, MARGIN, y, bold, 13, GOLD) - 8;
+  }
+  // The mesa is what the guest hunts for on arrival, so it gets the biggest line here.
+  if (t.tableLabel) {
+    y = line(page, 'MESA', MARGIN, y, reg, 7.5, FAINT, 1.2) - 2;
+    y = line(page, t.tableLabel, MARGIN, y, bold, 18, GOLD) - 8;
   }
   if (t.seatLabel) {
     y = line(page, 'UBICACIÓN', MARGIN, y, reg, 7.5, FAINT, 1.2) - 2;
@@ -251,6 +257,7 @@ export async function buildTicketPdf(ticket: Ticket, opts: {
     venue: opts.venue,
     date: opts.date ?? ticket.event_starts_at,
     sectionName: ticket.section_name,
+    tableLabel: ticket.table_label,
     seatLabel: ticket.seat_label,
     buyerName: opts.buyerName,
     code: ticket.code,

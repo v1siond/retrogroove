@@ -130,8 +130,11 @@ test.describe('Task 1 — Neon-Editorial shell + inputs', () => {
     await page.goto('/admin/nuevo');
     await login(page);
 
-    // At least one default section tab
+    // At least one default section tab. locator.count() does NOT auto-wait, and login()
+    // returns before the builder has rendered — so wait on the tab itself first, then
+    // count. Every other test here gets this for free from its leading expect().
     const tabs = page.getByTestId('section-tab');
+    await expect(tabs.first()).toBeVisible();
     const count = await tabs.count();
     expect(count).toBeGreaterThanOrEqual(1);
 

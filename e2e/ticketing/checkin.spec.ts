@@ -37,6 +37,7 @@ const VALID_TICKET = {
   event_starts_at: '2026-12-31T21:00:00Z',
   seat_label: 'Mesa 1 · Asiento 1',
   section_name: 'VIP',
+  table_label: 'M1',
 };
 
 const USED_TICKET = {
@@ -125,6 +126,26 @@ test.describe('Task 2 — VÁLIDA / YA USADA / NO ENCONTRADA result states', () 
 
     // REGISTRAR ENTRADA button present
     await expect(page.getByTestId('btn-registrar')).toBeVisible();
+  });
+
+  // The door's job is telling the guest which mesa to walk to — before and after the scan.
+  test('VÁLIDA: names the mesa, and keeps naming it after registering the entry', async ({ page }) => {
+    await page.route('**/api/tickets/tok-valid', (r) =>
+      r.fulfill({ status: 200, json: { ticket: VALID_TICKET } })
+    );
+    await page.route('**/api/tickets/tok-valid/check-in', (r) =>
+      r.fulfill({ status: 200, json: { ticket: USED_TICKET } })
+    );
+
+    await login(page);
+    await page.getByTestId('token-input').fill('tok-valid');
+    await page.getByTestId('btn-validar').click();
+
+    await expect(page.getByTestId('ticket-placement')).toContainText('M1');
+
+    await page.getByTestId('btn-registrar').click();
+    await expect(page.getByTestId('ingress-count')).toContainText('1');
+    await expect(page.getByTestId('ticket-placement')).toContainText('M1');
   });
 
   test('VÁLIDA → REGISTRAR ENTRADA registers and increments count', async ({ page }) => {

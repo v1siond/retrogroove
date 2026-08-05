@@ -62,6 +62,44 @@ test.describe('Admin dashboard shell', () => {
     await expect(page.getByTestId('ticket-row').filter({ hasText: 'RG-AAA' })).toContainText(/used/i);
   });
 
+  // How full each event is, without opening anything.
+  test('Events: the list shows sold vs left, with comps counted apart', async ({ page }) => {
+    await adminLogin(page);
+
+    const gala = page.getByTestId('event-item').filter({ hasText: 'Gala 2026' });
+    await expect(gala.getByTestId('event-sales')).toContainText('38');
+    await expect(gala.getByTestId('event-sales')).toContainText('120');
+    await expect(gala.getByTestId('event-sales')).toContainText('78');
+    // 4 comps are shown, but they are not folded into "vendidas"
+    await expect(gala.getByTestId('event-sales')).toContainText('4');
+  });
+
+  test('Events: a sold-out event reads as agotado', async ({ page }) => {
+    await adminLogin(page);
+    await page.getByTestId('event-filter-past').click();
+
+    const past = page.getByTestId('event-item').filter({ hasText: 'Retro 2025' });
+    await expect(past.getByTestId('event-sales')).toContainText(/agotado/i);
+  });
+
+  test('Events: the drawer repeats the aforo breakdown', async ({ page }) => {
+    await adminLogin(page);
+    await page.getByTestId('event-item').filter({ hasText: 'Gala 2026' }).click();
+
+    const drawer = page.getByTestId('event-detail');
+    await expect(drawer).toContainText('Aforo');
+    await expect(drawer).toContainText('120');
+    await expect(drawer).toContainText('38');
+    await expect(page.getByTestId('event-available')).toHaveText('78');
+  });
+
+  test('Tickets: the list names the mesa of each seated ticket', async ({ page }) => {
+    await adminLogin(page);
+    await page.getByTestId('nav-tickets').click();
+
+    await expect(page.getByTestId('ticket-row').filter({ hasText: 'RG-AAA' })).toContainText('M1');
+  });
+
   test('Tickets: void action voids a ticket', async ({ page }) => {
     await adminLogin(page);
     await page.getByTestId('nav-tickets').click();

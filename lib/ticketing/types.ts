@@ -80,6 +80,9 @@ export interface Ticket {
   event_starts_at?: string | null;
   seat_label?: string | null;
   section_name?: string | null;
+  // Mesa the seat belongs to, read live from the table (so a rename shows up here).
+  // Null for general admission.
+  table_label?: string | null;
 }
 
 export interface Order {
