@@ -138,7 +138,7 @@ test.describe('Admin CRUD reachability', () => {
       if (r.request().method() !== 'GET') return r.fallback();
       return r.fulfill({
         status: 200,
-        json: { order: { id: 'ord1', status: 'paid', total: '70', tickets: [{ id: 't1', code: 'ABC123', public_token: 'tok1', status: 'valid', seat_label: 'Mesa 1' }] } },
+        json: { order: { id: 'ord1', status: 'paid', total: '70', tickets: [{ id: 't1', code: 'ABC123', public_token: 'tok1', status: 'valid', seat_label: 'M3-1', section_name: 'Mesas VIP', table_label: 'M3' }] } },
       });
     });
     await page.route('**/api/orders/ord1/resend', (r) => { resent = true; return r.fulfill({ status: 200, json: { ok: true } }); });
@@ -148,13 +148,85 @@ test.describe('Admin CRUD reachability', () => {
     await page.getByTestId('order-row').filter({ hasText: 'Juan Pérez' }).click();
     await expect(page.getByTestId('order-detail')).toBeVisible();
 
-    // The order shows its tickets (with a link to each).
+    // The order shows its tickets (with a link to each) and which mesa each one is at.
     await expect(page.getByTestId('order-ticket-row')).toHaveCount(1);
     await expect(page.getByText('ABC123')).toBeVisible();
+    await expect(page.getByTestId('order-ticket-row')).toContainText('M3');
 
     // Re-send the ticket email.
     await page.getByTestId('resend-order-ord1').click();
     await expect.poll(() => resent).toBe(true);
     await expect(page.getByTestId('feedback-ok')).toContainText(/reenviadas/i);
+  });
+
+  // ord2 is the pending Yape-style order with no buyer name — the case the admin has to
+  // fix by hand after confirming a payment before the buyer sent their details.
+  test('Orders: edit fills in the buyer and payment reference (updateOrder)', async ({ page }) => {
+    let sent: Record<string, unknown> | null = null;
+
+    await page.route('**/api/orders/ord2', (r) => {
+      const method = r.request().method();
+      if (method === 'GET') {
+        return r.fulfill({ status: 200, json: { order: { id: 'ord2', status: 'pending', total: '40', tickets: [] } } });
+      }
+      if (method !== 'PUT') return r.fallback();
+      sent = r.request().postDataJSON() as Record<string, unknown>;
+      return r.fulfill({
+        status: 200,
+        json: {
+          order: {
+            id: 'ord2', event_id: 'ev2', event_name: 'Verano 2027', status: 'pending', total: '40',
+            buyer_email: 'ana@correo.pe', buyer_first_name: 'Ana', buyer_last_name: 'Ríos',
+            buyer_phone: '+51999888777', payment_ref: '00123456', paid_at: null,
+            inserted_at: '2026-12-02T11:00:00Z', ticket_count: 1,
+          },
+        },
+      });
+    });
+
+    await adminLogin(page);
+    await page.getByTestId('nav-orders').click();
+    await page.getByTestId('order-row').filter({ hasText: 'maria@example.com' }).click();
+    await expect(page.getByTestId('order-detail')).toBeVisible();
+
+    await page.getByTestId('edit-order-ord2').click();
+    await page.getByTestId('order-first-name').fill('Ana');
+    await page.getByTestId('order-last-name').fill('Ríos');
+    await page.getByTestId('order-email').fill('ana@correo.pe');
+    await page.getByTestId('order-phone').fill('+51999888777');
+    await page.getByTestId('order-payment-ref').fill('00123456');
+    await page.getByTestId('save-order-ord2').click();
+
+    await expect.poll(() => sent).not.toBeNull();
+    expect(sent).toEqual({
+      buyer: { first_name: 'Ana', last_name: 'Ríos', email: 'ana@correo.pe', phone: '+51999888777' },
+      payment_ref: '00123456',
+    });
+
+    // Back to the read view, showing what was saved.
+    await expect(page.getByTestId('feedback-ok')).toContainText(/guardad/i);
+    await expect(page.getByTestId('order-detail')).toContainText('Ana Ríos');
+    await expect(page.getByTestId('order-detail')).toContainText('00123456');
+  });
+
+  test('Orders: a rejected edit keeps the form open with the typed values', async ({ page }) => {
+    await page.route('**/api/orders/ord2', (r) => {
+      const method = r.request().method();
+      if (method === 'GET') {
+        return r.fulfill({ status: 200, json: { order: { id: 'ord2', status: 'pending', total: '40', tickets: [] } } });
+      }
+      if (method !== 'PUT') return r.fallback();
+      return r.fulfill({ status: 422, json: { errors: { buyer_email: ['has invalid format'] } } });
+    });
+
+    await adminLogin(page);
+    await page.getByTestId('nav-orders').click();
+    await page.getByTestId('order-row').filter({ hasText: 'maria@example.com' }).click();
+    await page.getByTestId('edit-order-ord2').click();
+    await page.getByTestId('order-email').fill('nope');
+    await page.getByTestId('save-order-ord2').click();
+
+    await expect(page.getByTestId('feedback-error')).toBeVisible();
+    await expect(page.getByTestId('order-email')).toHaveValue('nope');
   });
 });

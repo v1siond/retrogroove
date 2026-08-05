@@ -52,6 +52,7 @@ function TicketDrawer({
         <Field label="Token" copy={ticket.public_token} />
         <Field label="Estado"><StatusBadge status={ticket.status} /></Field>
         <Field label="Evento">{ticket.event_name}</Field>
+        <Field label="Mesa">{ticket.table_label || '—'}</Field>
         <Field label="Asiento">{ticket.seat_label || 'General'}</Field>
         <Field label="Comprador">{ticket.buyer_email}</Field>
         <Field label="ID orden" copy={ticket.order_id ?? undefined} />
@@ -143,6 +144,7 @@ export default function TicketsPanel({ query: globalQuery }: { query: string }) 
     { key: 'code', header: 'Código', render: (t) => <span className="rg-mono rg-cell-primary">{t.code}</span> },
     { key: 'status', header: 'Estado', render: (t) => <StatusBadge status={t.status} /> },
     { key: 'event', header: 'Evento', render: (t) => t.event_name || '—' },
+    { key: 'table', header: 'Mesa', render: (t) => t.table_label || '—' },
     { key: 'seat', header: 'Asiento', render: (t) => t.seat_label || 'General' },
     { key: 'buyer', header: 'Comprador', render: (t) => <span className="rg-cell-sub">{t.buyer_email}</span> },
     { key: 'actions', header: '', align: 'right', render: (t) => (

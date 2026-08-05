@@ -25,6 +25,50 @@ test('the ticket page shows status, QR and the entry token', async ({ page }) =>
   await expect(page.getByTestId('ticket-token')).toHaveText('ABCD1234');
 });
 
+// Where to sit: the mesa is what the buyer actually looks for on arrival.
+test('the ticket page shows the mesa alongside the section and seat', async ({ page }) => {
+  const ticket = {
+    id: 't1',
+    code: 'RG-ABCD',
+    public_token: 'ABCD1234',
+    status: 'valid',
+    qr_svg: '<svg data-qr="1"><rect width="10" height="10" /></svg>',
+    checked_in_at: null,
+    seat_id: 's1',
+    event_name: 'Gala 2026',
+    event_starts_at: '2026-12-31T21:00:00Z',
+    seat_label: 'M7-3',
+    section_name: 'Mesas VIP',
+    table_label: 'M7',
+  };
+  await page.route('**/api/tickets/ABCD1234', (r) => r.fulfill({ status: 200, json: { ticket } }));
+
+  await page.goto('/t?token=ABCD1234');
+
+  const placement = page.getByTestId('ticket-placement');
+  await expect(placement).toContainText('M7');
+  await expect(placement).toContainText('M7-3');
+  await expect(page.getByText('Mesas VIP')).toBeVisible();
+  await expect(page.getByText('Gala 2026')).toBeVisible();
+});
+
+// General admission has no mesa — the block must not render an orphan separator.
+test('a general-admission ticket shows its section without an empty mesa', async ({ page }) => {
+  const ticket = {
+    id: 't2', code: 'RG-GA', public_token: 'GA1234', status: 'valid',
+    qr_svg: '<svg data-qr="1"><rect width="10" height="10" /></svg>',
+    checked_in_at: null, seat_id: null,
+    event_name: 'Verano 2027', event_starts_at: '2027-01-15T21:00:00Z',
+    seat_label: null, section_name: 'General', table_label: null,
+  };
+  await page.route('**/api/tickets/GA1234', (r) => r.fulfill({ status: 200, json: { ticket } }));
+
+  await page.goto('/t?token=GA1234');
+
+  await expect(page.getByText('General')).toBeVisible();
+  await expect(page.getByTestId('ticket-placement')).toHaveCount(0);
+});
+
 test('F5: ticket card renders QR, code, status and a client-side PDF download', async ({ page }) => {
   // A real EQRCode-style SVG so the in-browser rasterizer has something to draw.
   const qrSvg = '<?xml version="1.0" standalone="yes"?>\n'

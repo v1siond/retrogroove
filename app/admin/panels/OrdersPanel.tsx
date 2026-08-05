@@ -5,7 +5,7 @@
 // order field plus its tickets; cancel a paid/pending/comp order from there.
 // Comp orders are issued from the Emitir flow (linked).
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, FormEvent } from 'react';
 import Link from 'next/link';
 import { adminApi, ApiError } from '@/lib/ticketing/admin';
 import type { AdminGlobalOrder, AdminEventSummary } from '@/lib/ticketing/admin';
@@ -24,18 +24,80 @@ function buyerName(o: AdminGlobalOrder): string {
   return name || o.buyer_email;
 }
 
+// ── Buyer edit form ──────────────────────────────────────────────────────────
+// A Yapeo confirmed before the buyer sent their name/email leaves the order with empty
+// contact fields; this is how the band fills them in without touching status or tickets.
+
+interface OrderForm { first_name: string; last_name: string; email: string; phone: string; payment_ref: string }
+
+function formFromOrder(o: AdminGlobalOrder): OrderForm {
+  return {
+    first_name: o.buyer_first_name || '',
+    last_name: o.buyer_last_name || '',
+    email: o.buyer_email || '',
+    phone: o.buyer_phone || '',
+    payment_ref: o.payment_ref || '',
+  };
+}
+
+function OrderFields({
+  form, setField, onSubmit,
+}: {
+  form: OrderForm;
+  setField: (k: keyof OrderForm, v: string) => void;
+  onSubmit: (e: FormEvent) => void;
+}) {
+  return (
+    <form id="order-form" data-testid="order-form" onSubmit={onSubmit}>
+      <DrawerSectionTitle>Comprador</DrawerSectionTitle>
+      <div className="rg-form-grid">
+        <div className="rg-field">
+          <label className="rg-label" htmlFor="order-first-name">Nombre</label>
+          <input id="order-first-name" data-testid="order-first-name" className="rg-input"
+            value={form.first_name} onChange={(e) => setField('first_name', e.target.value)} />
+        </div>
+        <div className="rg-field">
+          <label className="rg-label" htmlFor="order-last-name">Apellido</label>
+          <input id="order-last-name" data-testid="order-last-name" className="rg-input"
+            value={form.last_name} onChange={(e) => setField('last_name', e.target.value)} />
+        </div>
+      </div>
+      <div className="rg-field">
+        <label className="rg-label" htmlFor="order-email">Email</label>
+        <input id="order-email" data-testid="order-email" type="email" className="rg-input"
+          value={form.email} onChange={(e) => setField('email', e.target.value)} />
+      </div>
+      <div className="rg-field">
+        <label className="rg-label" htmlFor="order-phone">Teléfono</label>
+        <input id="order-phone" data-testid="order-phone" className="rg-input"
+          value={form.phone} onChange={(e) => setField('phone', e.target.value)} />
+      </div>
+
+      <DrawerSectionTitle>Pago</DrawerSectionTitle>
+      <div className="rg-field">
+        <label className="rg-label" htmlFor="order-payment-ref">N.° de operación</label>
+        <input id="order-payment-ref" data-testid="order-payment-ref" className="rg-input" data-mono="true"
+          value={form.payment_ref} onChange={(e) => setField('payment_ref', e.target.value)} />
+      </div>
+    </form>
+  );
+}
+
 // ── Order detail drawer ──────────────────────────────────────────────────────
 
 function OrderDrawer({
-  order, onClose, onCancelled, notify,
+  order, onClose, onUpdated, notify,
 }: {
   order: AdminGlobalOrder;
   onClose: () => void;
-  onCancelled: (o: AdminGlobalOrder) => void;
+  onUpdated: (o: AdminGlobalOrder) => void;
   notify: (kind: 'ok' | 'error', msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<OrderForm>(() => formFromOrder(order));
+  const setField = (k: keyof OrderForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
     let on = true;
@@ -51,7 +113,7 @@ function OrderDrawer({
     setBusy(true);
     try {
       const { order: updated } = await adminApi.cancelOrder(order.id);
-      onCancelled({ ...order, ...updated });
+      onUpdated({ ...order, ...updated });
       notify('ok', `Orden de ${buyerName(order)} cancelada.`);
     } catch {
       notify('error', 'No se pudo cancelar la orden.');
@@ -66,13 +128,43 @@ function OrderDrawer({
     setBusy(true);
     try {
       const { order: updated } = await adminApi.confirmOrder(order.id);
-      onCancelled({ ...order, ...updated });
+      onUpdated({ ...order, ...updated });
       notify('ok', `Pago de ${buyerName(order)} confirmado — entradas emitidas.`);
     } catch {
       notify('error', 'No se pudo confirmar el pago.');
     } finally {
       setBusy(false);
     }
+  }
+
+  // Save the corrected buyer details. A failed save keeps the form open with what was
+  // typed so nothing is lost. Sends no email — that's what "Reenviar entradas" is for.
+  async function save(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy(true);
+    try {
+      const { order: updated } = await adminApi.updateOrder(order.id, {
+        buyer: {
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
+          phone: form.phone,
+        },
+        payment_ref: form.payment_ref,
+      });
+      onUpdated({ ...order, ...updated });
+      setEditing(false);
+      notify('ok', 'Datos del comprador guardados.');
+    } catch {
+      notify('error', 'No se pudieron guardar los datos.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEdit() {
+    setForm(formFromOrder(order));
+    setEditing(true);
   }
 
   // Re-send the ticket email (the buyer's link again) for a paid/comp order.
@@ -88,8 +180,23 @@ function OrderDrawer({
     }
   }
 
-  const footer = (
+  // While editing, the order actions step aside — one intent at a time, and it keeps
+  // "Marcar como pagada" from firing on top of unsaved changes.
+  const footer = editing ? (
     <>
+      {/* Deliberately NOT type="submit" + form=: React reuses this DOM node when the
+          footer swaps, so the click that opened edit mode would still carry its default
+          action into the freshly-swapped button and submit an untouched form. */}
+      <Button variant="primary" data-testid={`save-order-${order.id}`} disabled={busy} onClick={() => save()}>
+        {busy ? 'Guardando…' : 'Guardar'}
+      </Button>
+      <Button variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancelar</Button>
+    </>
+  ) : (
+    <>
+      <Button variant="secondary" data-testid={`edit-order-${order.id}`} disabled={busy} onClick={startEdit}>
+        Editar datos
+      </Button>
       {order.status === 'pending' && (
         <Button variant="primary" data-testid={`confirm-order-${order.id}`} disabled={busy} onClick={confirm}>
           {busy ? 'Confirmando…' : 'Marcar como pagada'}
@@ -105,7 +212,7 @@ function OrderDrawer({
           prompt="¿Cancelar esta orden?" busy={busy} onConfirm={cancel} />
       )}
       {!CANCELLABLE.has(order.status) && order.status !== 'pending' && (
-        <span className="rg-cell-sub">Sin acciones disponibles para una orden {order.status}.</span>
+        <span className="rg-cell-sub">Una orden {order.status} solo admite editar sus datos.</span>
       )}
     </>
   );
@@ -122,22 +229,29 @@ function OrderDrawer({
         <Field label="Entradas" mono>{order.ticket_count}</Field>
       </FieldList>
 
-      <DrawerSectionTitle>Comprador</DrawerSectionTitle>
-      <FieldList>
-        <Field label="Nombre">{[order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(' ')}</Field>
-        <Field label="Email">{order.buyer_email}</Field>
-      </FieldList>
+      {editing ? (
+        <OrderFields form={form} setField={setField} onSubmit={save} />
+      ) : (
+        <>
+          <DrawerSectionTitle>Comprador</DrawerSectionTitle>
+          <FieldList>
+            <Field label="Nombre">{[order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(' ')}</Field>
+            <Field label="Email">{order.buyer_email}</Field>
+            <Field label="Teléfono">{order.buyer_phone}</Field>
+          </FieldList>
 
-      <DrawerSectionTitle>Pago</DrawerSectionTitle>
-      <FieldList>
-        <Field label="N.° de operación" copy={order.payment_ref} />
-        <Field label="Pagada" mono>{fmtDate(order.paid_at)}</Field>
-        <Field label="Creada" mono>{fmtDate(order.inserted_at)}</Field>
-      </FieldList>
-      {order.status === 'pending' && (
-        <Feedback kind="error">
-          Verifica el Yapeo (monto, nombre y N.° de operación) en tu app antes de marcar como pagada.
-        </Feedback>
+          <DrawerSectionTitle>Pago</DrawerSectionTitle>
+          <FieldList>
+            <Field label="N.° de operación" copy={order.payment_ref} />
+            <Field label="Pagada" mono>{fmtDate(order.paid_at)}</Field>
+            <Field label="Creada" mono>{fmtDate(order.inserted_at)}</Field>
+          </FieldList>
+          {order.status === 'pending' && (
+            <Feedback kind="error">
+              Verifica el Yapeo (monto, nombre y N.° de operación) en tu app antes de marcar como pagada.
+            </Feedback>
+          )}
+        </>
       )}
 
       <DrawerSectionTitle>Entradas ({tickets?.length ?? order.ticket_count})</DrawerSectionTitle>
@@ -152,7 +266,10 @@ function OrderDrawer({
               <div key={t.id} data-testid="order-ticket-row" className="rg-fieldrow">
                 <dt style={{ textTransform: 'none', letterSpacing: 0 }}>
                   <span className="rg-mono">{t.code || '—'}</span>
-                  <div className="rg-cell-sub">{t.seat_label || t.section_name || 'General'}</div>
+                  <div className="rg-cell-sub">
+                    {t.table_label && <strong>Mesa {t.table_label} · </strong>}
+                    {t.seat_label || t.section_name || 'General'}
+                  </div>
                 </dt>
                 <dd style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
                   <StatusBadge status={t.status} />
@@ -277,7 +394,7 @@ export default function OrdersPanel({ query: globalQuery }: { query: string }) {
 
       {selected && (
         <OrderDrawer order={selected} notify={notify} onClose={() => setSelected(null)}
-          onCancelled={(o) => {
+          onUpdated={(o) => {
             setOrders((cur) => (cur ? cur.map((x) => (x.id === o.id ? o : x)) : cur));
             setSelected(o);
           }} />

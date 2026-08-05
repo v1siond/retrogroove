@@ -73,6 +73,13 @@ export interface AdminEventSummary {
   status: string;
   starts_at: string;
   venue_name: string | null;
+  // How full the event is. `sold` is paid tickets only and `comp` the ones given away —
+  // reported apart, but both occupy a seat, so `available` has both subtracted. Seats on
+  // an unconfirmed hold still count as available.
+  capacity: number;
+  sold: number;
+  comp: number;
+  available: number;
 }
 
 export interface AdminOrder {
@@ -82,6 +89,7 @@ export interface AdminOrder {
   buyer_email: string;
   buyer_first_name: string | null;
   buyer_last_name: string | null;
+  buyer_phone: string | null;
   payment_ref: string | null;
   paid_at: string | null;
   inserted_at: string;
@@ -95,6 +103,7 @@ export interface AdminTicket {
   checked_in_at: string | null;
   buyer_email: string;
   seat_label: string | null;
+  table_label: string | null;
   event_name?: string | null;
   order_id?: string | null;
 }
@@ -145,6 +154,31 @@ export interface AdminPriceBundle {
   section_id?: string | null;
 }
 
+// Band gear. `quantity` is how many we own; how many travel to one event lives on
+// AdminEventEquipment.quantity. Retired gear (active: false) stays on the events it
+// already went to but drops out of the picker for new lists.
+export interface AdminEquipmentItem {
+  id: string;
+  name: string;
+  category: string | null;
+  quantity: number;
+  notes: string | null;
+  active: boolean;
+}
+
+// One line of an event's load list: the item's details plus the two load checks.
+export interface AdminEventEquipment {
+  id: string;
+  equipment_item_id: string;
+  name: string;
+  category: string | null;
+  notes: string | null;
+  owned_quantity: number;
+  quantity: number;
+  packed_at: string | null;
+  returned_at: string | null;
+}
+
 export const adminApi = {
   login(email: string, password: string): Promise<{ token: string; user: AdminUser }> {
     return authed('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
@@ -174,6 +208,16 @@ export const adminApi = {
     return authed(`/admin/orders${queryString(filters)}`);
   },
 
+  // Correct an order's buyer contact + payment reference (a Yapeo confirmed before the
+  // buyer sent their details). Never changes status, total or tickets, and sends no email
+  // — use resendOrder for that. An omitted field is left as it is; "" clears it.
+  updateOrder(
+    id: string,
+    attrs: { buyer: Buyer; payment_ref: string },
+  ): Promise<{ order: AdminGlobalOrder }> {
+    return authed(`/orders/${id}`, { method: 'PUT', body: JSON.stringify(attrs) });
+  },
+
   cancelOrder(id: string): Promise<{ order: AdminGlobalOrder }> {
     return authed(`/orders/${id}/cancel`, { method: 'POST' });
   },
@@ -199,6 +243,48 @@ export const adminApi = {
 
   voidTicket(token: string): Promise<{ ticket: AdminTicket }> {
     return authed(`/tickets/${token}/void`, { method: 'POST' });
+  },
+
+  // ── Equipment (band gear) ────────────────────────────────────────────────
+  listEquipment(): Promise<{ equipment: AdminEquipmentItem[] }> {
+    return authed('/admin/equipment');
+  },
+
+  createEquipment(attrs: Partial<AdminEquipmentItem>): Promise<{ item: AdminEquipmentItem }> {
+    return authed('/admin/equipment', { method: 'POST', body: JSON.stringify({ item: attrs }) });
+  },
+
+  updateEquipment(id: string, attrs: Partial<AdminEquipmentItem>): Promise<{ item: AdminEquipmentItem }> {
+    return authed(`/equipment/${id}`, { method: 'PUT', body: JSON.stringify({ item: attrs }) });
+  },
+
+  // Gear is retired, never deleted — past event lists keep their line.
+  retireEquipment(id: string): Promise<{ item: AdminEquipmentItem }> {
+    return authed(`/equipment/${id}/retire`, { method: 'POST' });
+  },
+
+  restoreEquipment(id: string): Promise<{ item: AdminEquipmentItem }> {
+    return authed(`/equipment/${id}/restore`, { method: 'POST' });
+  },
+
+  listEventEquipment(eventId: string): Promise<{ equipment: AdminEventEquipment[] }> {
+    return authed(`/events/${eventId}/equipment`);
+  },
+
+  // The multiselect save. Lines that survive keep the ticks already made on them.
+  setEventEquipment(
+    eventId: string,
+    items: { equipment_item_id: string; quantity: number }[],
+  ): Promise<{ equipment: AdminEventEquipment[] }> {
+    return authed(`/events/${eventId}/equipment`, { method: 'PUT', body: JSON.stringify({ items }) });
+  },
+
+  // Tick/untick one line at the van.
+  markEventEquipment(
+    id: string,
+    flags: { packed?: boolean; returned?: boolean },
+  ): Promise<{ line: { id: string; packed_at: string | null; returned_at: string | null } }> {
+    return authed(`/event-equipment/${id}`, { method: 'PUT', body: JSON.stringify(flags) });
   },
 
   // ── Songs ────────────────────────────────────────────────────────────────

@@ -73,8 +73,14 @@ function ValidPanel({
           lineHeight: 1.5,
         }}
       >
-        {ticket.section_name && <span>{ticket.section_name} · </span>}
-        {ticket.seat_label && <span>{ticket.seat_label}</span>}
+        <span data-testid="ticket-placement">
+          {/* Mesa first and loudest — it's the one thing the door has to say out loud. */}
+          {ticket.table_label && (
+            <span style={{ color: 'var(--color-gold)', fontWeight: 700 }}>Mesa {ticket.table_label} · </span>
+          )}
+          {ticket.section_name && <span>{ticket.section_name} · </span>}
+          {ticket.seat_label && <span>{ticket.seat_label}</span>}
+        </span>
         {ticket.event_name && (
           <div style={{ marginTop: 4, color: 'var(--color-cyan)', fontSize: '.74rem' }}>
             {ticket.event_name}
@@ -156,7 +162,10 @@ function CheckedPanel({
       >
         ✓ ENTRADA REGISTRADA
       </div>
-      <div style={{ fontSize: '.76rem', color: 'rgba(236,230,240,.7)', marginTop: 8 }}>
+      <div data-testid="ticket-placement" style={{ fontSize: '.76rem', color: 'rgba(236,230,240,.7)', marginTop: 8 }}>
+        {ticket.table_label && (
+          <span style={{ color: 'var(--color-gold)', fontWeight: 700 }}>Mesa {ticket.table_label} · </span>
+        )}
         {ticket.section_name} · {ticket.seat_label}
       </div>
       <button

@@ -126,8 +126,15 @@ export default function TicketView({ token }: { token: string }) {
                   {formatDate(ticket.event_starts_at)}
                 </p>
               )}
-              {ticket.seat_label && (
-                <p style={{ fontSize: '0.68rem', color: 'var(--color-text-faint)', margin: 0 }}>
+              {/* Where to sit: mesa first — it's what the guest looks for on arrival. */}
+              {(ticket.table_label || ticket.seat_label) && (
+                <p data-testid="ticket-placement" style={{ fontSize: '0.68rem', color: 'var(--color-text-faint)', margin: 0 }}>
+                  {ticket.table_label && (
+                    <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>
+                      Mesa {ticket.table_label}
+                    </span>
+                  )}
+                  {ticket.table_label && ticket.seat_label && ' · '}
                   {ticket.seat_label}
                 </p>
               )}
