@@ -471,4 +471,6 @@ export const IconMusic = () => svg(<><path d="M9 18V5l12-2v13" /><circle cx="6" 
 export const IconList = () => svg(<><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></>, 16);
 export const IconTag = () => svg(<><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.5" /></>, 16);
 export const IconSend = () => svg(<><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></>, 16);
+// Flight case: the band's gear inventory + per-event load lists.
+export const IconCase = () => svg(<><rect x="2" y="7" width="20" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M2 13h20" /></>, 16);
 export const IconLogout = () => svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>, 16);
